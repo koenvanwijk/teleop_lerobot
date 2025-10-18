@@ -10,26 +10,22 @@ UDEV_RULE="/etc/udev/rules.d/99-usb-serial-aliases.rules"
 
 usage() {
   cat <<'EOF'
-Gebruik: ./setup_lerobot_conda_udev.sh <mapping.csv>
+Gebruik: ./setup_lerobot_conda_udev.sh [mapping.csv]
 
-Mapping-bestand: CSV/TSV/space met per regel:
-  SERIAL_SHORT, NICE_NAME, ROLE
+- Zonder argument gebruikt het script standaard: ./mapping.csv
+- Mapping-bestand: CSV/TSV/space met kolommen:
+    SERIAL_SHORT, NICE_NAME, ROLE
+  ROLE: leader of follower (case-insensitive)
 
-ROLE: leader of follower (case-insensitive)
-Voorbeeld:
-  5A46084108,black,leader
-  5AAF287935,black,follower
-
-Symlinks die worden gemaakt:
-  /dev/tty_<nice>_<role>   (bijv. /dev/tty_black_leader, /dev/tty_black_follower)
-  /dev/follower            (voor elke follower-regel; bij meerdere followers
-                            zal dit naar het laatst ge(her)plugde device wijzen)
+Symlinks:
+  /dev/tty_<nice>_<role>   (bv. /dev/tty_black_leader)
+  /dev/follower            (voor elke follower-regel, wijst naar laatst ge(her)plugde follower)
 EOF
 }
 
-[[ "${1:-}" == "-h" || "${1:-}" == "--help" || $# -ne 1 ]] && { usage; exit 1; }
-MAPFILE_PATH="$1"
-[[ -f "$MAPFILE_PATH" ]] || { echo "❌ Niet gevonden: $MAPFILE_PATH"; exit 1; }
+MAPFILE_PATH="${1:-./mapping.csv}"
+[[ "${1:-}" == "-h" || "${1:-}" == "--help" ]] && { usage; exit 0; }
+[[ -f "$MAPFILE_PATH" ]] || { echo "❌ Mapping niet gevonden: $MAPFILE_PATH"; usage; exit 1; }
 
 ARCH="$(uname -m)"
 [[ "$ARCH" == "aarch64" ]] || { echo "❌ Verwacht aarch64 (64-bit). Gevonden: $ARCH"; exit 1; }
@@ -71,10 +67,8 @@ TMP_ENTRIES="$(mktemp /tmp/entries.XXXXXX)"
 
 parse_line() {
   local line="$1"
-  # trim
   line="${line#"${line%%[![:space:]]*}"}"; line="${line%"${line##*[![:space:]]}"}"
   [[ -z "$line" || "${line:0:1}" == "#" ]] && return 1
-  # normaliseer scheiding: tabs en meerdere spaties -> komma
   local norm; norm="$(echo "$line" | tr '\t' ',' | tr -s ' ' ',' )"
   local serial nice role
   serial="$(echo "$norm" | cut -d',' -f1)"
@@ -82,7 +76,6 @@ parse_line() {
   role="$(echo   "$norm" | cut -d',' -f3)"
   [[ -z "$serial" || -z "$nice" || -z "$role" ]] && return 1
 
-  # schoonmaken
   serial="$(echo "$serial" | tr -cd '[:alnum:]')"
   nice="$(echo "$nice" | tr '[:upper:]' '[:lower:]' | sed 's/[^a-z0-9_]/_/g')"
   role="$(echo "$role" | tr '[:upper:]' '[:lower:]')"
@@ -113,10 +106,8 @@ TMP_RULE="$(mktemp /tmp/udev.rules.XXXXXX)"
   echo "# Symlinks: /dev/tty_<nice>_<role> en /dev/tty_follower (voor role=follower)"
 } > "$TMP_RULE"
 
-# Per entry regels
 while IFS= read -r ent; do
   IFS=',' read -r serial nice role <<<"$ent"
-  # Altijd: tty_<nice>_<role>
   if [[ "$role" == "follower" ]]; then
     
     echo "SUBSYSTEM==\"tty\", ENV{ID_BUS}==\"usb\", ENV{ID_SERIAL_SHORT}==\"$serial\", SYMLINK+=\"tty_${nice}_${role}\", SYMLINK+=\"tty_follower\"" >> "$TMP_RULE"
@@ -125,7 +116,6 @@ while IFS= read -r ent; do
   fi
 done < "$TMP_ENTRIES"
 
-# Schrijf rules
 echo "📝 Schrijf naar $UDEV_RULE…"
 sudo mv "$TMP_RULE" "$UDEV_RULE"
 sudo chown root:root "$UDEV_RULE"
@@ -134,6 +124,3 @@ sudo chmod 0644 "$UDEV_RULE"
 echo "🔁 Udev reload + trigger…"
 sudo udevadm control --reload
 sudo udevadm trigger
-
-# ---- 4) Dialout-tip ----
-if ! id -nG "$USER" | grep -qw dialout; the
