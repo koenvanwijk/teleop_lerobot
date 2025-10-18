@@ -24,6 +24,10 @@ EOF
 }
 
 MAPFILE_PATH="${1:-./mapping.csv}"
+if [[ ! -f "$MAPFILE_PATH" ]]; then
+  echo "⚠️  Mapping-bestand '$MAPFILE_PATH' niet gevonden. Start create_mapping.sh om het aan te maken..."
+  ./create_mapping.sh
+fi
 [[ "${1:-}" == "-h" || "${1:-}" == "--help" ]] && { usage; exit 0; }
 [[ -f "$MAPFILE_PATH" ]] || { echo "❌ Mapping niet gevonden: $MAPFILE_PATH"; usage; exit 1; }
 
