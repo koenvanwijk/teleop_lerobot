@@ -9,7 +9,7 @@ SERIAL_SHORT,NICE_NAME,ROLE,TYPE
 5A68012756,white_5,follower,so101
 5A68013192,white_12,follower,so101
 58FA083461,yellow,leader,so101
-58FA091983,amazing_head,follower,so101
+58FA091983,amazing_hand,follower,amazing_hand
 5A7A055385,black,leader,so101
 8cafc04501daef11a209593dc8728757,roarm,leader,roarm
 5e8f771ede7fef11b01e201cedd322a4,roarm,follower,roarm
