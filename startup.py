@@ -63,37 +63,51 @@ def start_teleoperation() -> None:
     
     dev_dir = Path("/dev")
     
-    # Zoek follower device met symbolic link
-    follower_links = list(dev_dir.glob("tty_*_follower"))
+    # Zoek follower device met symbolic link (pattern: tty_<name>_follower_<type>)
+    follower_links = list(dev_dir.glob("tty_*_follower_*"))
     if not follower_links:
-        log("⚠️  Geen follower device gevonden (tty_*_follower)")
+        log("⚠️  Geen follower device gevonden (tty_*_follower_*)")
         return
     
     # Gebruik eerste follower link
     follower_link = follower_links[0]
-    # Extraheer robot ID uit symbolic link naam (bijv. tty_white_follower -> white)
-    follower_id = follower_link.name.replace("tty_", "").replace("_follower", "")
+    # Extraheer robot ID en type uit symbolic link naam
+    # bijv. tty_white_follower_so101 -> name=white, type=so101
+    parts = follower_link.name.replace("tty_", "").split("_")
+    if len(parts) >= 3:
+        follower_type = parts[-1]  # Laatste deel is type
+        follower_id = "_".join(parts[:-2])  # Alles behalve laatste 2 delen (follower en type)
+    else:
+        log(f"⚠️  Kon follower info niet parsen uit: {follower_link.name}")
+        return
     follower_port = follower_link.resolve()
     
-    # Zoek leader device met symbolic link
-    leader_links = list(dev_dir.glob("tty_*_leader"))
+    # Zoek leader device met symbolic link (pattern: tty_<name>_leader_<type>)
+    leader_links = list(dev_dir.glob("tty_*_leader_*"))
     if not leader_links:
-        log("⚠️  Geen leader device gevonden (tty_*_leader)")
+        log("⚠️  Geen leader device gevonden (tty_*_leader_*)")
         return
     
     # Gebruik eerste leader link
     leader_link = leader_links[0]
-    # Extraheer teleop ID uit symbolic link naam (bijv. tty_black_leader -> black)
-    leader_id = leader_link.name.replace("tty_", "").replace("_leader", "")
+    # Extraheer teleop ID en type uit symbolic link naam
+    # bijv. tty_black_leader_so101 -> name=black, type=so101
+    parts = leader_link.name.replace("tty_", "").split("_")
+    if len(parts) >= 3:
+        leader_type = parts[-1]  # Laatste deel is type
+        leader_id = "_".join(parts[:-2])  # Alles behalve laatste 2 delen (leader en type)
+    else:
+        log(f"⚠️  Kon leader info niet parsen uit: {leader_link.name}")
+        return
     leader_port = leader_link.resolve()
     
     # Teleoperation commando
     cmd = [
         "python", "-m", "lerobot.teleoperate",
-        "--robot.type=so101_follower",
+        f"--robot.type={follower_type}_follower",
         f"--robot.port={follower_port}",
         f"--robot.id={follower_id}",
-        "--teleop.type=so101_leader",
+        f"--teleop.type={leader_type}_leader",
         f"--teleop.port={leader_port}",
         f"--teleop.id={leader_id}"
     ]
@@ -108,8 +122,8 @@ def start_teleoperation() -> None:
             text=True
         )
         log(f"✅ Teleoperation gestart (PID: {process.pid})")
-        log(f"   Follower: {follower_link.name} -> {follower_port} (ID: {follower_id})")
-        log(f"   Leader: {leader_link.name} -> {leader_port} (ID: {leader_id})")
+        log(f"   Follower: {follower_link.name} -> {follower_port} (ID: {follower_id}, Type: {follower_type})")
+        log(f"   Leader: {leader_link.name} -> {leader_port} (ID: {leader_id}, Type: {leader_type})")
         
     except Exception as e:
         log(f"❌ Fout bij starten teleoperation: {e}")
