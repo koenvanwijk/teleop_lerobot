@@ -4,7 +4,6 @@ set -euo pipefail
 # ========= Config =========
 CONDA_DIR="$HOME/miniconda3"
 CONDA_ENV="lerobot"
-MINICONDA_URL="https://repo.anaconda.com/miniconda/Miniconda3-latest-Linux-aarch64.sh"
 UDEV_RULE="/etc/udev/rules.d/99-usb-serial-aliases.rules"
 GITHUB_REPO="koenvanwijk/pi_lerobot"
 # ==========================
@@ -18,6 +17,8 @@ Installeert:
 - lerobot package met feetech support
 - Udev rules (gedownload van laatste GitHub release)
 
+Ondersteunt: x86_64 (Intel/AMD) en aarch64 (ARM64/Raspberry Pi)
+
 Symlinks:
   /dev/tty_<nice>_<role>   (bv. /dev/tty_black_leader)
   /dev/tty_follower        (voor elke follower)
@@ -27,8 +28,23 @@ EOF
 
 [[ "${1:-}" == "-h" || "${1:-}" == "--help" ]] && { usage; exit 0; }
 
+# Detecteer architectuur
 ARCH="$(uname -m)"
-[[ "$ARCH" == "aarch64" ]] || { echo "❌ Verwacht aarch64 (64-bit). Gevonden: $ARCH"; exit 1; }
+case "$ARCH" in
+  x86_64)
+    MINICONDA_URL="https://repo.anaconda.com/miniconda/Miniconda3-latest-Linux-x86_64.sh"
+    echo "🖥️  Detecteerde architectuur: x86_64 (Intel/AMD)"
+    ;;
+  aarch64)
+    MINICONDA_URL="https://repo.anaconda.com/miniconda/Miniconda3-latest-Linux-aarch64.sh"
+    echo "🍓 Detecteerde architectuur: aarch64 (ARM64/Raspberry Pi)"
+    ;;
+  *)
+    echo "❌ Niet-ondersteunde architectuur: $ARCH"
+    echo "   Ondersteund: x86_64, aarch64"
+    exit 1
+    ;;
+esac
 
 # ---- 1) Miniconda installeren (idempotent) ----
 if [[ -x "$CONDA_DIR/bin/conda" ]]; then
