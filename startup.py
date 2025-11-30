@@ -101,21 +101,9 @@ def start_teleoperation() -> None:
         return
     leader_port = leader_link.resolve()
     
-    # Check voor calibration bestanden
-    home = Path.home()
-    calibration_base = home / ".cache/huggingface/lerobot/calibration/robots"
-    
-    # Zoek follower calibration bestand
-    follower_calibration_dir = calibration_base / f"{follower_type}_follower"
-    follower_calibration_file = follower_calibration_dir / f"{follower_id}.json"
-    
-    # Zoek leader calibration bestand
-    leader_calibration_dir = calibration_base / f"{leader_type}_leader"
-    leader_calibration_file = leader_calibration_dir / f"{leader_id}.json"
-    
-    # Teleoperation commando
+    # Teleoperation commando (zonder expliciete calibration paths - LeRobot zoekt ze automatisch)
     cmd = [
-        "python", "-m", "lerobot.teleoperate",
+        "lerobot-teleoperate",
         f"--robot.type={follower_type}_follower",
         f"--robot.port={follower_port}",
         f"--robot.id={follower_id}",
@@ -123,19 +111,6 @@ def start_teleoperation() -> None:
         f"--teleop.port={leader_port}",
         f"--teleop.id={leader_id}"
     ]
-    
-    # Voeg calibration bestanden toe als ze bestaan
-    if follower_calibration_file.exists():
-        cmd.extend([f"--robot.calibration_path={follower_calibration_file}"])
-        log(f"   Follower calibration: {follower_calibration_file}")
-    else:
-        log(f"   ⚠️  Geen follower calibration gevonden: {follower_calibration_file}")
-    
-    if leader_calibration_file.exists():
-        cmd.extend([f"--teleop.calibration_path={leader_calibration_file}"])
-        log(f"   Leader calibration: {leader_calibration_file}")
-    else:
-        log(f"   ⚠️  Geen leader calibration gevonden: {leader_calibration_file}")
     
     try:
         log(f"   Command: {' '.join(cmd)}")
