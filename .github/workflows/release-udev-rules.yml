@@ -23,7 +23,7 @@ jobs:
       
       - name: Generate UDEV rules
         run: |
-          python gen_udev_rules.py
+          python gen_udev_rules.py mapping.csv --output 99-usb-serial-aliases.rules
       
           
       - name: Get current date
