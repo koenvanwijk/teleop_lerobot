@@ -104,11 +104,11 @@ if [[ -f "$STARTUP_SCRIPT" ]]; then
   # Maak startup.py executable
   chmod +x "$STARTUP_SCRIPT"
   
-  # Bepaal het conda activate commando
-  CONDA_ACTIVATE="source $CONDA_DIR/etc/profile.d/conda.sh && conda activate $CONDA_ENV"
+  # Gebruik conda uit condabin voor crontab
+  CONDA_BIN="$CONDA_DIR/condabin/conda"
   
-  # Crontab entry
-  CRON_ENTRY="@reboot $CONDA_ACTIVATE && python $STARTUP_SCRIPT >> $HOME/startup.log 2>&1"
+  # Crontab entry met conda run
+  CRON_ENTRY="@reboot $CONDA_BIN run -n $CONDA_ENV python $STARTUP_SCRIPT >> $HOME/startup.log 2>&1"
   
   # Check of de entry al bestaat
   if crontab -l 2>/dev/null | grep -qF "$STARTUP_SCRIPT"; then
