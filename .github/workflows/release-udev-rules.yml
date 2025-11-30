@@ -23,8 +23,9 @@ jobs:
       
       - name: Generate UDEV rules
         run: |
-          python gen_udev-rules.py
+          python gen_udev_rules.py
       
+          
       - name: Get current date
         id: date
         run: echo "date=$(date +'%Y%m%d-%H%M%S')" >> $GITHUB_OUTPUT
