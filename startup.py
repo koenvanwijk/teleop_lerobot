@@ -6,6 +6,7 @@ Dit script wordt automatisch uitgevoerd bij reboot via crontab.
 
 import sys
 import time
+import subprocess
 from datetime import datetime
 from pathlib import Path
 
@@ -43,7 +44,7 @@ def initialize_lerobot() -> None:
     """
     log("🤖 Initialiseer LeRobot systeem...")
     
-    #Voorbeeld: check of lerobot package beschikbaar is
+    # Check of lerobot package beschikbaar is
     try:
         import lerobot
         log(f"✅ LeRobot package geladen (versie: {lerobot.__version__ if hasattr(lerobot, '__version__') else 'unknown'})")
@@ -51,13 +52,69 @@ def initialize_lerobot() -> None:
         log(f"❌ LeRobot package niet gevonden: {e}")
         return
     
-    # TODO: Voeg hier je eigen initialisatie code toe:
-    # - Motor controllers initialiseren
-    # - Camera's configureren
-    # - Services starten
-    # - etc.
-    
     log("✅ LeRobot systeem geïnitialiseerd")
+
+
+def start_teleoperation() -> None:
+    """
+    Start LeRobot teleoperation in de achtergrond.
+    """
+    log("🎮 Start teleoperation...")
+    
+    dev_dir = Path("/dev")
+    
+    # Zoek follower device met symbolic link
+    follower_links = list(dev_dir.glob("tty_*_follower"))
+    if not follower_links:
+        log("⚠️  Geen follower device gevonden (tty_*_follower)")
+        return
+    
+    # Gebruik eerste follower link
+    follower_link = follower_links[0]
+    # Extraheer robot ID uit symbolic link naam (bijv. tty_white_follower -> white)
+    follower_id = follower_link.name.replace("tty_", "").replace("_follower", "")
+    follower_port = follower_link.resolve()
+    
+    # Zoek leader device met symbolic link
+    leader_links = list(dev_dir.glob("tty_*_leader"))
+    if not leader_links:
+        log("⚠️  Geen leader device gevonden (tty_*_leader)")
+        return
+    
+    # Gebruik eerste leader link
+    leader_link = leader_links[0]
+    # Extraheer teleop ID uit symbolic link naam (bijv. tty_black_leader -> black)
+    leader_id = leader_link.name.replace("tty_", "").replace("_leader", "")
+    leader_port = leader_link.resolve()
+    
+    # Teleoperation commando
+    cmd = [
+        "python", "-m", "lerobot.teleoperate",
+        "--robot.type=so101_follower",
+        f"--robot.port={follower_port}",
+        f"--robot.id={follower_id}",
+        "--teleop.type=so101_leader",
+        f"--teleop.port={leader_port}",
+        f"--teleop.id={leader_id}"
+    ]
+    
+    try:
+        log(f"   Command: {' '.join(cmd)}")
+        # Start als achtergrond proces
+        process = subprocess.Popen(
+            cmd,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            text=True
+        )
+        log(f"✅ Teleoperation gestart (PID: {process.pid})")
+        log(f"   Follower: {follower_link.name} -> {follower_port} (ID: {follower_id})")
+        log(f"   Leader: {leader_link.name} -> {leader_port} (ID: {leader_id})")
+        
+    except Exception as e:
+        log(f"❌ Fout bij starten teleoperation: {e}")
+        import traceback
+        traceback.print_exc()
 
 
 def main() -> None:
@@ -84,6 +141,17 @@ def main() -> None:
         import traceback
         traceback.print_exc()
         sys.exit(1)
+    
+    # Start teleoperation
+    if devices_found:
+        try:
+            start_teleoperation()
+        except Exception as e:
+            log(f"❌ Fout bij starten teleoperation: {e}")
+            import traceback
+            traceback.print_exc()
+    else:
+        log("⚠️  Skip teleoperation (geen devices)")
     
     log("=" * 60)
     log("✅ Startup compleet")
