@@ -13,10 +13,10 @@ from datetime import datetime
 from pathlib import Path
 
 
-def parse_line(line: str) -> tuple[str, str, str, str] | None:
+def parse_line(line: str) -> tuple[str, str, str, str, str] | None:
     """
     Parse één regel uit mapping.csv.
-    Returns: (serial, nice, role, robot_type) of None als de regel overgeslagen moet worden.
+    Returns: (serial, nice, role, robot_type, calibration) of None als de regel overgeslagen moet worden.
     """
     # Trim whitespace
     line = line.strip()
@@ -36,6 +36,7 @@ def parse_line(line: str) -> tuple[str, str, str, str] | None:
     
     serial, nice, role = parts[0], parts[1], parts[2]
     robot_type = parts[3] if len(parts) > 3 else "so101"  # Default naar so101
+    calibration = parts[4] if len(parts) > 4 else ""  # Optional calibration file
     
     # Valideer dat velden niet leeg zijn
     if not serial or not nice or not role:
@@ -55,11 +56,15 @@ def parse_line(line: str) -> tuple[str, str, str, str] | None:
     robot_type = robot_type.lower()
     robot_type = re.sub(r'[^a-z0-9]', '', robot_type)
     
+    # Sanitize calibration: alleen alphanumeriek, punt en underscore
+    if calibration:
+        calibration = re.sub(r'[^a-z0-9_.]', '', calibration.lower())
+    
     # Valideer role
     if role not in ("leader", "follower"):
         return None
     
-    return serial, nice, role, robot_type
+    return serial, nice, role, robot_type, calibration
 
 
 def read_mapping(mapfile_path: Path) -> list[tuple[str, str, str, str]]:

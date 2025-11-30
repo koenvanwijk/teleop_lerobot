@@ -74,7 +74,17 @@ conda activate "$CONDA_ENV"
 pip install --upgrade pip
 pip install lerobot[feetech]
 
-# ---- 3) Udev rules downloaden ----
+# ---- 3) Calibration files installeren ----
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+
+if [[ -x "$SCRIPT_DIR/sync_calibration.sh" ]]; then
+  echo "📋 Installeer calibration files…"
+  "$SCRIPT_DIR/sync_calibration.sh" import
+else
+  echo "⚠️  sync_calibration.sh niet gevonden, overgeslagen"
+fi
+
+# ---- 4) Udev rules downloaden ----
 echo "⬇️  Download udev-regels van GitHub release…"
 
 # Backup bestaand rules-bestand
@@ -105,8 +115,7 @@ echo "🔁 Udev reload + trigger…"
 sudo udevadm control --reload
 sudo udevadm trigger
 
-# ---- 4) Crontab entry voor startup.py ----
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# ---- 5) Crontab entry voor startup.py ----
 STARTUP_SCRIPT="$SCRIPT_DIR/startup.py"
 
 if [[ -f "$STARTUP_SCRIPT" ]]; then
