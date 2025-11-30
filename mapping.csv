@@ -1,3 +1,18 @@
 SERIAL_SHORT,NICE_NAME,ROLE
 58FA083461,pink,leader
 5A7A055274,pink,follower
+5AB0182921,yellow,leader
+5A46081652,black,follower
+5A46082267,black,leader
+5A46084108,blue,leader
+5AAF287935,blue,follower
+5A68012756,white_5,follower
+5A68013192,white_12,follower
+58FA083461,yellow,leader
+58FA091983,amazing_head,follower
+5A7A055385,black,leader
+
+
+
+SUBSYSTEM=="tty", ATTRS{serial}=="8cafc04501daef11a209593dc8728757", SYMLINK+="tty_roarm_leader", SYMLINK+="tty_leader", GROUP="dialout", MODE="0660"
+SUBSYSTEM=="tty", ATTRS{serial}=="5e8f771ede7fef11b01e201cedd322a4", SYMLINK+="tty_roarm_follower", SYMLINK+="tty_follower", GROUP="dialout", MODE="0660"

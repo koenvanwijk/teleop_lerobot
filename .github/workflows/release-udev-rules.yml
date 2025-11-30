@@ -1,0 +1,43 @@
+name: Generate and Release UDEV Rules
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - 'mapping.csv'
+  workflow_dispatch:
+
+jobs:
+  generate-and-release:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+      
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.x'
+      
+      - name: Generate UDEV rules
+        run: |
+          python gen_udev-rules.py
+      
+      - name: Get current date
+        id: date
+        run: echo "date=$(date +'%Y%m%d-%H%M%S')" >> $GITHUB_OUTPUT
+      
+      - name: Create Release
+        uses: softprops/action-gh-release@v1
+        with:
+          tag_name: udev-rules-${{ steps.date.outputs.date }}
+          name: UDEV Rules ${{ steps.date.outputs.date }}
+          body: |
+            Automatically generated UDEV rules from mapping.csv
+            Generated on: ${{ steps.date.outputs.date }}
+          files: |
+            99-*.rules
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
