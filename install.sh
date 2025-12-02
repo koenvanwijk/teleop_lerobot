@@ -89,7 +89,8 @@ echo "📦 pip install lerobot en dependencies…"
 conda activate "$CONDA_ENV"
 pip install --upgrade pip
 pip install lerobot[feetech]
-pip install flask
+pip install fastapi uvicorn[standard] pydantic websockets python-multipart
+pip install opencv-python numpy
 
 # ---- 3) Calibration files installeren ----
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -145,21 +146,22 @@ if crontab -l 2>/dev/null | grep -qF "startup.py"; then
 fi
 
 if [[ -f "$WEBSERVER_SCRIPT" ]]; then
-  echo "🔧 Configureer crontab voor webserver.py…"
+  echo "🔧 Configureer crontab voor webserver.py (FastAPI met uvicorn)…"
   
   chmod +x "$WEBSERVER_SCRIPT"
   
-  WEBSERVER_CRON="@reboot $CONDA_BIN run -n $CONDA_ENV python $WEBSERVER_SCRIPT >> $HOME/webserver.log 2>&1"
+  # Use uvicorn to run FastAPI app
+  WEBSERVER_CRON="@reboot $CONDA_BIN run -n $CONDA_ENV uvicorn webserver:app --host 0.0.0.0 --port 5000 >> $HOME/webserver.log 2>&1"
   
   # Verwijder bestaande webserver.py entries en voeg nieuwe toe
-  if crontab -l 2>/dev/null | grep -qF "webserver.py"; then
-    echo "🗑️  Verwijder oude webserver.py entry uit crontab…"
-    (crontab -l 2>/dev/null | grep -vF "webserver.py" || true; echo "$WEBSERVER_CRON") | crontab -
+  if crontab -l 2>/dev/null | grep -qF "webserver"; then
+    echo "🗑️  Verwijder oude webserver entry uit crontab…"
+    (crontab -l 2>/dev/null | grep -vF "webserver" || true; echo "$WEBSERVER_CRON") | crontab -
   else
     (crontab -l 2>/dev/null || true; echo "$WEBSERVER_CRON") | crontab -
   fi
   
-  echo "✅ Crontab entry toegevoegd: webserver.py draait bij reboot"
+  echo "✅ Crontab entry toegevoegd: FastAPI webserver draait bij reboot (uvicorn)"
   echo "   Log: $HOME/webserver.log"
   echo "   Web interface: http://localhost:5000"
 else
@@ -173,28 +175,43 @@ echo "════════════════════════�
 echo "📋 Geïnstalleerde componenten:"
 echo "   • Miniconda met conda env 'lerobot'"
 echo "   • lerobot package met feetech support"
-echo "   • Flask webserver (auto-start bij reboot)"
+echo "   • FastAPI webserver met uvicorn (auto-start bij reboot)"
+echo "   • Camera streaming met OpenCV (multi-camera support)"
+echo "   • Network management (AP/WiFi switching)"
+echo "   • WebSocket real-time updates"
 echo "   • Udev rules voor USB devices"
 echo "   • Calibration files"
 echo ""
 echo "🚀 Bij reboot (AUTOMATISCH):"
 echo "   1. Webserver start (na 5 sec)"
 echo "   2. Devices worden gedetecteerd"
-echo "   3. Teleoperation start automatisch!"
-echo "   4. Web interface: http://localhost:5000"
+echo "   3. Camera's worden geïnitialiseerd"
+echo "   4. Teleoperation start automatisch!"
+echo "   5. Web interface: http://localhost:5000"
 echo ""
 echo "⚡ Plug & Play:"
-echo "   Sluit USB devices aan → Reboot → Klaar!"
+echo "   Sluit USB devices + cameras aan → Reboot → Klaar!"
 echo ""
 echo "🛠️  Handmatig gebruik:"
 echo "   • Webserver: python webserver.py"
+echo "   • Of met uvicorn: uvicorn webserver:app --host 0.0.0.0 --port 5000"
 echo "   • Interactieve selectie: ./select_teleop.py"
 echo "   • Direct: lerobot-teleoperate --robot.type=... --robot.port=..."
 echo ""
-echo "🌐 Web Control Interface:"
+echo "🌐 Web Control Interface (NIEUWE FEATURES!):"
 echo "   • Lokaal: http://localhost:5000"
 echo "   • Netwerk: http://[IP]:5000"
-echo "   • Start/Stop teleoperation via browser"
+echo "   • API docs: http://localhost:5000/docs"
+echo "   • Health check: http://localhost:5000/health"
+echo ""
+echo "✨ Features:"
+echo "   🎮 Teleoperation: Start/Stop control"
+echo "   📹 Cameras: Live MJPEG streaming"
+echo "   🌐 Network: AP/WiFi management"
+echo "   🔌 WebSocket: Real-time updates"
+echo "   ⚙️  System: Info & monitoring"
+echo ""
+echo "📖 Zie FEATURES.md voor complete documentatie"
 echo ""
 echo "📝 Logs:"
 echo "   • Webserver: tail -f ~/webserver.log"

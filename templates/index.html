@@ -1,0 +1,845 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>LeRobot Control Center</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+            overflow: hidden;
+        }
+        
+        /* Header */
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 30px;
+            text-align: center;
+        }
+        .header h1 { font-size: 2.5em; margin-bottom: 10px; }
+        .header .subtitle { font-size: 1em; opacity: 0.9; }
+        
+        /* Tabs */
+        .tabs {
+            display: flex;
+            background: #f8f9fa;
+            border-bottom: 2px solid #e9ecef;
+        }
+        .tab {
+            flex: 1;
+            padding: 20px;
+            text-align: center;
+            cursor: pointer;
+            border: none;
+            background: none;
+            font-size: 1em;
+            font-weight: 600;
+            color: #666;
+            transition: all 0.3s;
+        }
+        .tab:hover { background: #e9ecef; }
+        .tab.active {
+            color: #667eea;
+            background: white;
+            border-bottom: 3px solid #667eea;
+        }
+        .tab-icon { font-size: 1.5em; display: block; margin-bottom: 5px; }
+        
+        /* Tab Content */
+        .tab-content {
+            display: none;
+            padding: 30px;
+        }
+        .tab-content.active { display: block; }
+        
+        /* Status Cards */
+        .status-card {
+            background: #f8f9fa;
+            border-radius: 15px;
+            padding: 20px;
+            margin-bottom: 20px;
+            border-left: 5px solid #667eea;
+        }
+        .status-row {
+            display: flex;
+            justify-content: space-between;
+            padding: 10px 0;
+            border-bottom: 1px solid #e9ecef;
+        }
+        .status-row:last-child { border-bottom: none; }
+        .status-label { color: #666; font-weight: 500; }
+        .status-value { color: #333; font-weight: 600; }
+        
+        .status-indicator {
+            display: inline-block;
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            margin-right: 8px;
+            animation: pulse 2s infinite;
+        }
+        .status-running { background: #28a745; }
+        .status-stopped { background: #dc3545; }
+        .status-unknown { background: #ffc107; }
+        
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+        
+        /* Buttons */
+        .btn {
+            padding: 15px 30px;
+            border: none;
+            border-radius: 10px;
+            font-size: 1em;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s;
+            margin: 5px;
+        }
+        .btn:disabled { opacity: 0.5; cursor: not-allowed; }
+        .btn-primary {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+        .btn-primary:hover:not(:disabled) {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 20px rgba(102, 126, 234, 0.3);
+        }
+        .btn-danger {
+            background: #dc3545;
+            color: white;
+        }
+        .btn-danger:hover:not(:disabled) {
+            background: #c82333;
+            transform: translateY(-2px);
+            box-shadow: 0 10px 20px rgba(220, 53, 69, 0.3);
+        }
+        .btn-success {
+            background: #28a745;
+            color: white;
+        }
+        .btn-success:hover:not(:disabled) {
+            background: #218838;
+        }
+        
+        .button-group {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+        
+        /* Camera Grid */
+        .camera-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 20px;
+            margin-top: 20px;
+        }
+        .camera-card {
+            background: #f8f9fa;
+            border-radius: 15px;
+            padding: 15px;
+            border: 2px solid #e9ecef;
+        }
+        .camera-card h3 {
+            margin-bottom: 10px;
+            color: #333;
+        }
+        .camera-stream {
+            width: 100%;
+            border-radius: 10px;
+            background: #000;
+            min-height: 200px;
+        }
+        .camera-stats {
+            margin-top: 10px;
+            font-size: 0.85em;
+            color: #666;
+        }
+        
+        /* Network Section */
+        .network-mode {
+            display: flex;
+            gap: 15px;
+            margin: 20px 0;
+        }
+        .wifi-list {
+            max-height: 400px;
+            overflow-y: auto;
+        }
+        .wifi-item {
+            background: #f8f9fa;
+            padding: 15px;
+            margin: 10px 0;
+            border-radius: 10px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+        .wifi-item:hover {
+            background: #e9ecef;
+            transform: translateX(5px);
+        }
+        .wifi-signal {
+            font-size: 1.2em;
+        }
+        
+        /* Form */
+        .form-group {
+            margin: 15px 0;
+        }
+        .form-group label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: 600;
+            color: #333;
+        }
+        .form-group input {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid #e9ecef;
+            border-radius: 8px;
+            font-size: 1em;
+        }
+        .form-group input:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+        
+        /* Loading */
+        .loading {
+            position: relative;
+            pointer-events: none;
+        }
+        .loading::after {
+            content: "⏳";
+            position: absolute;
+            right: 15px;
+            top: 50%;
+            transform: translateY(-50%);
+        }
+        
+        /* Alerts */
+        .alert {
+            padding: 15px;
+            border-radius: 10px;
+            margin: 15px 0;
+        }
+        .alert-success {
+            background: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+        .alert-danger {
+            background: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+        .alert-info {
+            background: #d1ecf1;
+            color: #0c5460;
+            border: 1px solid #bee5eb;
+        }
+        
+        /* Responsive */
+        @media (max-width: 768px) {
+            .header h1 { font-size: 1.8em; }
+            .tabs { flex-wrap: wrap; }
+            .tab { min-width: 50%; }
+            .button-group { flex-direction: column; }
+            .btn { width: 100%; }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <!-- Header -->
+        <div class="header">
+            <h1>🤖 LeRobot Control Center</h1>
+            <div class="subtitle">Advanced Teleoperation Management System</div>
+        </div>
+        
+        <!-- Tabs -->
+        <div class="tabs">
+            <button class="tab active" onclick="showTab('teleoperation')">
+                <span class="tab-icon">🎮</span>
+                Teleoperation
+            </button>
+            <button class="tab" onclick="showTab('cameras')">
+                <span class="tab-icon">📹</span>
+                Cameras
+            </button>
+            <button class="tab" onclick="showTab('network')">
+                <span class="tab-icon">🌐</span>
+                Network
+            </button>
+            <button class="tab" onclick="showTab('system')">
+                <span class="tab-icon">⚙️</span>
+                System
+            </button>
+        </div>
+        
+        <!-- Tab Contents -->
+        
+        <!-- Teleoperation Tab -->
+        <div id="teleoperation" class="tab-content active">
+            <h2>🎮 Teleoperation Control</h2>
+            
+            <div class="status-card">
+                <h3>Status</h3>
+                <div class="status-row">
+                    <span class="status-label">Mode:</span>
+                    <span class="status-value">
+                        <span id="status-indicator" class="status-indicator status-unknown"></span>
+                        <span id="mode-value">Loading...</span>
+                    </span>
+                </div>
+                <div class="status-row">
+                    <span class="status-label">Devices:</span>
+                    <span class="status-value" id="devices-value">-</span>
+                </div>
+                <div class="status-row">
+                    <span class="status-label">Follower:</span>
+                    <span class="status-value" id="follower-value">-</span>
+                </div>
+                <div class="status-row">
+                    <span class="status-label">Leader:</span>
+                    <span class="status-value" id="leader-value">-</span>
+                </div>
+            </div>
+            
+            <div class="button-group">
+                <button class="btn btn-primary" onclick="startTeleoperation()" id="start-btn">
+                    ▶️ Start Teleoperation
+                </button>
+                <button class="btn btn-danger" onclick="stopTeleoperation()" id="stop-btn" disabled>
+                    ⏹️ Stop Teleoperation
+                </button>
+            </div>
+            
+            <div class="alert alert-info" style="margin-top: 20px;">
+                <strong>💡 Tip:</strong> Sluit USB devices aan en klik op "Start" om teleoperation te starten.
+                De server detecteert automatisch de aangesloten apparaten.
+            </div>
+        </div>
+        
+        <!-- Cameras Tab -->
+        <div id="cameras" class="tab-content">
+            <h2>📹 Camera Streams</h2>
+            
+            <div class="button-group">
+                <button class="btn btn-primary" onclick="detectCameras()">
+                    🔍 Detect Cameras
+                </button>
+                <button class="btn btn-success" onclick="refreshCameras()">
+                    🔄 Refresh Streams
+                </button>
+            </div>
+            
+            <div id="camera-status" class="alert alert-info" style="margin-top: 20px;">
+                <strong>ℹ️</strong> <span id="camera-status-text">Loading camera information...</span>
+            </div>
+            
+            <div id="camera-grid" class="camera-grid">
+                <!-- Camera streams will be added here dynamically -->
+            </div>
+        </div>
+        
+        <!-- Network Tab -->
+        <div id="network" class="tab-content">
+            <h2>🌐 Network Management</h2>
+            
+            <div class="status-card">
+                <h3>Current Network Status</h3>
+                <div class="status-row">
+                    <span class="status-label">Mode:</span>
+                    <span class="status-value" id="network-mode">-</span>
+                </div>
+                <div class="status-row">
+                    <span class="status-label">IP Address:</span>
+                    <span class="status-value" id="network-ip">-</span>
+                </div>
+                <div class="status-row">
+                    <span class="status-label">SSID:</span>
+                    <span class="status-value" id="network-ssid">-</span>
+                </div>
+                <div class="status-row">
+                    <span class="status-label">Signal:</span>
+                    <span class="status-value" id="network-signal">-</span>
+                </div>
+            </div>
+            
+            <div class="network-mode">
+                <button class="btn btn-primary" onclick="startAccessPoint()">
+                    📡 Start Access Point
+                </button>
+                <button class="btn btn-danger" onclick="stopAccessPoint()">
+                    ⏹️ Stop Access Point
+                </button>
+                <button class="btn btn-success" onclick="scanWiFi()">
+                    🔍 Scan WiFi
+                </button>
+            </div>
+            
+            <div id="wifi-scan-results" style="display:none;">
+                <h3>Available Networks</h3>
+                <div id="wifi-list" class="wifi-list">
+                    <!-- WiFi networks will be added here -->
+                </div>
+            </div>
+            
+            <div id="wifi-connect-form" style="display:none;">
+                <h3>Connect to WiFi</h3>
+                <div class="form-group">
+                    <label>SSID:</label>
+                    <input type="text" id="wifi-ssid" placeholder="Network name">
+                </div>
+                <div class="form-group">
+                    <label>Password:</label>
+                    <input type="password" id="wifi-password" placeholder="Password">
+                </div>
+                <button class="btn btn-primary" onclick="connectWiFi()">
+                    🔗 Connect
+                </button>
+                <button class="btn" onclick="cancelWiFiConnect()">
+                    ❌ Cancel
+                </button>
+            </div>
+        </div>
+        
+        <!-- System Tab -->
+        <div id="system" class="tab-content">
+            <h2>⚙️ System Information</h2>
+            
+            <div class="status-card">
+                <h3>Server Status</h3>
+                <div class="status-row">
+                    <span class="status-label">Server Version:</span>
+                    <span class="status-value">2.0.0</span>
+                </div>
+                <div class="status-row">
+                    <span class="status-label">Cameras Enabled:</span>
+                    <span class="status-value" id="sys-cameras">-</span>
+                </div>
+                <div class="status-row">
+                    <span class="status-label">Network Enabled:</span>
+                    <span class="status-value" id="sys-network">-</span>
+                </div>
+                <div class="status-row">
+                    <span class="status-label">WebSocket:</span>
+                    <span class="status-value" id="sys-websocket">-</span>
+                </div>
+            </div>
+            
+            <div class="status-card">
+                <h3>API Endpoints</h3>
+                <div class="status-row">
+                    <span class="status-label">Health:</span>
+                    <span class="status-value"><code>/health</code></span>
+                </div>
+                <div class="status-row">
+                    <span class="status-label">API Docs:</span>
+                    <span class="status-value"><code>/api</code></span>
+                </div>
+                <div class="status-row">
+                    <span class="status-label">Status:</span>
+                    <span class="status-value"><code>/api/status</code></span>
+                </div>
+                <div class="status-row">
+                    <span class="status-label">Cameras:</span>
+                    <span class="status-value"><code>/api/cameras</code></span>
+                </div>
+                <div class="status-row">
+                    <span class="status-label">Network:</span>
+                    <span class="status-value"><code>/api/network/status</code></span>
+                </div>
+                <div class="status-row">
+                    <span class="status-label">WebSocket:</span>
+                    <span class="status-value"><code>/ws</code></span>
+                </div>
+            </div>
+            
+            <div class="alert alert-info">
+                <strong>📖 Documentation:</strong> Visit <code>/docs</code> for interactive API documentation (Swagger UI).
+            </div>
+        </div>
+    </div>
+    
+    <script>
+        let ws = null;
+        
+        // Tab switching
+        function showTab(tabName) {
+            // Hide all tabs
+            document.querySelectorAll('.tab-content').forEach(tab => {
+                tab.classList.remove('active');
+            });
+            document.querySelectorAll('.tab').forEach(tab => {
+                tab.classList.remove('active');
+            });
+            
+            // Show selected tab
+            document.getElementById(tabName).classList.add('active');
+            event.target.closest('.tab').classList.add('active');
+            
+            // Load tab-specific data
+            if (tabName === 'cameras') {
+                loadCameras();
+            } else if (tabName === 'network') {
+                loadNetworkStatus();
+            } else if (tabName === 'system') {
+                loadSystemInfo();
+            }
+        }
+        
+        // WebSocket connection
+        function connectWebSocket() {
+            const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+            ws = new WebSocket(`${protocol}//${window.location.host}/ws`);
+            
+            ws.onopen = () => {
+                console.log('WebSocket connected');
+                document.getElementById('sys-websocket').textContent = '✅ Connected';
+            };
+            
+            ws.onmessage = (event) => {
+                const data = JSON.parse(event.data);
+                console.log('WebSocket message:', data);
+                
+                if (data.type === 'status') {
+                    updateStatusFromWebSocket(data.data);
+                }
+            };
+            
+            ws.onclose = () => {
+                console.log('WebSocket disconnected');
+                document.getElementById('sys-websocket').textContent = '❌ Disconnected';
+                // Reconnect after 5 seconds
+                setTimeout(connectWebSocket, 5000);
+            };
+            
+            ws.onerror = (error) => {
+                console.error('WebSocket error:', error);
+            };
+        }
+        
+        function updateStatusFromWebSocket(data) {
+            if (data.running !== undefined) {
+                updateTeleopStatus();
+            }
+        }
+        
+        // Teleoperation functions
+        async function updateTeleopStatus() {
+            try {
+                const response = await fetch('/api/status');
+                const data = await response.json();
+                
+                const indicator = document.getElementById('status-indicator');
+                const modeValue = document.getElementById('mode-value');
+                const startBtn = document.getElementById('start-btn');
+                const stopBtn = document.getElementById('stop-btn');
+                
+                if (data.running) {
+                    indicator.className = 'status-indicator status-running';
+                    modeValue.textContent = 'Running';
+                    startBtn.disabled = true;
+                    stopBtn.disabled = false;
+                } else {
+                    indicator.className = 'status-indicator status-stopped';
+                    modeValue.textContent = 'Stopped';
+                    startBtn.disabled = false;
+                    stopBtn.disabled = true;
+                }
+                
+                document.getElementById('devices-value').textContent = 
+                    data.devices_available ? '✅ Available' : '❌ Not Available';
+                document.getElementById('follower-value').textContent = 
+                    `${data.follower_type} (${data.follower_id})`;
+                document.getElementById('leader-value').textContent = 
+                    `${data.leader_type} (${data.leader_id})`;
+                    
+            } catch (error) {
+                console.error('Error updating status:', error);
+            }
+        }
+        
+        async function startTeleoperation() {
+            const btn = document.getElementById('start-btn');
+            btn.classList.add('loading');
+            btn.disabled = true;
+            
+            try {
+                const response = await fetch('/api/teleoperation/start', { method: 'POST' });
+                const data = await response.json();
+                
+                if (data.success) {
+                    setTimeout(updateTeleopStatus, 1000);
+                } else {
+                    alert('❌ Failed to start: ' + data.message);
+                    btn.disabled = false;
+                }
+            } catch (error) {
+                alert('❌ Error: ' + error);
+                btn.disabled = false;
+            } finally {
+                btn.classList.remove('loading');
+            }
+        }
+        
+        async function stopTeleoperation() {
+            const btn = document.getElementById('stop-btn');
+            btn.classList.add('loading');
+            btn.disabled = true;
+            
+            try {
+                const response = await fetch('/api/teleoperation/stop', { method: 'POST' });
+                const data = await response.json();
+                
+                if (data.success) {
+                    setTimeout(updateTeleopStatus, 1000);
+                } else {
+                    alert('❌ Failed to stop: ' + data.message);
+                    btn.disabled = false;
+                }
+            } catch (error) {
+                alert('❌ Error: ' + error);
+                btn.disabled = false;
+            } finally {
+                btn.classList.remove('loading');
+            }
+        }
+        
+        // Camera functions
+        async function loadCameras() {
+            try {
+                const response = await fetch('/api/cameras');
+                const data = await response.json();
+                
+                const statusText = document.getElementById('camera-status-text');
+                const grid = document.getElementById('camera-grid');
+                
+                if (data.enabled && data.cameras.length > 0) {
+                    statusText.textContent = `${data.cameras.length} camera(s) active`;
+                    
+                    grid.innerHTML = '';
+                    data.cameras.forEach(cameraName => {
+                        const stats = data.stats[cameraName];
+                        const card = document.createElement('div');
+                        card.className = 'camera-card';
+                        card.innerHTML = `
+                            <h3>${cameraName}</h3>
+                            <img src="/api/cameras/${encodeURIComponent(cameraName)}/stream" 
+                                 class="camera-stream" alt="${cameraName}">
+                            <div class="camera-stats">
+                                Resolution: ${stats.resolution[0]}x${stats.resolution[1]} | 
+                                FPS: ${stats.fps} | 
+                                Frames: ${stats.frame_count}
+                            </div>
+                        `;
+                        grid.appendChild(card);
+                    });
+                } else {
+                    statusText.textContent = 'No cameras available';
+                    grid.innerHTML = '<p>No cameras detected. Click "Detect Cameras" to scan for cameras.</p>';
+                }
+            } catch (error) {
+                console.error('Error loading cameras:', error);
+                document.getElementById('camera-status-text').textContent = 'Error loading cameras';
+            }
+        }
+        
+        async function detectCameras() {
+            const statusText = document.getElementById('camera-status-text');
+            statusText.textContent = 'Detecting cameras...';
+            
+            try {
+                const response = await fetch('/api/cameras/detect', { method: 'POST' });
+                const data = await response.json();
+                
+                statusText.textContent = `Found ${data.count} camera(s)`;
+                
+                if (data.count > 0) {
+                    alert(`✅ Found ${data.count} camera(s) at indices: ${data.cameras.join(', ')}\n\nRefresh the page to see streams.`);
+                } else {
+                    alert('❌ No cameras detected');
+                }
+            } catch (error) {
+                console.error('Error detecting cameras:', error);
+                statusText.textContent = 'Error detecting cameras';
+            }
+        }
+        
+        function refreshCameras() {
+            loadCameras();
+        }
+        
+        // Network functions
+        async function loadNetworkStatus() {
+            try {
+                const response = await fetch('/api/network/status');
+                const data = await response.json();
+                
+                if (data.enabled) {
+                    document.getElementById('network-mode').textContent = data.mode.toUpperCase();
+                    document.getElementById('network-ip').textContent = data.ip_address || 'N/A';
+                    document.getElementById('network-ssid').textContent = data.ssid || 'N/A';
+                    document.getElementById('network-signal').textContent = 
+                        data.signal_strength ? `${data.signal_strength}%` : 'N/A';
+                } else {
+                    document.getElementById('network-mode').textContent = 'Not Available';
+                }
+            } catch (error) {
+                console.error('Error loading network status:', error);
+            }
+        }
+        
+        async function startAccessPoint() {
+            try {
+                const response = await fetch('/api/network/ap/start', { method: 'POST' });
+                const data = await response.json();
+                
+                if (data.success) {
+                    alert('✅ Access Point started');
+                    loadNetworkStatus();
+                } else {
+                    alert('❌ Failed to start Access Point');
+                }
+            } catch (error) {
+                alert('❌ Error: ' + error);
+            }
+        }
+        
+        async function stopAccessPoint() {
+            try {
+                const response = await fetch('/api/network/ap/stop', { method: 'POST' });
+                const data = await response.json();
+                
+                if (data.success) {
+                    alert('✅ Access Point stopped');
+                    loadNetworkStatus();
+                } else {
+                    alert('❌ Failed to stop Access Point');
+                }
+            } catch (error) {
+                alert('❌ Error: ' + error);
+            }
+        }
+        
+        async function scanWiFi() {
+            try {
+                const response = await fetch('/api/network/wifi/scan');
+                const data = await response.json();
+                
+                const wifiList = document.getElementById('wifi-list');
+                const scanResults = document.getElementById('wifi-scan-results');
+                
+                if (data.networks.length > 0) {
+                    wifiList.innerHTML = '';
+                    data.networks.forEach(network => {
+                        const item = document.createElement('div');
+                        item.className = 'wifi-item';
+                        item.onclick = () => selectWiFi(network.ssid);
+                        
+                        const signal = network.signal > 75 ? '📶' : 
+                                     network.signal > 50 ? '📶' : 
+                                     network.signal > 25 ? '📶' : '📶';
+                        
+                        item.innerHTML = `
+                            <div>
+                                <strong>${network.ssid}</strong><br>
+                                <small>${network.security}</small>
+                            </div>
+                            <div class="wifi-signal">${signal} ${network.signal}%</div>
+                        `;
+                        wifiList.appendChild(item);
+                    });
+                    scanResults.style.display = 'block';
+                } else {
+                    alert('❌ No WiFi networks found');
+                }
+            } catch (error) {
+                alert('❌ Error scanning WiFi: ' + error);
+            }
+        }
+        
+        function selectWiFi(ssid) {
+            document.getElementById('wifi-ssid').value = ssid;
+            document.getElementById('wifi-connect-form').style.display = 'block';
+            document.getElementById('wifi-password').focus();
+        }
+        
+        async function connectWiFi() {
+            const ssid = document.getElementById('wifi-ssid').value;
+            const password = document.getElementById('wifi-password').value;
+            
+            if (!ssid || !password) {
+                alert('❌ Please enter SSID and password');
+                return;
+            }
+            
+            try {
+                const response = await fetch('/api/network/wifi/connect', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ ssid, password })
+                });
+                const data = await response.json();
+                
+                if (data.success) {
+                    alert('✅ Connected to WiFi');
+                    cancelWiFiConnect();
+                    loadNetworkStatus();
+                } else {
+                    alert('❌ Failed to connect: ' + data.message);
+                }
+            } catch (error) {
+                alert('❌ Error: ' + error);
+            }
+        }
+        
+        function cancelWiFiConnect() {
+            document.getElementById('wifi-connect-form').style.display = 'none';
+            document.getElementById('wifi-ssid').value = '';
+            document.getElementById('wifi-password').value = '';
+        }
+        
+        // System functions
+        async function loadSystemInfo() {
+            try {
+                const response = await fetch('/api/cameras');
+                const cameraData = await response.json();
+                document.getElementById('sys-cameras').textContent = 
+                    cameraData.enabled ? '✅ Enabled' : '❌ Disabled';
+                
+                const networkResponse = await fetch('/api/network/status');
+                const networkData = await networkResponse.json();
+                document.getElementById('sys-network').textContent = 
+                    networkData.enabled ? '✅ Enabled' : '❌ Disabled';
+            } catch (error) {
+                console.error('Error loading system info:', error);
+            }
+        }
+        
+        // Initialize
+        setInterval(updateTeleopStatus, 5000);
+        updateTeleopStatus();
+        connectWebSocket();
+    </script>
+</body>
+</html>
