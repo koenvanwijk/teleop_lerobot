@@ -84,7 +84,10 @@ def read_mapping(mapfile_path: Path) -> list[tuple[str, str, str, str]]:
         for line_num, raw in enumerate(f, 1):
             parsed = parse_line(raw)
             if parsed:
-                entries.append(parsed)
+                # parse_line returns (serial, nice, role, robot_type, calibration)
+                # but we only need the first 4 for udev rules
+                serial, nice, role, robot_type, calibration = parsed
+                entries.append((serial, nice, role, robot_type))
             elif raw.strip() and not raw.strip().startswith("#"):
                 print(f"⚠️  Overslaan regel {line_num}: {raw.strip()}", file=sys.stderr)
     
