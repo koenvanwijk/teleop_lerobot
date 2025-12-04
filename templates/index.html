@@ -313,6 +313,45 @@
         <div id="teleoperation" class="tab-content active">
             <h2>🎮 Teleoperation Control</h2>
             
+            <!-- Device Selection Card -->
+            <div class="status-card" style="margin-bottom: 20px;">
+                <h3>🔌 Device Selection</h3>
+                <p style="color: #666; margin-bottom: 15px;">Select which robot and teleoperator devices to use</p>
+                
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px;">
+                    <!-- Leader Selection (Left) -->
+                    <div>
+                        <label style="font-weight: 600; display: block; margin-bottom: 8px;">
+                            🎮 Leader (Teleop):
+                        </label>
+                        <select id="leader-select" class="form-select" style="width: 100%; padding: 10px; border: 2px solid #ddd; border-radius: 5px; font-size: 1em;">
+                            <option value="">Loading devices...</option>
+                        </select>
+                        <div id="leader-info" style="margin-top: 8px; font-size: 0.9em; color: #666;"></div>
+                    </div>
+                    
+                    <!-- Follower Selection (Right) -->
+                    <div>
+                        <label style="font-weight: 600; display: block; margin-bottom: 8px;">
+                            🤖 Follower (Robot):
+                        </label>
+                        <select id="follower-select" class="form-select" style="width: 100%; padding: 10px; border: 2px solid #ddd; border-radius: 5px; font-size: 1em;">
+                            <option value="">Loading devices...</option>
+                        </select>
+                        <div id="follower-info" style="margin-top: 8px; font-size: 0.9em; color: #666;"></div>
+                    </div>
+                </div>
+                
+                <div style="margin-top: 15px;">
+                    <button class="btn btn-secondary" onclick="refreshDevices()" style="width: 100%;">
+                        🔄 Refresh Device List
+                    </button>
+                    <button class="btn btn-primary" onclick="saveDeviceDefaults()" style="width: 100%; margin-top: 10px;">
+                        💾 Save Selection as Default
+                    </button>
+                </div>
+            </div>
+            
             <div class="status-card">
                 <h3>Status</h3>
                 <div class="status-row">
@@ -730,13 +769,191 @@
             }
         }
         
+        // Device management functions
+        async function loadDevices() {
+            try {
+                const [devicesResp, statusResp] = await Promise.all([
+                    fetch('/api/devices'),
+                    fetch('/api/status')
+                ]);
+                const data = await devicesResp.json();
+                const status = await statusResp.json();
+                
+                if (!data.success) {
+                    console.error('Failed to load devices:', data.error);
+                    return;
+                }
+                
+                // Update follower select
+                const followerSelect = document.getElementById('follower-select');
+                followerSelect.innerHTML = '<option value="">-- Select Follower --</option>';
+                data.followers.forEach(device => {
+                    const option = document.createElement('option');
+                    option.value = JSON.stringify({
+                        port: device.symlink,
+                        type: device.type,
+                        id: device.name
+                    });
+                    option.textContent = device.display_name;
+                    followerSelect.appendChild(option);
+                });
+                
+                // Update leader select
+                const leaderSelect = document.getElementById('leader-select');
+                leaderSelect.innerHTML = '<option value="">-- Select Leader --</option>';
+                data.leaders.forEach(device => {
+                    const option = document.createElement('option');
+                    option.value = JSON.stringify({
+                        port: device.symlink,
+                        type: device.type,
+                        id: device.name
+                    });
+                    option.textContent = device.display_name;
+                    leaderSelect.appendChild(option);
+                });
+                
+                // Preselect defaults from backend status if available
+                function selectIfMatch(selectEl, defaults) {
+                    if (!defaults || (!defaults.port && !defaults.id)) return false;
+                    for (let i = 0; i < selectEl.options.length; i++) {
+                        const opt = selectEl.options[i];
+                        try {
+                            const val = JSON.parse(opt.value);
+                            if ((defaults.port && val.port === defaults.port) ||
+                                (defaults.id && val.id === defaults.id) ||
+                                (defaults.type && val.type === defaults.type)) {
+                                selectEl.selectedIndex = i;
+                                return true;
+                            }
+                        } catch {}
+                    }
+                    return false;
+                }
+
+                const followerDefaults = {
+                    port: status.follower_port,
+                    type: status.follower_type,
+                    id: status.follower_id
+                };
+                const leaderDefaults = {
+                    port: status.leader_port,
+                    type: status.leader_type,
+                    id: status.leader_id
+                };
+
+                const followerSelected = selectIfMatch(followerSelect, followerDefaults);
+                const leaderSelected = selectIfMatch(leaderSelect, leaderDefaults);
+
+                // Fallback: auto-select if only one option
+                if (!followerSelected && data.followers.length === 1) {
+                    followerSelect.selectedIndex = 1;
+                }
+                if (!leaderSelected && data.leaders.length === 1) {
+                    leaderSelect.selectedIndex = 1;
+                }
+
+                // Update info panels
+                updateDeviceInfo('follower');
+                updateDeviceInfo('leader');
+                
+                // Add change listeners
+                followerSelect.onchange = () => updateDeviceInfo('follower');
+                leaderSelect.onchange = () => updateDeviceInfo('leader');
+                
+            } catch (error) {
+                console.error('Error loading devices:', error);
+            }
+        }
+        
+        function updateDeviceInfo(role) {
+            const select = document.getElementById(`${role}-select`);
+            const info = document.getElementById(`${role}-info`);
+            
+            if (!select.value) {
+                info.textContent = '';
+                return;
+            }
+            
+            try {
+                const device = JSON.parse(select.value);
+                info.innerHTML = `<strong>Port:</strong> ${device.port}<br><strong>Type:</strong> ${device.type}`;
+            } catch (e) {
+                info.textContent = '';
+            }
+        }
+        
+        async function refreshDevices() {
+            await loadDevices();
+            alert('✅ Device list refreshed!');
+        }
+
+        async function saveDeviceDefaults() {
+            try {
+                const followerSelect = document.getElementById('follower-select');
+                const leaderSelect = document.getElementById('leader-select');
+                if (!followerSelect.value || !leaderSelect.value) {
+                    alert('⚠️ Please select both a follower and a leader device');
+                    return;
+                }
+                const follower = JSON.parse(followerSelect.value);
+                const leader = JSON.parse(leaderSelect.value);
+                const response = await fetch('/api/devices/defaults', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        follower_port: follower.port,
+                        follower_type: follower.type,
+                        follower_id: follower.id,
+                        leader_port: leader.port,
+                        leader_type: leader.type,
+                        leader_id: leader.id
+                    })
+                });
+                const data = await response.json();
+                if (data.success) {
+                    alert('✅ Defaults saved');
+                } else {
+                    alert('❌ Failed to save defaults: ' + data.message);
+                }
+            } catch (error) {
+                alert('❌ Error saving defaults: ' + error);
+            }
+        }
+        
         async function startTeleoperation() {
             const btn = document.getElementById('start-btn');
             btn.classList.add('loading');
             btn.disabled = true;
             
             try {
-                const response = await fetch('/api/teleoperation/start', { method: 'POST' });
+                // Get selected devices
+                const followerSelect = document.getElementById('follower-select');
+                const leaderSelect = document.getElementById('leader-select');
+                
+                if (!followerSelect.value || !leaderSelect.value) {
+                    alert('⚠️ Please select both a follower and a leader device');
+                    btn.disabled = false;
+                    btn.classList.remove('loading');
+                    return;
+                }
+                
+                const follower = JSON.parse(followerSelect.value);
+                const leader = JSON.parse(leaderSelect.value);
+                
+                // Start teleoperation with selected devices
+                const response = await fetch('/api/teleoperation/start', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        follower_port: follower.port,
+                        follower_type: follower.type,
+                        follower_id: follower.id,
+                        leader_port: leader.port,
+                        leader_type: leader.type,
+                        leader_id: leader.id
+                    })
+                });
+                
                 const data = await response.json();
                 
                 if (data.success) {
@@ -1765,6 +1982,8 @@ ${code}`;
         // Initialize
         setInterval(updateTeleopStatus, 5000);
         updateTeleopStatus();
+    // Load available devices for selector on page load
+    loadDevices();
         loadSavedPositionsList();
         connectWebSocket();
     </script>

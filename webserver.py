@@ -61,6 +61,54 @@ logger = logging.getLogger(__name__)
 
 
 # ============================================================================
+# Device Detection
+# ============================================================================
+
+def scan_devices():
+    """
+    Scan /dev for leader and follower devices.
+    Returns dict with 'leaders' and 'followers' lists.
+    """
+    dev_dir = Path("/dev")
+    leaders = []
+    followers = []
+    
+    # Zoek alle tty_* symlinks
+    for device_link in sorted(dev_dir.glob("tty_*")):
+        name = device_link.name
+        
+        # Parse naam: tty_<name>_<role>_<type>
+        if not name.startswith("tty_"):
+            continue
+            
+        parts = name.replace("tty_", "").split("_")
+        if len(parts) < 3:
+            continue
+        
+        robot_type = parts[-1]  # Laatste deel
+        role = parts[-2]  # Voorlaatste deel
+        nice_name = "_".join(parts[:-2])  # Rest is de nice name
+        
+        port_path = str(device_link.resolve())
+        symlink_path = f"/dev/{name}"
+        
+        device_info = {
+            "name": nice_name,
+            "port": port_path,
+            "symlink": symlink_path,
+            "type": robot_type,
+            "display_name": f"{nice_name} ({robot_type})"
+        }
+        
+        if role == "leader":
+            leaders.append(device_info)
+        elif role == "follower":
+            followers.append(device_info)
+    
+    return {"leaders": leaders, "followers": followers}
+
+
+# ============================================================================
 # Robot State Management
 # ============================================================================
 
@@ -92,6 +140,10 @@ class RobotState:
         
         # WebSocket clients
         self.websocket_clients: List[WebSocket] = []
+
+        # Persisted defaults
+        self.defaults_file = Path.home() / ".lerobot_device_defaults.json"
+        self._load_persisted_defaults()
     
     def is_running(self) -> bool:
         """Check of teleoperation draait."""
@@ -123,6 +175,9 @@ class RobotState:
         # Load config
         if not self.follower_port:
             self.load_device_config()
+
+        # Also ensure persisted defaults are considered
+        self._load_persisted_defaults()
     
     def load_device_config(self) -> bool:
         """Laad device configuratie."""
@@ -163,6 +218,40 @@ class RobotState:
         self.leader_id = "default"
         
         return Path(self.follower_port).exists() and Path(self.leader_port).exists()
+
+    def _load_persisted_defaults(self):
+        """Load defaults from JSON file if present"""
+        try:
+            if self.defaults_file.exists():
+                with open(self.defaults_file, 'r') as f:
+                    data = json.load(f)
+                self.follower_port = data.get('follower_port', self.follower_port)
+                self.follower_type = data.get('follower_type', self.follower_type)
+                self.follower_id = data.get('follower_id', self.follower_id)
+                self.leader_port = data.get('leader_port', self.leader_port)
+                self.leader_type = data.get('leader_type', self.leader_type)
+                self.leader_id = data.get('leader_id', self.leader_id)
+                logger.info("Loaded device defaults from ~/.lerobot_device_defaults.json")
+        except Exception as e:
+            logger.error(f"Error loading device defaults: {e}")
+
+    def save_persisted_defaults(self) -> bool:
+        """Save defaults to JSON file"""
+        try:
+            data = {
+                'follower_port': self.follower_port,
+                'follower_type': self.follower_type,
+                'follower_id': self.follower_id,
+                'leader_port': self.leader_port,
+                'leader_type': self.leader_type,
+                'leader_id': self.leader_id,
+            }
+            with open(self.defaults_file, 'w') as f:
+                json.dump(data, f, indent=2)
+            return True
+        except Exception as e:
+            logger.error(f"Error saving device defaults: {e}")
+            return False
 
 
 # Global state instance
@@ -486,8 +575,93 @@ async def api_info():
             "/api/teleoperation/save-current-position": "Save current position during teleoperation",
             "/api/positions": "Get all saved positions",
             "/api/positions/{name}": "Delete a saved position",
+            "/api/devices": "Get available robot and teleop devices",
         }
     }
+
+
+@app.get("/api/devices")
+async def get_devices():
+    """Get available robot and teleoperator devices"""
+    try:
+        devices = scan_devices()
+        return {
+            "success": True,
+            "leaders": devices["leaders"],
+            "followers": devices["followers"],
+            "count": {
+                "leaders": len(devices["leaders"]),
+                "followers": len(devices["followers"])
+            }
+        }
+    except Exception as e:
+        logger.error(f"Error scanning devices: {e}")
+        return {
+            "success": False,
+            "error": str(e),
+            "leaders": [],
+            "followers": [],
+            "count": {"leaders": 0, "followers": 0}
+        }
+@app.get("/api/devices/defaults")
+async def get_device_defaults():
+    """Get persisted default leader/follower selection"""
+    return {
+        'success': True,
+        'follower_port': state.follower_port,
+        'follower_type': state.follower_type,
+        'follower_id': state.follower_id,
+        'leader_port': state.leader_port,
+        'leader_type': state.leader_type,
+        'leader_id': state.leader_id,
+    }
+
+@app.post("/api/devices/defaults")
+async def set_device_defaults(request: Request):
+    """Persist selected leader/follower as defaults"""
+    try:
+        body = await request.json()
+        state.follower_port = body.get('follower_port', state.follower_port)
+        state.follower_type = body.get('follower_type', state.follower_type)
+        state.follower_id = body.get('follower_id', state.follower_id)
+        state.leader_port = body.get('leader_port', state.leader_port)
+        state.leader_type = body.get('leader_type', state.leader_type)
+        state.leader_id = body.get('leader_id', state.leader_id)
+        saved_json = state.save_persisted_defaults()
+
+        # Also write legacy config file used by select_teleop.py for compatibility
+        legacy_file = Path.home() / ".lerobot_teleop_config"
+        legacy_saved = False
+        try:
+            # Ensure we store the symlink paths as expected by the CLI script
+            follower_symlink = state.follower_port
+            leader_symlink = state.leader_port
+            if follower_symlink and leader_symlink:
+                with open(legacy_file, 'w') as f:
+                    f.write(f"{follower_symlink}\n")
+                    f.write(f"{leader_symlink}\n")
+                legacy_saved = True
+                logger.info(f"Legacy defaults saved to {legacy_file}")
+        except Exception as e:
+            logger.error(f"Error saving legacy defaults: {e}")
+            legacy_saved = False
+
+        return {
+            'success': bool(saved_json and legacy_saved),
+            'message': 'Defaults saved' if (saved_json and legacy_saved) else (
+                'Saved JSON defaults only' if saved_json else 'Failed to save defaults'
+            ),
+            'details': {
+                'json_saved': saved_json,
+                'legacy_saved': legacy_saved,
+            }
+        }
+    except Exception as e:
+        logger.error(f"Error setting device defaults: {e}")
+        return {
+            'success': False,
+            'message': str(e)
+        }
 
 
 @app.get("/health")
@@ -519,8 +693,34 @@ async def get_status():
 
 
 @app.post("/api/teleoperation/start")
-async def api_start_teleoperation():
-    """Start teleoperation"""
+async def api_start_teleoperation(request: Request):
+    """Start teleoperation with optional device selection"""
+    try:
+        # Try to get device config from request body
+        body = await request.json()
+        
+        # Override state with selected devices if provided
+        if body:
+            if 'follower_port' in body:
+                state.follower_port = body['follower_port']
+            if 'follower_type' in body:
+                state.follower_type = body['follower_type']
+            if 'follower_id' in body:
+                state.follower_id = body['follower_id']
+            if 'leader_port' in body:
+                state.leader_port = body['leader_port']
+            if 'leader_type' in body:
+                state.leader_type = body['leader_type']
+            if 'leader_id' in body:
+                state.leader_id = body['leader_id']
+            
+            logger.info(f"Starting teleoperation with selected devices:")
+            logger.info(f"  Follower: {state.follower_type} @ {state.follower_port} (ID: {state.follower_id})")
+            logger.info(f"  Leader: {state.leader_type} @ {state.leader_port} (ID: {state.leader_id})")
+    except:
+        # No body or invalid JSON - use default config
+        pass
+    
     success = await start_teleoperation()
     return {
         "success": success,
