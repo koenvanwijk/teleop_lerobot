@@ -362,14 +362,14 @@
         let robot = null;
         let jointStates = {};
         
-        // Joint configuration matching bambot
+        // Joint configuration - using percentage (-100 to 100) matching LeRobot
         const jointConfig = {
-            'Rotation': { id: 1, min: 0, max: 360, initial: 180, label: 'Base Rotation' },
-            'Pitch': { id: 2, min: 0, max: 360, initial: 180, label: 'Shoulder Pitch' },
-            'Elbow': { id: 3, min: 0, max: 360, initial: 180, label: 'Elbow' },
-            'Wrist_Pitch': { id: 4, min: 0, max: 360, initial: 180, label: 'Wrist Pitch' },
-            'Wrist_Roll': { id: 5, min: 0, max: 360, initial: 180, label: 'Wrist Roll' },
-            'Jaw': { id: 6, min: 0, max: 360, initial: 180, label: 'Gripper' }
+            'Rotation': { id: 1, min: -100, max: 100, initial: 0, label: 'Base Rotation' },
+            'Pitch': { id: 2, min: -100, max: 100, initial: 0, label: 'Shoulder Pitch' },
+            'Elbow': { id: 3, min: -100, max: 100, initial: 0, label: 'Elbow' },
+            'Wrist_Pitch': { id: 4, min: -100, max: 100, initial: 0, label: 'Wrist Pitch' },
+            'Wrist_Roll': { id: 5, min: -100, max: 100, initial: 0, label: 'Wrist Roll' },
+            'Jaw': { id: 6, min: -100, max: 100, initial: 0, label: 'Gripper' }
         };
 
         function init() {
@@ -538,13 +538,13 @@
                 controlDiv.innerHTML = 
                     '<div class="joint-header">' +
                         '<span class="joint-name">' + config.label + '</span>' +
-                        '<span class="joint-value" id="value-' + jointName + '">' + config.initial + '°</span>' +
+                        '<span class="joint-value" id="value-' + jointName + '">' + config.initial + '%</span>' +
                     '</div>' +
                     '<input type="range" class="joint-slider" id="slider-' + jointName + '" ' +
-                        'min="' + config.min + '" max="' + config.max + '" value="' + config.initial + '" step="1">' +
+                        'min="' + config.min + '" max="' + config.max + '" value="' + config.initial + '" step="0.1">' +
                     '<div class="joint-limits">' +
-                        '<span>' + config.min + '°</span>' +
-                        '<span>' + config.max + '°</span>' +
+                        '<span>' + config.min + '%</span>' +
+                        '<span>' + config.max + '%</span>' +
                     '</div>';
                 
                 container.appendChild(controlDiv);
@@ -558,18 +558,18 @@
             });
         }
 
-        function updateJoint(jointName, degrees) {
-            jointStates[jointName] = degrees;
+        function updateJoint(jointName, percentage) {
+            jointStates[jointName] = percentage;
             
-            // Update UI
+            // Update UI - show percentage
             const valueDisplay = document.getElementById('value-' + jointName);
             if (valueDisplay) {
-                valueDisplay.textContent = Math.round(degrees) + '°';
+                valueDisplay.textContent = percentage.toFixed(1) + '%';
             }
             
-            // Update robot joint
+            // Update robot joint - convert percentage to radians using URDF limits
             if (robot && robot.joints && robot.joints[jointName]) {
-                const radians = degrees * Math.PI / 180;
+                const radians = percentageToRadians(percentage, jointName);
                 robot.joints[jointName].setJointValue(radians);
             }
         }
@@ -589,19 +589,28 @@
             fetch('/api/robot/positions')
                 .then(function(response) { return response.json(); })
                 .then(function(data) {
-                    if (data.success && data.positions) {
-                        const jointNames = Object.keys(jointConfig);
-                        data.positions.forEach(function(position, index) {
-                            if (index < jointNames.length) {
-                                const jointName = jointNames[index];
+                    if (data.success && data.motor_names && data.positions) {
+                        data.motor_names.forEach(function(motorName, index) {
+                            const percentage = data.positions[index]; // In percentage (-100 to 100)
+                            const jointName = mapMotorToJoint(motorName);
+                            
+                            if (jointName && robot && robot.joints[jointName]) {
+                                // Convert percentage to radians using URDF limits
+                                const radians = percentageToRadians(percentage, jointName);
+                                
+                                // Update 3D robot
+                                robot.joints[jointName].setJointValue(radians);
+                                
+                                // Update UI (in percentage)
                                 const slider = document.getElementById('slider-' + jointName);
-                                if (slider) {
-                                    slider.value = position;
-                                    updateJoint(jointName, position);
+                                const valueDisplay = document.getElementById('value-' + jointName);
+                                if (slider && valueDisplay) {
+                                    slider.value = percentage;
+                                    valueDisplay.textContent = percentage.toFixed(1) + '%';
                                 }
                             }
                         });
-                        console.log('✅ Synced with robot');
+                        console.log('✅ Synced with robot positions');
                     }
                 })
                 .catch(function(err) {
@@ -635,45 +644,123 @@
             renderer.render(scene, camera);
         }
 
-        // WebSocket for real-time updates
-        function connectWebSocket() {
-            const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-            const ws = new WebSocket(protocol + '//' + window.location.host + '/ws');
-            
-            ws.onopen = function() {
-                console.log('WebSocket connected');
-            };
-            
-            ws.onmessage = function(event) {
+        // Real-time position updates from robot
+        let updateInterval = null;
+        
+        function startPositionUpdates() {
+            // Poll position updates every 50ms (20Hz)
+            updateInterval = setInterval(async () => {
                 try {
-                    const data = JSON.parse(event.data);
-                    if (data.type === 'robot_update' && data.positions) {
-                        const jointNames = Object.keys(jointConfig);
-                        data.positions.forEach(function(position, index) {
-                            if (index < jointNames.length) {
-                                updateJoint(jointNames[index], position);
+                    const response = await fetch('/api/robot/positions');
+                    const data = await response.json();
+                    
+                    if (data.success && data.motor_names && data.positions) {
+                        // Update robot based on actual motor positions
+                        data.motor_names.forEach((motorName, index) => {
+                            const percentage = data.positions[index]; // Already in percentage (-100 to 100)
+                            
+                            // Map LeRobot motor names to our joint names
+                            const jointName = mapMotorToJoint(motorName);
+                            
+                            // Debug logging (only log once per session)
+                            if (!window.mappingLogged) {
+                                console.log(`Mapping: ${motorName} (${percentage.toFixed(1)}%) -> ${jointName}`);
+                            }
+                            
+                            if (jointName && robot && robot.joints[jointName]) {
+                                // Convert percentage to radians using URDF joint limits
+                                const radians = percentageToRadians(percentage, jointName);
+                                
+                                // Update 3D robot joint (needs radians)
+                                robot.joints[jointName].setJointValue(radians);
+                                
+                                // Update UI display (in percentage)
+                                const slider = document.getElementById('slider-' + jointName);
+                                const valueDisplay = document.getElementById('value-' + jointName);
+                                if (slider && valueDisplay) {
+                                    slider.value = percentage;
+                                    valueDisplay.textContent = percentage.toFixed(1) + '%';
+                                }
                             }
                         });
+                        
+                        // Mark that we've logged the mapping
+                        window.mappingLogged = true;
+                        
+                        // Update status
+                        document.getElementById('status-text').textContent = 
+                            data.source === 'teleoperation' ? 'Teleop Active' : 'Robot Connected';
+                        document.getElementById('status-dot').className = 'status-dot connected';
                     }
-                } catch (e) {
-                    console.error('WebSocket parse error:', e);
+                } catch (error) {
+                    console.debug('Position update error:', error);
+                    document.getElementById('status-text').textContent = 'Disconnected';
+                    document.getElementById('status-dot').className = 'status-dot disconnected';
                 }
+            }, 50); // 20Hz update rate
+        }
+        
+        function stopPositionUpdates() {
+            if (updateInterval) {
+                clearInterval(updateInterval);
+                updateInterval = null;
+            }
+        }
+        
+        // Map LeRobot motor names to viewer joint names
+        function mapMotorToJoint(motorName) {
+            // Remove .pos suffix if present
+            motorName = motorName.replace('.pos', '');
+            
+            // SO-101 motor name mappings - direct 1-to-1 mapping in same order
+            const mapping = {
+                'shoulder_pan': 'Rotation',      // Joint 1
+                'shoulder_lift': 'Pitch',        // Joint 2
+                'elbow_flex': 'Elbow',           // Joint 3
+                'wrist_flex': 'Wrist_Pitch',     // Joint 4
+                'wrist_roll': 'Wrist_Roll',      // Joint 5
+                'gripper': 'Jaw',                // Joint 6
+                // Alternative names
+                'Rotation': 'Rotation',
+                'Pitch': 'Pitch',
+                'Elbow': 'Elbow',
+                'Wrist_Pitch': 'Wrist_Pitch',
+                'Wrist_Roll': 'Wrist_Roll',
+                'Jaw': 'Jaw'
+            };
+            return mapping[motorName] || motorName;
+        }
+        
+        // Convert percentage (-100 to 100) to radians based on URDF joint limits
+        function percentageToRadians(percentage, jointName) {
+            // URDF joint limits in radians (from so101.urdf)
+            const jointLimits = {
+                'Rotation': { lower: 1.22014, upper: 5.05986 },
+                'Pitch': { lower: 1.39467, upper: 4.88692 },
+                'Elbow': { lower: 1.39626, upper: 4.71239 },
+                'Wrist_Pitch': { lower: 1.48353, upper: 4.79965 },
+                'Wrist_Roll': { lower: 0.39774, upper: 5.9828 },
+                'Jaw': { lower: 3.14, upper: 4.88692 }
             };
             
-            ws.onerror = function(error) {
-                console.error('WebSocket error:', error);
-            };
+            const limits = jointLimits[jointName];
+            if (!limits) {
+                console.warn(`No limits found for joint ${jointName}`);
+                return 0;
+            }
             
-            ws.onclose = function() {
-                console.log('WebSocket disconnected, retrying...');
-                setTimeout(connectWebSocket, 5000);
-            };
+            // Map percentage (-100 to 100) to joint range (lower to upper)
+            // -100% = lower limit, +100% = upper limit, 0% = middle
+            const normalized = (percentage + 100) / 200; // 0 to 1
+            const radians = limits.lower + normalized * (limits.upper - limits.lower);
+            
+            return radians;
         }
 
         // Initialize
         window.addEventListener('load', function() {
             init();
-            connectWebSocket();
+            startPositionUpdates();
         });
     </script>
 </body>

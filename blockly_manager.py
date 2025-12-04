@@ -5,12 +5,13 @@ Handles Blockly visual programming and Python code execution
 
 import asyncio
 import logging
-from typing import Dict, Any, Optional
+from typing import Dict, Any, Optional, List
 import json
 import time
 import io
 import sys
 from pathlib import Path
+from datetime import datetime
 
 logger = logging.getLogger(__name__)
 
@@ -159,8 +160,37 @@ class RobotAPI:
         Read all joint positions from robot
         
         Returns:
-            List of 6 joint angles in degrees
+            List of 6 joint angles in percentage (-100 to 100)
         """
+        # Try to get positions from teleoperation manager first (if running)
+        try:
+            from teleoperation_manager import get_teleoperation_manager
+            teleop_manager = get_teleoperation_manager()
+            
+            if teleop_manager.is_running:
+                positions_dict = teleop_manager.get_current_positions()
+                if positions_dict:
+                    # Extract positions in consistent order
+                    motor_names = ['shoulder_pan.pos', 'shoulder_lift.pos', 'elbow_flex.pos', 
+                                   'wrist_flex.pos', 'wrist_roll.pos', 'gripper.pos']
+                    angles = []
+                    for name in motor_names:
+                        # Remove .pos suffix for lookup
+                        clean_name = name.replace('.pos', '')
+                        if clean_name in positions_dict:
+                            angles.append(positions_dict[clean_name])
+                        elif name in positions_dict:
+                            angles.append(positions_dict[name])
+                        else:
+                            angles.append(0.0)
+                    
+                    self.positions = angles
+                    logger.info(f"Read positions from teleoperation: {angles}")
+                    return angles
+        except Exception as e:
+            logger.debug(f"Could not get positions from teleoperation: {e}")
+        
+        # Fallback: read directly from robot if available
         if self.robot:
             try:
                 # Read observation from robot arm
@@ -198,8 +228,11 @@ class BlocklyManager:
     def __init__(self, robot_port: Optional[str] = None, robot_type: Optional[str] = None, robot_id: Optional[str] = None):
         self.saved_programs: Dict[str, Dict[str, Any]] = {}
         self.programs_file = Path.home() / ".lerobot_blockly_programs.json"
+        self.saved_positions: Dict[str, Dict[str, Any]] = {}
+        self.positions_file = Path.home() / ".lerobot_saved_positions.json"
         self.robot_api = RobotAPI(robot_port, robot_type, robot_id)
         self.load_programs()
+        self.load_saved_positions()
         logger.info(f"BlocklyManager initialized (port: {robot_port}, type: {robot_type}, id: {robot_id})")
 
     def load_programs(self):
@@ -221,6 +254,68 @@ class BlocklyManager:
             logger.info(f"Saved {len(self.saved_programs)} programs")
         except Exception as e:
             logger.error(f"Error saving programs: {e}")
+
+    def load_saved_positions(self):
+        """Load saved positions from disk"""
+        try:
+            if self.positions_file.exists():
+                with open(self.positions_file, 'r') as f:
+                    self.saved_positions = json.load(f)
+                logger.info(f"Loaded {len(self.saved_positions)} saved positions")
+        except Exception as e:
+            logger.error(f"Error loading positions: {e}")
+            self.saved_positions = {}
+
+    def save_positions_to_disk(self):
+        """Save positions to disk"""
+        try:
+            with open(self.positions_file, 'w') as f:
+                json.dump(self.saved_positions, f, indent=2)
+            logger.info(f"Saved {len(self.saved_positions)} positions to disk")
+        except Exception as e:
+            logger.error(f"Error saving positions: {e}")
+
+    def save_position(self, name: str, angles: List[float], description: str = "") -> bool:
+        """
+        Save a robot position
+        
+        Args:
+            name: Position name
+            angles: List of joint angles (percentage -100 to 100)
+            description: Optional description
+            
+        Returns:
+            True if successful
+        """
+        try:
+            self.saved_positions[name] = {
+                'angles': angles,
+                'description': description,
+                'timestamp': datetime.now().isoformat()
+            }
+            self.save_positions_to_disk()
+            logger.info(f"Saved position: {name} with angles: {angles}")
+            return True
+        except Exception as e:
+            logger.error(f"Error saving position {name}: {e}")
+            return False
+
+    def get_saved_positions(self) -> Dict[str, Dict[str, Any]]:
+        """Get all saved positions"""
+        return self.saved_positions
+
+    def delete_position(self, name: str) -> bool:
+        """Delete a saved position"""
+        try:
+            if name in self.saved_positions:
+                del self.saved_positions[name]
+                self.save_positions_to_disk()
+                logger.info(f"Deleted position: {name}")
+                return True
+            return False
+        except Exception as e:
+            logger.error(f"Error deleting position {name}: {e}")
+            return False
 
     def save_program(self, name: str, workspace_json: str, python_code: str) -> bool:
         """
@@ -329,6 +424,7 @@ class BlocklyManager:
                     },
                     'time': time,
                     'robot': self.robot_api,  # Real robot access!
+                    'positions': self.saved_positions,  # Saved positions access!
                 }
                 
                 # Execute code

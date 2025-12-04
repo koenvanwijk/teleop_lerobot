@@ -81,8 +81,8 @@ conda tos accept --override-channels --channel https://repo.anaconda.com/pkgs/r
 if conda env list | awk '{print $1}' | grep -qx "$CONDA_ENV"; then
   echo "✅ Conda env bestaat: $CONDA_ENV"
 else
-  echo "🧪 Maak env $CONDA_ENV (python=3.10)…"
-  conda create -y -n "$CONDA_ENV" python=3.10
+  echo "🧪 Maak env $CONDA_ENV (python=3.12)…"
+  conda create -y -n "$CONDA_ENV" python=3.12
 fi
 
 echo "📦 pip install lerobot en dependencies…"

@@ -289,6 +289,10 @@
                 <span class="tab-icon">📹</span>
                 Cameras
             </button>
+            <button class="tab" onclick="showTab('viewer')">
+                <span class="tab-icon">🤖</span>
+                3D Viewer
+            </button>
             <button class="tab" onclick="showTab('blockly')">
                 <span class="tab-icon">🧩</span>
                 Blockly
@@ -402,6 +406,37 @@
             
             <div id="camera-grid" class="camera-grid">
                 <!-- Camera streams will be added here dynamically -->
+            </div>
+        </div>
+        
+        <!-- 3D Viewer Tab -->
+        <div id="viewer" class="tab-content">
+            <h2>🤖 Robot 3D Viewer</h2>
+            
+            <div class="status-card">
+                <p style="margin-bottom: 15px;">Real-time 3D visualization of your robot. The viewer updates automatically to show the current robot position during teleoperation.</p>
+                <div style="display: flex; gap: 10px; margin-bottom: 15px;">
+                    <button class="btn btn-primary" onclick="openViewer()">
+                        🚀 Open 3D Viewer
+                    </button>
+                    <button class="btn btn-secondary" onclick="openViewerNewWindow()">
+                        🪟 Open in New Window
+                    </button>
+                </div>
+                <p style="color: #666; font-size: 0.9em;">
+                    <strong>Features:</strong>
+                    <br>• Real-time position updates (20Hz)
+                    <br>• Manual joint control with sliders
+                    <br>• Sync with robot button
+                    <br>• Interactive 3D controls (rotate, zoom, pan)
+                </p>
+            </div>
+            
+            <div id="viewer-iframe-container" style="display: none;">
+                <iframe id="viewer-iframe" 
+                        src="/viewer" 
+                        style="width: 100%; height: 800px; border: 2px solid #667eea; border-radius: 10px;">
+                </iframe>
             </div>
         </div>
         
@@ -579,6 +614,19 @@
         let blocklyWorkspace = null;
         let pythonGenerator = null;
         
+        // 3D Viewer functions - defined early for onclick handlers
+        function openViewer() {
+            const container = document.getElementById('viewer-iframe-container');
+            const iframe = document.getElementById('viewer-iframe');
+            container.style.display = 'block';
+            // Reload iframe to ensure fresh connection
+            iframe.src = iframe.src;
+        }
+        
+        function openViewerNewWindow() {
+            window.open('/viewer', 'Robot3DViewer', 'width=1200,height=900');
+        }
+        
         // Tab switching
         function showTab(tabName) {
             // Hide all tabs
@@ -596,6 +644,8 @@
             // Load tab-specific data
             if (tabName === 'cameras') {
                 loadCameras();
+            } else if (tabName === 'viewer') {
+                // Viewer iframe is already loaded in the HTML
             } else if (tabName === 'blockly') {
                 initBlockly();
                 loadSavedPrograms();
@@ -737,14 +787,14 @@
                     const text = document.getElementById('current-position-text');
                     
                     let posText = '';
-                    data.joint_names.forEach((name, i) => {
-                        posText += `${name}: ${data.angles[i].toFixed(2)}°\n`;
+                    data.motor_names.forEach((name, i) => {
+                        posText += `${name}: ${data.positions[i].toFixed(2)}%\n`;
                     });
                     
                     text.textContent = posText;
                     display.style.display = 'block';
                 } else {
-                    alert('❌ Failed to read position');
+                    alert('❌ Failed to read position: ' + (data.error || 'Unknown error'));
                 }
             } catch (error) {
                 alert('❌ Error reading position: ' + error);

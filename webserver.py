@@ -17,7 +17,7 @@ from pathlib import Path
 from typing import Optional, Dict, Any, List
 from contextlib import asynccontextmanager
 
-from fastapi import FastAPI, WebSocket, WebSocketDisconnect, HTTPException
+from fastapi import FastAPI, WebSocket, WebSocketDisconnect, HTTPException, Request
 from fastapi.responses import HTMLResponse, JSONResponse, FileResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.cors import CORSMiddleware
@@ -68,7 +68,7 @@ class RobotState:
     """Globale state voor robot control met camera en network support."""
     def __init__(self):
         # Teleoperation
-        self.teleop_process: Optional[subprocess.Popen] = None
+        self.teleop_manager = None  # TeleoperationManager instance
         self.teleop_mode: str = "stopped"
         self.devices_available: bool = False
         self.follower_port: Optional[str] = None
@@ -94,10 +94,10 @@ class RobotState:
         self.websocket_clients: List[WebSocket] = []
     
     def is_running(self) -> bool:
-        """Check of teleoperation proces draait."""
-        if self.teleop_process is None:
+        """Check of teleoperation draait."""
+        if self.teleop_manager is None:
             return False
-        return self.teleop_process.poll() is None
+        return self.teleop_manager.is_running
     
     async def broadcast_status(self, message: Dict[str, Any]):
         """Broadcast status update to all WebSocket clients."""
@@ -209,7 +209,7 @@ class BlocklyExecute(BaseModel):
 # ============================================================================
 
 async def start_teleoperation() -> bool:
-    """Start LeRobot teleoperation."""
+    """Start LeRobot teleoperation using in-process manager."""
     if state.is_running():
         logger.warning("Teleoperation draait al")
         return False
@@ -221,66 +221,44 @@ async def start_teleoperation() -> bool:
             logger.error("Geen geldige device configuratie")
             return False
     
-    # Copy config values
-    follower_port = state.follower_port
-    leader_port = state.leader_port
-    follower_type = state.follower_type
-    leader_type = state.leader_type
-    follower_id = state.follower_id
-    leader_id = state.leader_id
-    
-    # Build command - use conda run (works in subprocess)
-    cmd = [
-        "conda", "run", "-n", "lerobot", "--no-capture-output",
-        "lerobot-teleoperate",
-        f"--robot.type={follower_type}_follower",
-        f"--robot.port={follower_port}",
-        f"--robot.id={follower_id}",
-        f"--teleop.type={leader_type}_leader",
-        f"--teleop.port={leader_port}",
-        f"--teleop.id={leader_id}"
-    ]
+    # Get or create teleoperation manager
+    from teleoperation_manager import get_teleoperation_manager
+    teleop_manager = get_teleoperation_manager()
     
     try:
-        logger.info(f"   Follower: {follower_port} ({follower_type})")
-        logger.info(f"   Leader: {leader_port} ({leader_type})")
+        logger.info(f"   Follower: {state.follower_port} ({state.follower_type}/{state.follower_id})")
+        logger.info(f"   Leader: {state.leader_port} ({state.leader_type}/{state.leader_id})")
         
-        teleop_log_file = Path.home() / "teleoperation.log"
-        logger.info(f"   Output → {teleop_log_file}")
+        # Start teleoperation in-process with proper LeRobot types
+        robot_type = f"{state.follower_type}_follower"
+        teleop_type = f"{state.leader_type}_leader"
         
-        # Open log file in append mode (blijft open voor subprocess)
-        log_file = open(teleop_log_file, 'a')
-        log_file.write("\n" + "=" * 60 + "\n")
-        log_file.write(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] Starting teleoperation\n")
-        log_file.write(f"Follower: {follower_port} ({follower_type}/{follower_id})\n")
-        log_file.write(f"Leader: {leader_port} ({leader_type}/{leader_id})\n")
-        log_file.write("=" * 60 + "\n")
-        log_file.flush()
-        
-        # Start subprocess
-        process = subprocess.Popen(
-            cmd,
-            stdout=log_file,
-            stderr=subprocess.STDOUT,
-            text=True
-        )
-        
-        # Update state
-        state.teleop_process = process
-        state.teleop_mode = "teleoperation"
-        
-        logger.info(f"✅ Teleoperation gestart (PID: {process.pid})")
-        return True
+        if teleop_manager.start(
+            robot_type=robot_type,
+            robot_port=state.follower_port,
+            robot_id=state.follower_id,
+            teleop_type=teleop_type,
+            teleop_port=state.leader_port,
+            teleop_id=state.leader_id,
+            fps=60
+        ):
+            state.teleop_manager = teleop_manager
+            state.teleop_mode = "teleoperation"
+            logger.info("✅ Teleoperation gestart (in-process)")
+            return True
+        else:
+            logger.error("❌ Failed to start teleoperation")
+            return False
         
     except Exception as e:
         logger.error(f"❌ Fout bij starten teleoperation: {e}", exc_info=True)
-        state.teleop_process = None
+        state.teleop_manager = None
         state.teleop_mode = "stopped"
         return False
 
 
 async def stop_teleoperation() -> bool:
-    """Stop het teleoperation proces."""
+    """Stop teleoperation."""
     if not state.is_running():
         logger.warning("Teleoperation draait niet")
         state.teleop_mode = "stopped"
@@ -289,35 +267,11 @@ async def stop_teleoperation() -> bool:
     logger.info("🛑 Stop teleoperation...")
     
     try:
-        # Send SIGINT (Ctrl-C) for graceful shutdown - better for serial port cleanup
-        logger.info("Sending SIGINT (Ctrl-C) for graceful shutdown...")
-        state.teleop_process.send_signal(signal.SIGINT)
-        
-        # Wait up to 5 seconds for graceful shutdown
-        for i in range(50):
-            if state.teleop_process.poll() is not None:
-                logger.info(f"Process stopped gracefully after {i*0.1:.1f}s")
-                break
-            await asyncio.sleep(0.1)
-        
-        # If still running, try SIGTERM
-        if state.teleop_process.poll() is None:
-            logger.warning("SIGINT timeout, trying SIGTERM...")
-            state.teleop_process.terminate()
-            
-            for _ in range(30):
-                if state.teleop_process.poll() is not None:
-                    break
-                await asyncio.sleep(0.1)
-        
-        # Last resort: SIGKILL
-        if state.teleop_process.poll() is None:
-            logger.warning("SIGTERM timeout, force killing with SIGKILL...")
-            state.teleop_process.kill()
-            state.teleop_process.wait()
-        
+        logger.info("Stopping teleoperation manager...")
+        state.teleop_manager.stop()
         logger.info("✅ Teleoperation gestopt")
-        state.teleop_process = None
+        
+        state.teleop_manager = None
         state.teleop_mode = "stopped"
         return True
         
@@ -528,6 +482,10 @@ async def api_info():
             "/api/status": "Get teleoperation status",
             "/api/teleoperation/start": "Start teleoperation",
             "/api/teleoperation/stop": "Stop teleoperation",
+            "/api/teleoperation/current-position": "Get current robot position during teleoperation",
+            "/api/teleoperation/save-current-position": "Save current position during teleoperation",
+            "/api/positions": "Get all saved positions",
+            "/api/positions/{name}": "Delete a saved position",
         }
     }
 
@@ -546,11 +504,11 @@ async def health():
 async def get_status():
     """Get current teleoperation status"""
     state.refresh_state()
+    
     return {
         "running": state.is_running(),
         "mode": state.teleop_mode,
         "devices_available": state.devices_available,
-        "pid": state.teleop_process.pid if state.is_running() else None,
         "follower_port": state.follower_port,
         "leader_port": state.leader_port,
         "follower_type": state.follower_type,
@@ -578,6 +536,126 @@ async def api_stop_teleoperation():
         "success": success,
         "message": "Teleoperation stopped" if success else "Failed to stop teleoperation"
     }
+
+
+@app.get("/api/teleoperation/current-position")
+async def get_teleoperation_current_position():
+    """Get current position during teleoperation"""
+    if not state.teleop_manager or not state.teleop_manager.is_running:
+        return {
+            "success": False,
+            "error": "Teleoperation not running"
+        }
+    
+    try:
+        positions_dict = state.teleop_manager.get_current_positions()
+        
+        # Extract motor names and positions
+        motor_names = list(positions_dict.keys())
+        positions = list(positions_dict.values())
+        
+        return {
+            "success": True,
+            "positions": positions,
+            "motor_names": motor_names,
+            "source": "teleoperation"
+        }
+    except Exception as e:
+        logger.error(f"Error getting teleoperation positions: {e}")
+        return {
+            "success": False,
+            "error": str(e)
+        }
+
+
+@app.post("/api/teleoperation/save-current-position")
+async def save_teleoperation_position(request: Request):
+    """Save current position during teleoperation"""
+    if not state.teleop_manager or not state.teleop_manager.is_running:
+        return {
+            "success": False,
+            "message": "Teleoperation not running"
+        }
+    
+    try:
+        # Get request body
+        body = await request.json()
+        name = body.get('name', 'unnamed')
+        description = body.get('description', '')
+        
+        # Get current positions from teleoperation
+        positions_dict = state.teleop_manager.get_current_positions()
+        motor_names = list(positions_dict.keys())
+        positions = list(positions_dict.values())
+        
+        # Save to Blockly manager if available
+        if state.blockly_manager:
+            # Convert to format expected by Blockly (6 values array)
+            position_array = positions[:6] if len(positions) >= 6 else positions
+            state.blockly_manager.save_position(name, position_array, description)
+        
+        return {
+            "success": True,
+            "message": f"Position '{name}' saved successfully",
+            "angles": positions,
+            "motor_names": motor_names
+        }
+    except Exception as e:
+        logger.error(f"Error saving position: {e}")
+        return {
+            "success": False,
+            "message": str(e)
+        }
+
+
+@app.get("/api/positions")
+async def get_saved_positions():
+    """Get all saved positions"""
+    if not state.blockly_manager:
+        return {
+            "success": False,
+            "count": 0,
+            "positions": {}
+        }
+    
+    try:
+        positions = state.blockly_manager.get_saved_positions()
+        return {
+            "success": True,
+            "count": len(positions),
+            "positions": positions
+        }
+    except Exception as e:
+        logger.error(f"Error getting saved positions: {e}")
+        return {
+            "success": False,
+            "count": 0,
+            "positions": {},
+            "error": str(e)
+        }
+
+
+@app.delete("/api/positions/{position_name}")
+async def delete_saved_position(position_name: str):
+    """Delete a saved position"""
+    if not state.blockly_manager:
+        return {
+            "success": False,
+            "message": "Blockly manager not available"
+        }
+    
+    try:
+        success = state.blockly_manager.delete_position(position_name)
+        return {
+            "success": success,
+            "message": f"Position '{position_name}' deleted" if success else "Position not found"
+        }
+    except Exception as e:
+        logger.error(f"Error deleting position: {e}")
+        return {
+            "success": False,
+            "message": str(e)
+        }
 
 
 # ============================================================================
@@ -840,7 +918,33 @@ async def execute_code(execution: BlocklyExecute):
 
 @app.get("/api/robot/positions")
 async def get_robot_positions():
-    """Get current robot joint positions"""
+    """Get current robot joint positions from teleoperation or Blockly"""
+    
+    # Try teleoperation manager first (if running)
+    if state.is_running():
+        try:
+            from teleoperation_manager import TeleoperationManager
+            
+            teleop_manager = state.teleop_manager
+            positions_dict = teleop_manager.get_current_positions()
+            
+            if positions_dict:
+                # Convert to list format (matching Blockly API)
+                # LeRobot uses motor names, need to map to indices
+                positions = []
+                for motor_name in sorted(positions_dict.keys()):
+                    positions.append(positions_dict[motor_name])
+                
+                return {
+                    "success": True,
+                    "positions": positions,
+                    "motor_names": list(positions_dict.keys()),
+                    "source": "teleoperation"
+                }
+        except Exception as e:
+            logger.debug(f"Could not get positions from teleoperation: {e}")
+    
+    # Fallback to Blockly robot API
     if not state.blockly_enabled or not state.blockly_manager:
         raise HTTPException(status_code=503, detail="Robot not available")
     
@@ -856,7 +960,8 @@ async def get_robot_positions():
                 "wrist_flex",
                 "wrist_rotate",
                 "gripper"
-            ]
+            ],
+            "source": "blockly"
         }
     except Exception as e:
         logger.error(f"Error reading robot positions: {e}")
