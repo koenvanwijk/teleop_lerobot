@@ -334,6 +334,16 @@
             </div>
             
             <div class="controls-container">
+                <div class="control-section" id="leader-mode">
+                    <div class="section-title">Leader Mode</div>
+                    <div style="display:flex; align-items:center; gap:10px; background:#0f0f12; border:1px solid #2b2b31; border-radius:8px; padding:12px;">
+                        <label style="display:flex; align-items:center; gap:8px; cursor:pointer;">
+                            <input type="checkbox" id="leaderToggle" />
+                            <span style="color:#e5e7eb;">Send on drag</span>
+                        </label>
+                        <span id="leaderStatus" class="info-badge">idle</span>
+                    </div>
+                </div>
                 <div class="control-section">
                     <div class="section-title">Joint Controls</div>
                     <div id="joint-controls">
@@ -580,6 +590,15 @@
                 const radians = percentageToRadians(percentage, jointName);
                 robot.joints[jointName].setJointValue(radians);
             }
+
+            // Send to follower when leader mode enabled and user adjusts
+            const toggle = document.getElementById('leaderToggle');
+            if (toggle && toggle.checked) {
+                const motorName = mapJointToMotor(jointName);
+                if (motorName) {
+                    sendLeaderPositions([motorName], [percentage]);
+                }
+            }
         }
 
         function resetToHome() {
@@ -664,6 +683,9 @@
                     
                     if (data.success && data.motor_names && data.positions) {
                         // Update robot based on actual motor positions
+                        const leaderToggle = document.getElementById('leaderToggle');
+                        const leaderEnabled = !!(leaderToggle && leaderToggle.checked);
+
                         data.motor_names.forEach((motorName, index) => {
                             const percentage = data.positions[index]; // Already in percentage (-100 to 100)
                             
@@ -675,14 +697,10 @@
                                 console.log(`Mapping: ${motorName} (${percentage.toFixed(1)}%) -> ${jointName}`);
                             }
                             
-                            if (jointName && robot && robot.joints[jointName]) {
-                                // Convert percentage to radians using URDF joint limits
+                            if (!leaderEnabled && jointName && robot && robot.joints[jointName]) {
+                                // Only apply polled positions when NOT in leader mode
                                 const radians = percentageToRadians(percentage, jointName);
-                                
-                                // Update 3D robot joint (needs radians)
                                 robot.joints[jointName].setJointValue(radians);
-                                
-                                // Update UI display (in percentage)
                                 const slider = document.getElementById('slider-' + jointName);
                                 const valueDisplay = document.getElementById('value-' + jointName);
                                 if (slider && valueDisplay) {
@@ -695,8 +713,11 @@
                         // Mark that we've logged the mapping
                         window.mappingLogged = true;
                         
-                        // Update raw positions panel
+                        // Always update raw positions panel
                         updateRawPositions(data.motor_names, data.positions);
+
+                        // cache for leader sends
+                        window.__lastPositionsData = { motor_names: data.motor_names, positions: data.positions };
 
                         // Update status
                         document.getElementById('status-text').textContent = 
@@ -741,6 +762,19 @@
             };
             return mapping[motorName] || motorName;
         }
+
+        // Inverse mapping for leader sends
+        function mapJointToMotor(jointName) {
+            const inverse = {
+                'Rotation': 'shoulder_pan',
+                'Pitch': 'shoulder_lift',
+                'Elbow': 'elbow_flex',
+                'Wrist_Pitch': 'wrist_flex',
+                'Wrist_Roll': 'wrist_roll',
+                'Jaw': 'gripper'
+            };
+            return inverse[jointName] || null;
+        }
         
     // Convert percentage to radians based on URDF joint limits
     // For all joints except Jaw (gripper): range is -100..100
@@ -771,6 +805,24 @@
             const radians = limits.lower + normalized * (limits.upper - limits.lower);
             
             return radians;
+        }
+
+        // Send positions to backend for follower control
+        async function sendLeaderPositions(motorNames, positions) {
+            const statusEl = document.getElementById('leaderStatus');
+            try {
+                statusEl.textContent = 'sending…';
+                const res = await fetch('/api/teleoperation/leader/command', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ motor_names: motorNames, positions })
+                });
+                const data = await res.json();
+                statusEl.textContent = data.success ? 'sent' : ('error: ' + (data.error || data.message || 'unknown'));
+            } catch (e) {
+                statusEl.textContent = 'network error';
+                console.error('Leader send failed', e);
+            }
         }
 
         // Update raw positions view in sidebar

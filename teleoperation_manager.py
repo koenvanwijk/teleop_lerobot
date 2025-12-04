@@ -276,6 +276,45 @@ class TeleoperationManager:
             "has_positions": self.current_observation is not None
         }
 
+    def apply_leader_positions(self, positions: Dict[str, float]) -> bool:
+        """
+        Apply leader-provided target positions directly to the robot.
+        Expects percentage values: joints in -100..100, gripper in 0..100.
+        """
+        if not self.is_running or self.robot is None:
+            logging.warning("Cannot apply leader positions: teleoperation not running or robot missing")
+            return False
+
+        try:
+            # Build a RobotAction-compatible dict using observation keys
+            # Normalize keys by stripping '.pos'
+            action = {}
+            for k, v in positions.items():
+                base = str(k).replace('.pos', '')
+                # Use both base and '.pos' to maximize compatibility
+                action[base] = float(v)
+                action[f"{base}.pos"] = float(v)
+
+            # Process through the robot action processor if available
+            with self.lock:
+                obs = self.current_observation or {}
+            if self.robot_action_processor is not None:
+                processed = self.robot_action_processor((action, obs))
+            else:
+                processed = action
+
+            # Send to robot
+            _ = self.robot.send_action(processed)
+
+            # Cache as current action
+            with self.lock:
+                self.current_action = processed
+
+            return True
+        except Exception as e:
+            logging.error(f"apply_leader_positions failed: {e}")
+            return False
+
 
 # Global instance for web server access
 _teleoperation_manager: Optional[TeleoperationManager] = None

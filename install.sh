@@ -90,7 +90,7 @@ conda activate "$CONDA_ENV"
 pip install --upgrade pip
 pip install lerobot[feetech]
 pip install fastapi uvicorn[standard] pydantic websockets python-multipart
-pip install opencv-python numpy
+pip install opencv-python numpy draccus
 
 # ---- 3) Calibration files installeren ----
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"

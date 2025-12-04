@@ -646,6 +646,23 @@ async def set_device_defaults(request: Request):
             logger.error(f"Error saving legacy defaults: {e}")
             legacy_saved = False
 
+        # Reinitialize Blockly manager to use the updated follower selection
+        try:
+            if BLOCKLY_AVAILABLE:
+                logger.info("🔄 Reinitializing Blockly manager with new follower defaults...")
+                robot_port = state.follower_port if state.follower_port else None
+                robot_type = state.follower_type if state.follower_type else None
+                robot_id = state.follower_id if state.follower_id else None
+                state.blockly_manager = BlocklyManager(
+                    robot_port=robot_port,
+                    robot_type=robot_type,
+                    robot_id=robot_id
+                )
+                state.blockly_enabled = True
+                logger.info(f"✅ Blockly now bound to follower: port={robot_port}, type={robot_type}, id={robot_id}")
+        except Exception as e:
+            logger.error(f"Error reinitializing Blockly after defaults change: {e}")
+
         return {
             'success': bool(saved_json and legacy_saved),
             'message': 'Defaults saved' if (saved_json and legacy_saved) else (
@@ -1155,6 +1172,53 @@ async def execute_code(execution: BlocklyExecute):
         if was_teleop_running:
             logger.info("Restarting teleoperation...")
             await start_teleoperation()
+
+
+@app.post("/api/teleoperation/leader/command")
+async def teleop_leader_command(request: Request):
+    """Accept leader commands (positions in percentage) and forward to follower when teleop is running.
+
+    Payload: { motor_names: [...], positions: [...] }
+    Gripper uses 0..100, other joints use -100..100.
+    """
+    if not state.teleop_manager or not state.teleop_manager.is_running:
+        return { "success": False, "error": "Teleoperation not running" }
+
+    try:
+        body = await request.json()
+        motor_names = body.get('motor_names') or []
+        positions = body.get('positions') or []
+        if not isinstance(motor_names, list) or not isinstance(positions, list) or len(motor_names) != len(positions):
+            return { "success": False, "error": "Invalid payload" }
+
+        # Build a dict for the teleop manager, accept either base or `.pos` keys
+        cmd = {}
+        for i, name in enumerate(motor_names):
+            base = str(name).replace('.pos', '')
+            val = float(positions[i])
+            cmd[base] = val
+            cmd[f"{base}.pos"] = val
+
+        # Forward to teleoperation manager if it supports a handler
+        handler = None
+        if hasattr(state.teleop_manager, 'apply_leader_positions'):
+            handler = state.teleop_manager.apply_leader_positions
+        elif hasattr(state.teleop_manager, 'set_target_positions'):
+            handler = state.teleop_manager.set_target_positions
+        elif hasattr(state.teleop_manager, 'update_positions'):
+            handler = state.teleop_manager.update_positions
+
+        if handler:
+            handler(cmd)
+            return { "success": True }
+        else:
+            # Fallback: store on teleop manager for polling loop to consume if implemented
+            setattr(state.teleop_manager, 'leader_positions', cmd)
+            return { "success": True, "message": "Stored leader positions (no direct handler)" }
+
+    except Exception as e:
+        logger.error(f"Leader command error: {e}")
+        return { "success": False, "error": str(e) }
 
 
 @app.get("/api/robot/positions")
