@@ -742,8 +742,10 @@
             return mapping[motorName] || motorName;
         }
         
-        // Convert percentage (-100 to 100) to radians based on URDF joint limits
-        function percentageToRadians(percentage, jointName) {
+    // Convert percentage to radians based on URDF joint limits
+    // For all joints except Jaw (gripper): range is -100..100
+    // For Jaw (gripper): range is 0..100
+    function percentageToRadians(percentage, jointName) {
             // URDF joint limits in radians (from so101.urdf)
             const jointLimits = {
                 'Rotation': { lower: 1.22014, upper: 5.05986 },
@@ -760,9 +762,12 @@
                 return 0;
             }
             
-            // Map percentage (-100 to 100) to joint range (lower to upper)
-            // -100% = lower limit, +100% = upper limit, 0% = middle
-            const normalized = (percentage + 100) / 200; // 0 to 1
+            // Map percentage to joint range (lower to upper)
+            // For Jaw (gripper): 0% = lower limit, 100% = upper limit
+            // For other joints: -100% = lower limit, +100% = upper limit, 0% = middle
+            const normalized = (jointName === 'Jaw')
+                ? (percentage / 100)
+                : ((percentage + 100) / 200);
             const radians = limits.lower + normalized * (limits.upper - limits.lower);
             
             return radians;
