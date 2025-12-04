@@ -648,10 +648,49 @@
         </div>
     </div>
     
+        <!-- Floating Status Notifications (bottom-left) -->
+        <div id="status-toast" style="position: fixed; left: 20px; bottom: 20px; z-index: 9999; display: none;">
+            <div id="status-toast-inner" style="padding: 12px 16px; border-radius: 10px; box-shadow: 0 8px 24px rgba(0,0,0,0.2); background: #d1ecf1; color: #0c5460; border: 1px solid #bee5eb; min-width: 260px;">
+                <span id="status-toast-text">Status</span>
+            </div>
+        </div>
+    
     <script>
         let ws = null;
         let blocklyWorkspace = null;
         let pythonGenerator = null;
+        
+            // Status/Toast helper
+            function showStatus(message, type = 'info', timeout = 3000) {
+                const toast = document.getElementById('status-toast');
+                const inner = document.getElementById('status-toast-inner');
+                const text = document.getElementById('status-toast-text');
+                text.textContent = message;
+            
+                // Style by type
+                if (type === 'success') {
+                    inner.style.background = '#d4edda';
+                    inner.style.color = '#155724';
+                    inner.style.border = '1px solid #c3e6cb';
+                } else if (type === 'error') {
+                    inner.style.background = '#f8d7da';
+                    inner.style.color = '#721c24';
+                    inner.style.border = '1px solid #f5c6cb';
+                } else { // info
+                    inner.style.background = '#d1ecf1';
+                    inner.style.color = '#0c5460';
+                    inner.style.border = '1px solid #bee5eb';
+                }
+            
+                toast.style.display = 'block';
+            
+                // Auto-hide
+                if (timeout > 0) {
+                    setTimeout(() => {
+                        toast.style.display = 'none';
+                    }, timeout);
+                }
+            }
         
         // 3D Viewer functions - defined early for onclick handlers
         function openViewer() {
@@ -884,7 +923,7 @@
         
         async function refreshDevices() {
             await loadDevices();
-            alert('✅ Device list refreshed!');
+            showStatus('Device list refreshed', 'success');
         }
 
         async function saveDeviceDefaults() {
@@ -892,7 +931,7 @@
                 const followerSelect = document.getElementById('follower-select');
                 const leaderSelect = document.getElementById('leader-select');
                 if (!followerSelect.value || !leaderSelect.value) {
-                    alert('⚠️ Please select both a follower and a leader device');
+                    showStatus('Please select both a follower and a leader device', 'info');
                     return;
                 }
                 const follower = JSON.parse(followerSelect.value);
@@ -911,12 +950,12 @@
                 });
                 const data = await response.json();
                 if (data.success) {
-                    alert('✅ Defaults saved');
+                    showStatus('Defaults saved', 'success');
                 } else {
-                    alert('❌ Failed to save defaults: ' + data.message);
+                    showStatus('Failed to save defaults: ' + data.message, 'error');
                 }
             } catch (error) {
-                alert('❌ Error saving defaults: ' + error);
+                showStatus('Error saving defaults: ' + error, 'error');
             }
         }
         
@@ -931,7 +970,7 @@
                 const leaderSelect = document.getElementById('leader-select');
                 
                 if (!followerSelect.value || !leaderSelect.value) {
-                    alert('⚠️ Please select both a follower and a leader device');
+                    showStatus('Please select both a follower and a leader device', 'info');
                     btn.disabled = false;
                     btn.classList.remove('loading');
                     return;
@@ -957,13 +996,14 @@
                 const data = await response.json();
                 
                 if (data.success) {
+                    showStatus('Teleoperation started', 'success');
                     setTimeout(updateTeleopStatus, 1000);
                 } else {
-                    alert('❌ Failed to start: ' + data.message);
+                    showStatus('Failed to start: ' + data.message, 'error');
                     btn.disabled = false;
                 }
             } catch (error) {
-                alert('❌ Error: ' + error);
+                showStatus('Error starting teleoperation: ' + error, 'error');
                 btn.disabled = false;
             } finally {
                 btn.classList.remove('loading');
@@ -980,13 +1020,14 @@
                 const data = await response.json();
                 
                 if (data.success) {
+                    showStatus('Teleoperation stopped', 'success');
                     setTimeout(updateTeleopStatus, 1000);
                 } else {
-                    alert('❌ Failed to stop: ' + data.message);
+                    showStatus('Failed to stop: ' + data.message, 'error');
                     btn.disabled = false;
                 }
             } catch (error) {
-                alert('❌ Error: ' + error);
+                showStatus('Error stopping teleoperation: ' + error, 'error');
                 btn.disabled = false;
             } finally {
                 btn.classList.remove('loading');
@@ -1011,10 +1052,10 @@
                     text.textContent = posText;
                     display.style.display = 'block';
                 } else {
-                    alert('❌ Failed to read position: ' + (data.error || 'Unknown error'));
+                    showStatus('Failed to read position: ' + (data.error || 'Unknown error'), 'error');
                 }
             } catch (error) {
-                alert('❌ Error reading position: ' + error);
+                showStatus('Error reading position: ' + error, 'error');
             }
         }
         
@@ -1024,7 +1065,7 @@
             const name = nameInput.value.trim();
             
             if (!name) {
-                alert('⚠️ Please enter a position name');
+                showStatus('Please enter a position name', 'info');
                 return;
             }
             
@@ -1042,15 +1083,15 @@
                 const data = await response.json();
                 
                 if (data.success) {
-                    alert(`✅ Position '${name}' saved!\nAngles: ${JSON.stringify(data.angles)}`);
+                    showStatus(`Position '${name}' saved`, 'success');
                     nameInput.value = '';
                     descInput.value = '';
                     loadSavedPositionsList();
                 } else {
-                    alert('❌ Failed to save position: ' + data.message);
+                    showStatus('Failed to save position: ' + data.message, 'error');
                 }
             } catch (error) {
-                alert('❌ Error: ' + error);
+                showStatus('Error saving position: ' + error, 'error');
             }
         }
         
@@ -1088,6 +1129,7 @@
                 listDiv.innerHTML = html;
             } catch (error) {
                 console.error('Error loading positions:', error);
+                showStatus('Error loading positions: ' + error, 'error');
             }
         }
         
@@ -1101,13 +1143,13 @@
                 const data = await response.json();
                 
                 if (data.success) {
-                    alert(`✅ Position '${name}' deleted`);
+                    showStatus(`Position '${name}' deleted`, 'success');
                     loadSavedPositionsList();
                 } else {
-                    alert('❌ Failed to delete position');
+                    showStatus('Failed to delete position', 'error');
                 }
             } catch (error) {
-                alert('❌ Error: ' + error);
+                showStatus('Error deleting position: ' + error, 'error');
             }
         }
         
@@ -1147,6 +1189,7 @@
             } catch (error) {
                 console.error('Error loading cameras:', error);
                 document.getElementById('camera-status-text').textContent = 'Error loading cameras';
+                showStatus('Error loading cameras: ' + error, 'error');
             }
         }
         
@@ -1161,13 +1204,14 @@
                 statusText.textContent = `Found ${data.count} camera(s)`;
                 
                 if (data.count > 0) {
-                    alert(`✅ Found ${data.count} camera(s) at indices: ${data.cameras.join(', ')}\n\nRefresh the page to see streams.`);
+                    showStatus(`Found ${data.count} camera(s)`, 'success');
                 } else {
-                    alert('❌ No cameras detected');
+                    showStatus('No cameras detected', 'info');
                 }
             } catch (error) {
                 console.error('Error detecting cameras:', error);
                 statusText.textContent = 'Error detecting cameras';
+                showStatus('Error detecting cameras: ' + error, 'error');
             }
         }
         
@@ -1201,13 +1245,13 @@
                 const data = await response.json();
                 
                 if (data.success) {
-                    alert('✅ Access Point started');
+                    showStatus('Access Point started', 'success');
                     loadNetworkStatus();
                 } else {
-                    alert('❌ Failed to start Access Point');
+                    showStatus('Failed to start Access Point', 'error');
                 }
             } catch (error) {
-                alert('❌ Error: ' + error);
+                showStatus('Error starting AP: ' + error, 'error');
             }
         }
         
@@ -1217,13 +1261,13 @@
                 const data = await response.json();
                 
                 if (data.success) {
-                    alert('✅ Access Point stopped');
+                    showStatus('Access Point stopped', 'success');
                     loadNetworkStatus();
                 } else {
-                    alert('❌ Failed to stop Access Point');
+                    showStatus('Failed to stop Access Point', 'error');
                 }
             } catch (error) {
-                alert('❌ Error: ' + error);
+                showStatus('Error stopping AP: ' + error, 'error');
             }
         }
         
@@ -1257,10 +1301,10 @@
                     });
                     scanResults.style.display = 'block';
                 } else {
-                    alert('❌ No WiFi networks found');
+                    showStatus('No WiFi networks found', 'info');
                 }
             } catch (error) {
-                alert('❌ Error scanning WiFi: ' + error);
+                showStatus('Error scanning WiFi: ' + error, 'error');
             }
         }
         
@@ -1275,7 +1319,7 @@
             const password = document.getElementById('wifi-password').value;
             
             if (!ssid || !password) {
-                alert('❌ Please enter SSID and password');
+                showStatus('Please enter SSID and password', 'info');
                 return;
             }
             
@@ -1288,14 +1332,14 @@
                 const data = await response.json();
                 
                 if (data.success) {
-                    alert('✅ Connected to WiFi');
+                    showStatus('Connected to WiFi', 'success');
                     cancelWiFiConnect();
                     loadNetworkStatus();
                 } else {
-                    alert('❌ Failed to connect: ' + data.message);
+                    showStatus('Failed to connect: ' + data.message, 'error');
                 }
             } catch (error) {
-                alert('❌ Error: ' + error);
+                showStatus('Error connecting WiFi: ' + error, 'error');
             }
         }
         
@@ -1442,7 +1486,7 @@
             
             Blockly.Python.forBlock['robot_save_position'] = function(block, generator) {
                 const name = block.getFieldValue('NAME');
-                return `${name} = [robot.get_joint_position(i) for i in range(6)]\nprint(f"Saved position: {${name}}")\n`;
+                return `${name} = [robot.get_joint_position(i) for i in range(6)]\nprint(f"Saved position: {name}")\n`;
             };
             
             Blockly.Blocks['robot_load_position'] = {
@@ -1741,7 +1785,7 @@ ${code}`;
         
         async function saveBlocklyProgram() {
             if (!blocklyWorkspace) {
-                alert('❌ Blockly workspace not initialized');
+                showStatus('Blockly workspace not initialized', 'error');
                 return;
             }
             
@@ -1779,20 +1823,20 @@ ${pythonCode}`;
                 const data = await response.json();
                 
                 if (data.success) {
-                    alert('✅ Program saved: ' + name);
+                    showStatus('Program saved: ' + name, 'success');
                     loadSavedPrograms();
                 } else {
-                    alert('❌ Failed to save program: ' + (data.message || 'Unknown error'));
+                    showStatus('Failed to save program: ' + (data.message || 'Unknown error'), 'error');
                 }
             } catch (error) {
                 console.error('Save error:', error);
-                alert('❌ Error: ' + error);
+                showStatus('Error saving program: ' + error, 'error');
             }
         }
         
         async function loadBlocklyProgram() {
             if (!blocklyWorkspace) {
-                alert('❌ Blockly workspace not initialized');
+                showStatus('Blockly workspace not initialized', 'error');
                 return;
             }
             
@@ -1802,7 +1846,7 @@ ${pythonCode}`;
                 const data = await response.json();
                 
                 if (data.count === 0) {
-                    alert('No saved programs found');
+                    showStatus('No saved programs found', 'info');
                     return;
                 }
                 
@@ -1820,13 +1864,13 @@ ${pythonCode}`;
                     // Use JSON deserialization instead of XML
                     const state = JSON.parse(program.workspace);
                     Blockly.serialization.workspaces.load(state, blocklyWorkspace);
-                    alert('✅ Program loaded: ' + name);
+                    showStatus('Program loaded: ' + name, 'success');
                 } else {
-                    alert('❌ Failed to load program: No workspace data');
+                    showStatus('Failed to load program: No workspace data', 'error');
                 }
             } catch (error) {
                 console.error('Load error:', error);
-                alert('❌ Error: ' + error);
+                showStatus('Error loading program: ' + error, 'error');
             }
         }
         
@@ -1849,7 +1893,7 @@ ${code}`;
             }
             
             if (!code.trim()) {
-                alert('❌ No code to execute');
+                showStatus('No code to execute', 'info');
                 return;
             }
             
@@ -1887,7 +1931,7 @@ ${code}`;
                 
                 resultsDiv.style.display = 'block';
             } catch (error) {
-                alert('❌ Execution error: ' + error);
+                showStatus('Execution error: ' + error, 'error');
             }
         }
         
@@ -1930,7 +1974,7 @@ ${code}`;
         
         async function loadProgramByName(name) {
             if (!blocklyWorkspace) {
-                alert('❌ Blockly workspace not initialized');
+                showStatus('Blockly workspace not initialized', 'error');
                 return;
             }
             
@@ -1949,13 +1993,13 @@ ${code}`;
                     // Use JSON deserialization instead of XML
                     const state = JSON.parse(program.workspace);
                     Blockly.serialization.workspaces.load(state, blocklyWorkspace);
-                    alert('✅ Program loaded: ' + name);
+                    showStatus('Program loaded: ' + name, 'success');
                 } else {
-                    alert('❌ No workspace data in program');
+                    showStatus('No workspace data in program', 'error');
                 }
             } catch (error) {
                 console.error('Load error:', error);
-                alert('❌ Error loading program: ' + error.message);
+                showStatus('Error loading program: ' + error.message, 'error');
             }
         }
         
@@ -1969,13 +2013,13 @@ ${code}`;
                 const data = await response.json();
                 
                 if (data.success) {
-                    alert('✅ Program deleted');
+                    showStatus('Program deleted', 'success');
                     loadSavedPrograms();
                 } else {
-                    alert('❌ Failed to delete program');
+                    showStatus('Failed to delete program', 'error');
                 }
             } catch (error) {
-                alert('❌ Error: ' + error);
+                showStatus('Error deleting program: ' + error, 'error');
             }
         }
         

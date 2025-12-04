@@ -750,9 +750,29 @@ async def get_teleoperation_current_position():
     try:
         positions_dict = state.teleop_manager.get_current_positions()
         
-        # Extract motor names and positions
-        motor_names = list(positions_dict.keys())
-        positions = list(positions_dict.values())
+        # Build motor_names and positions with consistent ordering
+        desired_order = [
+            'shoulder_pan',
+            'shoulder_lift',
+            'elbow_flex',
+            'wrist_flex',
+            'wrist_roll',
+            'gripper'
+        ]
+        motor_names = []
+        positions = []
+        # Add values in desired order when present
+        for base in desired_order:
+            key = base if base in positions_dict else (f"{base}.pos" if f"{base}.pos" in positions_dict else None)
+            if key is not None:
+                motor_names.append(base)
+                positions.append(positions_dict[key])
+        # Append any remaining keys preserving original order
+        for k in positions_dict.keys():
+            base = k.replace('.pos', '')
+            if base not in motor_names:
+                motor_names.append(base)
+                positions.append(positions_dict[k])
         
         return {
             "success": True,
@@ -785,8 +805,29 @@ async def save_teleoperation_position(request: Request):
         
         # Get current positions from teleoperation
         positions_dict = state.teleop_manager.get_current_positions()
-        motor_names = list(positions_dict.keys())
-        positions = list(positions_dict.values())
+        
+        # Use consistent ordering for saving
+        desired_order = [
+            'shoulder_pan',
+            'shoulder_lift',
+            'elbow_flex',
+            'wrist_flex',
+            'wrist_roll',
+            'gripper'
+        ]
+        motor_names = []
+        positions = []
+        for base in desired_order:
+            key = base if base in positions_dict else (f"{base}.pos" if f"{base}.pos" in positions_dict else None)
+            if key is not None:
+                motor_names.append(base)
+                positions.append(positions_dict[key])
+        # Append any remaining keys preserving original order
+        for k in positions_dict.keys():
+            base = k.replace('.pos', '')
+            if base not in motor_names:
+                motor_names.append(base)
+                positions.append(positions_dict[k])
         
         # Save to Blockly manager if available
         if state.blockly_manager:
@@ -1129,16 +1170,33 @@ async def get_robot_positions():
             positions_dict = teleop_manager.get_current_positions()
             
             if positions_dict:
-                # Convert to list format (matching Blockly API)
-                # LeRobot uses motor names, need to map to indices
+                # Build motor_names and positions with consistent ordering
+                desired_order = [
+                    'shoulder_pan',
+                    'shoulder_lift',
+                    'elbow_flex',
+                    'wrist_flex',
+                    'wrist_roll',
+                    'gripper'
+                ]
+                motor_names = []
                 positions = []
-                for motor_name in sorted(positions_dict.keys()):
-                    positions.append(positions_dict[motor_name])
+                for base in desired_order:
+                    key = base if base in positions_dict else (f"{base}.pos" if f"{base}.pos" in positions_dict else None)
+                    if key is not None:
+                        motor_names.append(base)
+                        positions.append(positions_dict[key])
+                # Append any remaining keys preserving original order
+                for k in positions_dict.keys():
+                    base = k.replace('.pos', '')
+                    if base not in motor_names:
+                        motor_names.append(base)
+                        positions.append(positions_dict[k])
                 
                 return {
                     "success": True,
                     "positions": positions,
-                    "motor_names": list(positions_dict.keys()),
+                    "motor_names": motor_names,
                     "source": "teleoperation"
                 }
         except Exception as e:

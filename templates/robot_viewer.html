@@ -340,6 +340,14 @@
                         <!-- Controls will be generated dynamically -->
                     </div>
                 </div>
+                <div class="control-section">
+                    <div class="section-title">Raw Positions (Teleop)</div>
+                    <div id="raw-positions" style="background: #0f0f12; border: 1px solid #2b2b31; border-radius: 8px; padding: 12px; font-family: 'Monaco','Menlo', monospace; font-size: 12px; color: #c9d1d9;">
+                        <div style="display: grid; grid-template-columns: 1fr auto; gap: 6px;" id="raw-positions-grid">
+                            <!-- Filled at runtime -->
+                        </div>
+                    </div>
+                </div>
             </div>
             
             <div class="button-group">
@@ -687,6 +695,9 @@
                         // Mark that we've logged the mapping
                         window.mappingLogged = true;
                         
+                        // Update raw positions panel
+                        updateRawPositions(data.motor_names, data.positions);
+
                         // Update status
                         document.getElementById('status-text').textContent = 
                             data.source === 'teleoperation' ? 'Teleop Active' : 'Robot Connected';
@@ -755,6 +766,19 @@
             const radians = limits.lower + normalized * (limits.upper - limits.lower);
             
             return radians;
+        }
+
+        // Update raw positions view in sidebar
+        function updateRawPositions(motorNames, positions) {
+            const grid = document.getElementById('raw-positions-grid');
+            if (!grid) return;
+            let html = '';
+            for (let i = 0; i < motorNames.length; i++) {
+                const name = motorNames[i];
+                const val = positions[i];
+                html += `<div style="color:#9da5b4;">${name}</div><div style="text-align:right; color:#10b981;">${val.toFixed(1)}%</div>`;
+            }
+            grid.innerHTML = html || '<span style="color:#71717a;">No data</span>';
         }
 
         // Initialize
