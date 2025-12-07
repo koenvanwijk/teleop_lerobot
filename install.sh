@@ -36,7 +36,7 @@ case "$ARCH" in
     echo "🖥️  Detecteerde architectuur: x86_64 (Intel/AMD)"
     ;;
   aarch64)
-    MINICONDA_URL="https://repo.anaconda.com/miniconda/Miniconda3-latest-Linux-aarch64.sh"
+    MINICONDA_URL="https://github.com/conda-forge/miniforge/releases/latest/download/Miniforge3-Linux-aarch64.sh"
     echo "🍓 Detecteerde architectuur: aarch64 (ARM64/Raspberry Pi)"
     ;;
   *)
@@ -222,3 +222,36 @@ echo "   • README_TELEOP.md - Teleoperation uitleg"
 echo "   • MAPPING.md - Device mapping info"
 echo "═══════════════════════════════════════════════════════════"
 echo ""
+
+# ---- 6) Activate conda environment 'lerobot' (optional convenience) ----
+# Try to activate the environment so the user can immediately start using commands.
+# If conda or the env is missing, print a helpful message and continue.
+activate_lerobot_env() {
+  # Ensure conda is initialized in this shell
+  if [[ -f "$CONDA_DIR/etc/profile.d/conda.sh" ]]; then
+    # shellcheck disable=SC1090
+    . "$CONDA_DIR/etc/profile.d/conda.sh"
+  fi
+
+  if ! command -v conda >/dev/null 2>&1; then
+    echo "[INFO] Conda not available in current shell. Skipping activation."
+    echo "       You can manually activate later: 'source ~/.bashrc && conda activate $CONDA_ENV'"
+    return 0
+  fi
+
+  if conda env list | awk '{print $1}' | grep -qx "$CONDA_ENV"; then
+    echo "Activating conda environment: $CONDA_ENV"
+    conda activate "$CONDA_ENV" || {
+      echo "[WARN] Failed to activate '$CONDA_ENV'. Try manually: 'conda activate $CONDA_ENV'"
+      return 0
+    }
+    python -V || true
+    which python || true
+  else
+    echo "[INFO] Conda environment '$CONDA_ENV' not found. Skipping activation."
+    echo "       Create it or ensure it was installed, then run: 'conda activate $CONDA_ENV'"
+  fi
+}
+
+activate_lerobot_env
+

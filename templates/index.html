@@ -285,6 +285,10 @@
                 <span class="tab-icon">🎮</span>
                 Teleoperation
             </button>
+            <button class="tab" onclick="showTab('commands')">
+                <span class="tab-icon">💻</span>
+                Commands
+            </button>
             <button class="tab" onclick="showTab('cameras')">
                 <span class="tab-icon">📹</span>
                 Cameras
@@ -423,6 +427,32 @@
             <div class="alert alert-info" style="margin-top: 20px;">
                 <strong>💡 Tip:</strong> Sluit USB devices aan en klik op "Start" om teleoperation te starten.
                 De server detecteert automatisch de aangesloten apparaten.
+            </div>
+        </div>
+
+        <!-- Commands Tab -->
+        <div id="commands" class="tab-content">
+            <h2>💻 Command-line examples</h2>
+            <p style="color:#666; margin: 10px 0 20px;">These commands are auto-filled based on your selected Leader and Follower. Use the copy buttons to paste in a terminal.</p>
+
+            <div class="status-card">
+                <h3>Start Teleoperation (CLI)</h3>
+                <pre id="cmd-teleoperate" style="background:#f8f9fa; padding:12px; border-radius:8px; overflow-x:auto;"># Select devices above to populate…</pre>
+                <button class="btn btn-primary" onclick="copyCmd('cmd-teleoperate')">📋 Copy</button>
+            </div>
+
+            <div class="status-card">
+                <h3>Record Dataset (CLI)</h3>
+                <p style="color:#666; font-size:0.9em;">Records teleoperated trajectories to a local folder.</p>
+                <pre id="cmd-record" style="background:#f8f9fa; padding:12px; border-radius:8px; overflow-x:auto;"># Select devices above to populate…</pre>
+                <button class="btn btn-primary" onclick="copyCmd('cmd-record')">📋 Copy</button>
+            </div>
+
+            <div class="status-card">
+                <h3>Evaluate / Replay (CLI)</h3>
+                <p style="color:#666; font-size:0.9em;">Replays a recorded trajectory or evaluates a policy.</p>
+                <pre id="cmd-eval" style="background:#f8f9fa; padding:12px; border-radius:8px; overflow-x:auto;"># Select devices above to populate…</pre>
+                <button class="btn btn-primary" onclick="copyCmd('cmd-eval')">📋 Copy</button>
             </div>
         </div>
         
@@ -733,6 +763,9 @@
                 loadSystemInfo();
             } else if (tabName === 'teleoperation') {
                 loadSavedPositionsList();
+                updateCommandsFromSelection();
+            } else if (tabName === 'commands') {
+                updateCommandsFromSelection();
             }
         }
         
@@ -896,12 +929,85 @@
                 updateDeviceInfo('leader');
                 
                 // Add change listeners
-                followerSelect.onchange = () => updateDeviceInfo('follower');
-                leaderSelect.onchange = () => updateDeviceInfo('leader');
+                followerSelect.onchange = () => { updateDeviceInfo('follower'); updateCommandsFromSelection(); };
+                leaderSelect.onchange = () => { updateDeviceInfo('leader'); updateCommandsFromSelection(); };
                 
             } catch (error) {
                 console.error('Error loading devices:', error);
             }
+        }
+
+        // ==============================
+        // Commands helper (dynamic CLI)
+        // ==============================
+        function buildCmds(follower, leader) {
+            // Assumptions:
+            // - CLI tools: lerobot-teleoperate, lerobot-record, lerobot-eval
+            // - Types come from selection (usually base like 'so101') and must be suffixed correctly
+            // - IDs default to device id if available
+            const baseFollowerType = follower.type || 'so101';
+            const baseLeaderType = leader.type || 'so101';
+            const fType = baseFollowerType.endsWith('_follower') ? baseFollowerType : `${baseFollowerType}_follower`;
+            const lType = baseLeaderType.endsWith('_leader') ? baseLeaderType : `${baseLeaderType}_leader`;
+            const fPort = follower.port || '/dev/tty_follower';
+            const lPort = leader.port || '/dev/tty_leader';
+            const fId = follower.id || 'default';
+            const lId = leader.id || 'default';
+
+            const teleop = `lerobot-teleoperate \
+  --robot.type=${fType} \
+  --robot.port=${fPort} \
+  --robot.id=${fId} \
+  --teleop.type=${lType} \
+  --teleop.port=${lPort} \
+  --teleop.id=${lId}`;
+
+            const record = `lerobot-record \
+  --robot.type=${fType} \
+  --robot.port=${fPort} \
+  --robot.id=${fId} \
+  --teleop.type=${lType} \
+  --teleop.port=${lPort} \
+  --teleop.id=${lId} \
+  --output_dir=~/lerobot_datasets/session_$(date +%Y%m%d_%H%M%S)`;
+
+            const evalCmd = `lerobot-eval \
+  --robot.type=${fType} \
+  --robot.port=${fPort} \
+  --robot.id=${fId} \
+  --policy_path=~/lerobot_models/latest.pt`;
+
+            return { teleop, record, evalCmd };
+        }
+
+        function updateCommandsFromSelection() {
+            const followerSelect = document.getElementById('follower-select');
+            const leaderSelect = document.getElementById('leader-select');
+            if (!followerSelect || !leaderSelect) return;
+
+            let follower = {}, leader = {};
+            try { follower = followerSelect.value ? JSON.parse(followerSelect.value) : {}; } catch {}
+            try { leader = leaderSelect.value ? JSON.parse(leaderSelect.value) : {}; } catch {}
+
+            const cmds = buildCmds(follower, leader);
+            const teleEl = document.getElementById('cmd-teleoperate');
+            const recEl = document.getElementById('cmd-record');
+            const evalEl = document.getElementById('cmd-eval');
+            if (teleEl) teleEl.textContent = cmds.teleop;
+            if (recEl) recEl.textContent = cmds.record;
+            if (evalEl) evalEl.textContent = cmds.evalCmd;
+        }
+
+        function copyCmd(elId) {
+            const el = document.getElementById(elId);
+            if (!el) return;
+            const text = el.textContent;
+            navigator.clipboard.writeText(text).then(() => {
+                showStatus('Command copied to clipboard', 'success');
+            }).catch(err => {
+                console.error('Clipboard error:', err);
+                showStatus('Failed to copy command', 'error');
+            });
         }
         
         function updateDeviceInfo(role) {

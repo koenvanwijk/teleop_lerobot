@@ -10,9 +10,6 @@ calibration/
 │   ├── so101_follower/       # SO-101 follower robots
 │   │   ├── white.json
 │   │   ├── white_12.json
-│   │   ├── white_123.json
-│   │   ├── white_12v.json
-│   │   ├── white_3250.json
 │   │   └── ...
 │   └── roarm_follower/        # RoArm follower robots
 │       └── ...
@@ -20,7 +17,6 @@ calibration/
     ├── so101_leader/          # SO-101 leader robots
     │   ├── black.json
     │   ├── yellow.json
-    │   ├── leader.json
     │   └── ...
     └── roarm_leader/          # RoArm leader robots
         └── ...

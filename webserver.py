@@ -1280,7 +1280,7 @@ async def get_robot_positions():
                 "shoulder_lift", 
                 "elbow_flex",
                 "wrist_flex",
-                "wrist_rotate",
+                "wrist_roll",
                 "gripper"
             ],
             "source": "blockly"
