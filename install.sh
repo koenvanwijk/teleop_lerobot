@@ -23,10 +23,32 @@ Symlinks:
   /dev/tty_<nice>_<role>   (bv. /dev/tty_black_leader)
   /dev/tty_follower        (voor elke follower)
   /dev/tty_leader          (voor elke leader)
+
+Opties:
+  --lerobot-src <pad>      Installeer lerobot vanuit lokale bron met 'pip install -e <pad>'
+  --lerobot-git <url>      Clone lerobot uit Git en installeer editable
+  --lerobot-branch <naam>  (optioneel) Branch/tag voor --lerobot-git
 EOF
 }
 
 [[ "${1:-}" == "-h" || "${1:-}" == "--help" ]] && { usage; exit 0; }
+
+# Parseer eenvoudige opties
+LEROBOT_SRC=""
+LEROBOT_GIT=""
+LEROBOT_BRANCH=""
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    --lerobot-src)
+      LEROBOT_SRC="$2"; shift 2 ;;
+    --lerobot-git)
+      LEROBOT_GIT="$2"; shift 2 ;;
+    --lerobot-branch)
+      LEROBOT_BRANCH="$2"; shift 2 ;;
+    *)
+      echo "Onbekende optie: $1"; usage; exit 1 ;;
+  esac
+done
 
 # Detecteer architectuur
 ARCH="$(uname -m)"
@@ -94,7 +116,32 @@ fi
 echo "📦 pip install lerobot en dependencies…"
 conda activate "$CONDA_ENV"
 pip install --upgrade pip
-pip install lerobot[feetech]
+# Kies installatiemodus voor lerobot
+if [[ -n "$LEROBOT_SRC" ]]; then
+  echo "🔗 Installeer lerobot editable vanuit lokale bron: $LEROBOT_SRC"
+  if [[ ! -d "$LEROBOT_SRC" ]]; then
+    echo "❌ Opgegeven pad bestaat niet: $LEROBOT_SRC"; exit 1
+  fi
+  pip install -e "$LEROBOT_SRC"[feetech]
+elif [[ -n "$LEROBOT_GIT" ]]; then
+  echo "🌿 Clone lerobot uit Git: $LEROBOT_GIT ${LEROBOT_BRANCH:+(branch: $LEROBOT_BRANCH)}"
+  if ! command -v git >/dev/null 2>&1; then
+    echo "🔧 Installeer git…"
+    sudo apt-get update -y && sudo apt-get install -y git
+  fi
+  CLONE_DIR="$HOME/lerobot_src"
+  rm -rf "$CLONE_DIR"
+  if [[ -n "$LEROBOT_BRANCH" ]]; then
+    git clone --branch "$LEROBOT_BRANCH" --single-branch "$LEROBOT_GIT" "$CLONE_DIR"
+  else
+    git clone "$LEROBOT_GIT" "$CLONE_DIR"
+  fi
+  echo "🧪 Editable install: $CLONE_DIR"
+  pip install -e "$CLONE_DIR"[feetech]
+else
+  echo "📦 Installeer lerobot vanaf PyPI (met feetech)"
+  pip install lerobot[feetech]
+fi
 pip install fastapi uvicorn[standard] pydantic websockets python-multipart
 pip install opencv-python numpy draccus
 
