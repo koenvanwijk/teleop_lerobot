@@ -73,9 +73,15 @@ if ! grep -q "conda initialize" "$HOME/.bashrc" 2>/dev/null; then
   echo "✅ Conda init compleet"
 fi
 
-# Accepteer TOS (nodig voor conda install e.d.)
-conda tos accept --override-channels --channel https://repo.anaconda.com/pkgs/main
-conda tos accept --override-channels --channel https://repo.anaconda.com/pkgs/r
+# Accepteer TOS (alleen beschikbaar op Anaconda/Miniconda; niet op Miniforge/Mamba)
+# Check of de 'conda tos' subcommand bestaat, anders overslaan.
+if conda help | grep -q "\btos\b"; then
+  echo "📝 Conda TOS subcommand gevonden: accepteer TOS voor main en r kanalen…"
+  conda tos accept --override-channels --channel https://repo.anaconda.com/pkgs/main || true
+  conda tos accept --override-channels --channel https://repo.anaconda.com/pkgs/r || true
+else
+  echo "ℹ️  'conda tos' niet beschikbaar (Miniforge/Mamba): TOS-acceptatie overgeslagen."
+fi
 
 # ---- 2) Env 'lerobot' met Python 3.10 + lerobot ----
 if conda env list | awk '{print $1}' | grep -qx "$CONDA_ENV"; then
