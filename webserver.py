@@ -12,7 +12,7 @@ import subprocess
 import signal
 import time
 import json
-from datetime import datetime
+from datetime import datetime, timedelta
 from pathlib import Path
 from typing import Optional, Dict, Any, List
 from contextlib import asynccontextmanager
@@ -22,6 +22,7 @@ from fastapi.responses import HTMLResponse, JSONResponse, FileResponse, Streamin
 from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
+from collections import defaultdict, deque
 
 # Import camera en network managers (conditional imports voor ontwikkeling zonder hardware)
 try:
@@ -109,6 +110,40 @@ def scan_devices():
 
 
 # ============================================================================
+# Rate Limiting
+# ============================================================================
+
+class SimpleRateLimiter:
+    """Simple rate limiter to prevent resource exhaustion."""
+    def __init__(self, max_requests_per_second: int = 10, window_size: int = 60):
+        self.max_requests_per_second = max_requests_per_second
+        self.window_size = window_size
+        self.requests = defaultdict(deque)  # IP -> deque of timestamps
+    
+    def is_allowed(self, client_ip: str) -> bool:
+        """Check if request from this IP is allowed."""
+        now = time.time()
+        client_requests = self.requests[client_ip]
+        
+        # Remove old requests outside window
+        while client_requests and client_requests[0] <= now - self.window_size:
+            client_requests.popleft()
+        
+        # Count requests in last second
+        recent_requests = sum(1 for req_time in client_requests if req_time > now - 1.0)
+        
+        if recent_requests >= self.max_requests_per_second:
+            return False
+        
+        # Add current request
+        client_requests.append(now)
+        return True
+
+# Global rate limiter for position requests
+position_limiter = SimpleRateLimiter(max_requests_per_second=6)  # Max 6 req/sec per IP
+
+
+# ============================================================================
 # Robot State Management
 # ============================================================================
 
@@ -141,6 +176,11 @@ class RobotState:
         # WebSocket clients
         self.websocket_clients: List[WebSocket] = []
 
+        # Position caching to prevent excessive resource usage
+        self._positions_cache: Optional[Dict[str, Any]] = None
+        self._positions_cache_time: Optional[datetime] = None
+        self._positions_cache_duration = timedelta(milliseconds=50)  # Cache for 50ms
+
         # Persisted defaults
         self.defaults_file = Path.home() / ".lerobot_device_defaults.json"
         self._load_persisted_defaults()
@@ -150,6 +190,20 @@ class RobotState:
         if self.teleop_manager is None:
             return False
         return self.teleop_manager.is_running
+    
+    def get_cached_positions(self) -> Optional[Dict[str, Any]]:
+        """Get cached positions if still valid, otherwise return None."""
+        now = datetime.now()
+        if (self._positions_cache is not None and 
+            self._positions_cache_time is not None and
+            now - self._positions_cache_time < self._positions_cache_duration):
+            return self._positions_cache
+        return None
+    
+    def cache_positions(self, positions: Dict[str, Any]) -> None:
+        """Cache positions with timestamp."""
+        self._positions_cache = positions
+        self._positions_cache_time = datetime.now()
     
     async def broadcast_status(self, message: Dict[str, Any]):
         """Broadcast status update to all WebSocket clients."""
@@ -1222,74 +1276,97 @@ async def teleop_leader_command(request: Request):
 
 
 @app.get("/api/robot/positions")
-async def get_robot_positions():
+async def get_robot_positions(request: Request):
     """Get current robot joint positions from teleoperation or Blockly"""
     
-    # Try teleoperation manager first (if running)
-    if state.is_running():
-        try:
-            from teleoperation_manager import TeleoperationManager
-            
-            teleop_manager = state.teleop_manager
-            positions_dict = teleop_manager.get_current_positions()
-            
-            if positions_dict:
-                # Build motor_names and positions with consistent ordering
-                desired_order = [
-                    'shoulder_pan',
-                    'shoulder_lift',
-                    'elbow_flex',
-                    'wrist_flex',
-                    'wrist_roll',
-                    'gripper'
-                ]
-                motor_names = []
-                positions = []
-                for base in desired_order:
-                    key = base if base in positions_dict else (f"{base}.pos" if f"{base}.pos" in positions_dict else None)
-                    if key is not None:
-                        motor_names.append(base)
-                        positions.append(positions_dict[key])
-                # Append any remaining keys preserving original order
-                for k in positions_dict.keys():
-                    base = k.replace('.pos', '')
-                    if base not in motor_names:
-                        motor_names.append(base)
-                        positions.append(positions_dict[k])
-                
-                return {
-                    "success": True,
-                    "positions": positions,
-                    "motor_names": motor_names,
-                    "source": "teleoperation"
-                }
-        except Exception as e:
-            logger.debug(f"Could not get positions from teleoperation: {e}")
-    
-    # Fallback to Blockly robot API
-    if not state.blockly_enabled or not state.blockly_manager:
-        raise HTTPException(status_code=503, detail="Robot not available")
+    # Rate limiting to prevent resource exhaustion
+    client_ip = request.client.host if request.client else "unknown"
+    if not position_limiter.is_allowed(client_ip):
+        raise HTTPException(status_code=429, detail="Too many requests - rate limited")
     
     try:
-        positions = state.blockly_manager.robot_api.read_all_positions()
-        return {
-            "success": True,
-            "positions": positions,
-            "joint_names": [
-                "shoulder_pan",
-                "shoulder_lift", 
-                "elbow_flex",
-                "wrist_flex",
-                "wrist_roll",
-                "gripper"
-            ],
-            "source": "blockly"
-        }
+        # Check cache first to reduce resource usage
+        cached_positions = state.get_cached_positions()
+        if cached_positions is not None:
+            return cached_positions
+        
+        # Try teleoperation manager first (if running)
+        if state.is_running():
+            try:
+                teleop_manager = state.teleop_manager
+                if teleop_manager is None:
+                    raise HTTPException(status_code=503, detail="Teleoperation manager not initialized")
+                    
+                positions_dict = teleop_manager.get_current_positions()
+                
+                if positions_dict:
+                    # Build motor_names and positions with consistent ordering
+                    desired_order = [
+                        'shoulder_pan',
+                        'shoulder_lift',
+                        'elbow_flex',
+                        'wrist_flex',
+                        'wrist_roll',
+                        'gripper'
+                    ]
+                    motor_names = []
+                    positions = []
+                    for base in desired_order:
+                        key = base if base in positions_dict else (f"{base}.pos" if f"{base}.pos" in positions_dict else None)
+                        if key is not None:
+                            motor_names.append(base)
+                            positions.append(positions_dict[key])
+                    # Append any remaining keys preserving original order
+                    for k in positions_dict.keys():
+                        base = k.replace('.pos', '')
+                        if base not in motor_names:
+                            motor_names.append(base)
+                            positions.append(positions_dict[k])
+                    
+                    result = {
+                        "success": True,
+                        "positions": positions,
+                        "motor_names": motor_names,
+                        "source": "teleoperation"
+                    }
+                    state.cache_positions(result)
+                    return result
+            except Exception as e:
+                logger.debug(f"Could not get positions from teleoperation: {e}")
+        
+        # Fallback to Blockly robot API
+        if not state.blockly_enabled or not state.blockly_manager:
+            raise HTTPException(status_code=503, detail="Robot not available")
+        
+        try:
+            positions = state.blockly_manager.robot_api.read_all_positions()
+            result = {
+                "success": True,
+                "positions": positions,
+                "joint_names": [
+                    "shoulder_pan",
+                    "shoulder_lift", 
+                    "elbow_flex",
+                    "wrist_flex",
+                    "wrist_roll",
+                    "gripper"
+                ],
+                "source": "blockly"
+            }
+            state.cache_positions(result)
+            return result
+        except Exception as e:
+            logger.error(f"Error reading robot positions: {e}")
+            return {
+                "success": False,
+                "error": str(e),
+                "positions": [0.0] * 6
+            }
     except Exception as e:
-        logger.error(f"Error reading robot positions: {e}")
+        logger.error(f"Unexpected error in get_robot_positions: {e}")
         return {
             "success": False,
-            "error": str(e),
+            "error": "Internal server error",
             "positions": [0.0] * 6
         }
 

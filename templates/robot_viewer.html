@@ -674,14 +674,39 @@
         // Real-time position updates from robot
         let updateInterval = null;
         
+        // Track request state to prevent overlapping requests
+        let requestInProgress = false;
+        let consecutiveErrors = 0;
+        const maxConsecutiveErrors = 5;
+        
         function startPositionUpdates() {
-            // Poll position updates every 50ms (20Hz)
+            // Poll position updates every 200ms (5Hz) - much more reasonable than 20Hz
             updateInterval = setInterval(async () => {
+                // Skip if previous request still in progress
+                if (requestInProgress) {
+                    console.debug('Skipping position update - previous request still in progress');
+                    return;
+                }
+                
+                // Stop polling after too many consecutive errors
+                if (consecutiveErrors >= maxConsecutiveErrors) {
+                    console.warn('Too many consecutive errors, stopping position updates');
+                    stopPositionUpdates();
+                    document.getElementById('status-text').textContent = 'Connection Failed';
+                    document.getElementById('status-dot').className = 'status-dot disconnected';
+                    return;
+                }
+                
+                requestInProgress = true;
                 try {
-                    const response = await fetch('/api/robot/positions');
+                    const response = await fetch('/api/robot/positions', {
+                        signal: AbortSignal.timeout(2000) // 2 second timeout
+                    });
                     const data = await response.json();
                     
                     if (data.success && data.motor_names && data.positions) {
+                        consecutiveErrors = 0; // Reset error counter on success
+                        
                         // Update robot based on actual motor positions
                         const leaderToggle = document.getElementById('leaderToggle');
                         const leaderEnabled = !!(leaderToggle && leaderToggle.checked);
@@ -725,11 +750,14 @@
                         document.getElementById('status-dot').className = 'status-dot connected';
                     }
                 } catch (error) {
-                    console.debug('Position update error:', error);
-                    document.getElementById('status-text').textContent = 'Disconnected';
+                    consecutiveErrors++;
+                    console.debug(`Position update error (${consecutiveErrors}/${maxConsecutiveErrors}):`, error);
+                    document.getElementById('status-text').textContent = 'Connection Issues';
                     document.getElementById('status-dot').className = 'status-dot disconnected';
+                } finally {
+                    requestInProgress = false;
                 }
-            }, 50); // 20Hz update rate
+            }, 200); // 5Hz update rate - much more reasonable
         }
         
         function stopPositionUpdates() {

@@ -370,12 +370,12 @@
                     <span class="status-value" id="devices-value">-</span>
                 </div>
                 <div class="status-row">
-                    <span class="status-label">Follower:</span>
-                    <span class="status-value" id="follower-value">-</span>
-                </div>
-                <div class="status-row">
                     <span class="status-label">Leader:</span>
                     <span class="status-value" id="leader-value">-</span>
+                </div>
+                <div class="status-row">
+                    <span class="status-label">Follower:</span>
+                    <span class="status-value" id="follower-value">-</span>
                 </div>
             </div>
             
@@ -844,12 +844,14 @@
         // Device management functions
         async function loadDevices() {
             try {
-                const [devicesResp, statusResp] = await Promise.all([
+                const [devicesResp, statusResp, defaultsResp] = await Promise.all([
                     fetch('/api/devices'),
-                    fetch('/api/status')
+                    fetch('/api/status'),
+                    fetch('/api/devices/defaults')
                 ]);
                 const data = await devicesResp.json();
                 const status = await statusResp.json();
+                const defaults = await defaultsResp.json().catch(() => ({}));
                 
                 if (!data.success) {
                     console.error('Failed to load devices:', data.error);
@@ -886,31 +888,93 @@
                 
                 // Preselect defaults from backend status if available
                 function selectIfMatch(selectEl, defaults) {
-                    if (!defaults || (!defaults.port && !defaults.id)) return false;
+                    if (!defaults) return false;
+                    const defPort = defaults.port || '';
+                    const defId = defaults.id || '';
+                    const defType = defaults.type || '';
+
+                    // Helper to normalize device paths (handle symlink vs realpath basename)
+                    const normalize = (p) => {
+                        if (!p) return '';
+                        try {
+                            const u = new URL('file:' + p);
+                            const parts = u.pathname.split('/');
+                            return parts[parts.length - 1];
+                        } catch {
+                            const parts = ('' + p).split('/');
+                            return parts[parts.length - 1];
+                        }
+                    };
+
+                    const defBase = normalize(defPort);
+
+                    // Pass 1: exact JSON match on port
                     for (let i = 0; i < selectEl.options.length; i++) {
                         const opt = selectEl.options[i];
                         try {
                             const val = JSON.parse(opt.value);
-                            if ((defaults.port && val.port === defaults.port) ||
-                                (defaults.id && val.id === defaults.id) ||
-                                (defaults.type && val.type === defaults.type)) {
+                            if (defPort && val.port === defPort) {
                                 selectEl.selectedIndex = i;
                                 return true;
                             }
                         } catch {}
                     }
+
+                    // Pass 2: match by basename (handles symlink vs resolved path)
+                    if (defBase) {
+                        for (let i = 0; i < selectEl.options.length; i++) {
+                            const opt = selectEl.options[i];
+                            try {
+                                const val = JSON.parse(opt.value);
+                                if (normalize(val.port) === defBase) {
+                                    selectEl.selectedIndex = i;
+                                    return true;
+                                }
+                            } catch {}
+                        }
+                    }
+
+                    // Pass 3: match by id
+                    if (defId) {
+                        for (let i = 0; i < selectEl.options.length; i++) {
+                            const opt = selectEl.options[i];
+                            try {
+                                const val = JSON.parse(opt.value);
+                                if (val.id === defId) {
+                                    selectEl.selectedIndex = i;
+                                    return true;
+                                }
+                            } catch {}
+                        }
+                    }
+
+                    // Pass 4: match by type (last resort)
+                    if (defType) {
+                        for (let i = 0; i < selectEl.options.length; i++) {
+                            const opt = selectEl.options[i];
+                            try {
+                                const val = JSON.parse(opt.value);
+                                if (val.type === defType) {
+                                    selectEl.selectedIndex = i;
+                                    return true;
+                                }
+                            } catch {}
+                        }
+                    }
+
                     return false;
                 }
 
+                // Prefer persisted defaults when available; fallback to current status
                 const followerDefaults = {
-                    port: status.follower_port,
-                    type: status.follower_type,
-                    id: status.follower_id
+                    port: defaults.follower_port || status.follower_port,
+                    type: defaults.follower_type || status.follower_type,
+                    id: defaults.follower_id || status.follower_id
                 };
                 const leaderDefaults = {
-                    port: status.leader_port,
-                    type: status.leader_type,
-                    id: status.leader_id
+                    port: defaults.leader_port || status.leader_port,
+                    type: defaults.leader_type || status.leader_type,
+                    id: defaults.leader_id || status.leader_id
                 };
 
                 const followerSelected = selectIfMatch(followerSelect, followerDefaults);
@@ -1056,7 +1120,42 @@
                 });
                 const data = await response.json();
                 if (data.success) {
-                    showStatus('Defaults saved', 'success');
+                    showStatus('Defaults saved. Restarting teleoperation…', 'success');
+
+                    // Stop teleoperation if running, then start with new defaults
+                    try {
+                        const statusResp = await fetch('/api/status');
+                        const status = await statusResp.json();
+                        if (status.running) {
+                            await fetch('/api/teleoperation/stop', { method: 'POST' });
+                            // small delay to allow ports to release
+                            await new Promise(r => setTimeout(r, 1500));
+                        }
+                        // Start teleoperation using the just-saved selection
+                        const startResp = await fetch('/api/teleoperation/start', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({
+                                follower_port: follower.port,
+                                follower_type: follower.type,
+                                follower_id: follower.id,
+                                leader_port: leader.port,
+                                leader_type: leader.type,
+                                leader_id: leader.id
+                            })
+                        });
+                        const startData = await startResp.json();
+                        if (startData.success) {
+                            showStatus('Teleoperation restarted with defaults', 'success');
+                        } else {
+                            showStatus('Defaults saved, but failed to restart: ' + (startData.message || 'Unknown error'), 'error');
+                        }
+                        // refresh UI status
+                        setTimeout(updateTeleopStatus, 1000);
+                    } catch (e) {
+                        console.error('Restart error:', e);
+                        showStatus('Defaults saved, but restart failed: ' + e, 'error');
+                    }
                 } else {
                     showStatus('Failed to save defaults: ' + data.message, 'error');
                 }
