@@ -757,6 +757,7 @@
             } else if (tabName === 'blockly') {
                 initBlockly();
                 loadSavedPrograms();
+                updateSavedPositionsDropdown();
             } else if (tabName === 'network') {
                 loadNetworkStatus();
             } else if (tabName === 'system') {
@@ -1292,6 +1293,8 @@
                     nameInput.value = '';
                     descInput.value = '';
                     loadSavedPositionsList();
+                    // Update Blockly dropdown
+                    updateSavedPositionsDropdown();
                 } else {
                     showStatus('Failed to save position: ' + data.message, 'error');
                 }
@@ -1350,6 +1353,8 @@
                 if (data.success) {
                     showStatus(`Position '${name}' deleted`, 'success');
                     loadSavedPositionsList();
+                    // Update Blockly dropdown
+                    updateSavedPositionsDropdown();
                 } else {
                     showStatus('Failed to delete position', 'error');
                 }
@@ -1575,10 +1580,50 @@
         // Blockly Functions
         // =====================================================================
         
+        // Global variable to store saved positions for dropdown
+        window.savedPositionsList = [["(no saved positions)", "none"]];
+        
+        // Fetch saved positions and update the dropdown options
+        async function updateSavedPositionsDropdown() {
+            try {
+                const response = await fetch('/api/positions');
+                const data = await response.json();
+                
+                if (data.success && data.count > 0) {
+                    // Convert positions object to dropdown format [["Display Name", "value"], ...]
+                    window.savedPositionsList = Object.keys(data.positions).map(name => [name, name]);
+                } else {
+                    window.savedPositionsList = [["(no saved positions)", "none"]];
+                }
+                
+                // If blockly workspace exists, update any existing dropdown fields
+                if (blocklyWorkspace) {
+                    const blocks = blocklyWorkspace.getAllBlocks();
+                    blocks.forEach(block => {
+                        if (block.type === 'robot_move_to_saved' || block.type === 'robot_get_saved_position') {
+                            const field = block.getField('POSNAME');
+                            if (field && field.menuGenerator_) {
+                                // Trigger dropdown refresh by setting the menu generator
+                                field.menuGenerator_ = block.generatePositionOptions.bind(block);
+                            }
+                        }
+                    });
+                }
+                
+                console.log('Updated saved positions dropdown:', window.savedPositionsList);
+            } catch (error) {
+                console.error('Error updating saved positions dropdown:', error);
+                window.savedPositionsList = [["(no saved positions)", "none"]];
+            }
+        }
+        
         function initBlockly() {
             if (blocklyWorkspace) {
                 return; // Already initialized
             }
+            
+            // Load saved positions for dropdown
+            updateSavedPositionsDropdown();
             
             // Define custom LeRobot blocks using modern Blockly API
             
@@ -1715,16 +1760,26 @@
                 init: function() {
                     this.appendDummyInput()
                         .appendField("Move to saved position")
-                        .appendField(new Blockly.FieldTextInput("position1"), "POSNAME");
+                        .appendField(new Blockly.FieldDropdown(this.generatePositionOptions), "POSNAME");
                     this.setPreviousStatement(true, null);
                     this.setNextStatement(true, null);
                     this.setColour(260);
                     this.setTooltip("Move to a position saved during teleoperation");
+                },
+                generatePositionOptions: function() {
+                    // Return available saved positions from global variable
+                    if (window.savedPositionsList && window.savedPositionsList.length > 0) {
+                        return window.savedPositionsList;
+                    }
+                    return [["(no saved positions)", "none"]];
                 }
             };
             
             Blockly.Python.forBlock['robot_move_to_saved'] = function(block, generator) {
                 const posname = block.getFieldValue('POSNAME');
+                if (posname === 'none') {
+                    return `print("No saved position selected")\n`;
+                }
                 return `# Move to saved position: ${posname}
 if '${posname}' in positions:
     pos = positions['${posname}']
@@ -1741,10 +1796,17 @@ else:
                 init: function() {
                     this.appendDummyInput()
                         .appendField("Get saved position")
-                        .appendField(new Blockly.FieldTextInput("position1"), "POSNAME");
+                        .appendField(new Blockly.FieldDropdown(this.generatePositionOptions), "POSNAME");
                     this.setOutput(true, "Array");
                     this.setColour(260);
                     this.setTooltip("Get angles from saved position");
+                },
+                generatePositionOptions: function() {
+                    // Return available saved positions from global variable
+                    if (window.savedPositionsList && window.savedPositionsList.length > 0) {
+                        return window.savedPositionsList;
+                    }
+                    return [["(no saved positions)", "none"]];
                 }
             };
             
