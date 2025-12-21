@@ -245,14 +245,22 @@
             <strong>📱 Hoe te gebruiken:</strong>
             <ol>
                 <li>Zorg dat Bluetooth aan staat op je apparaat</li>
-                <li>Start de Bluetooth service op de robot</li>
+                <li>Start de Bluetooth GATT service op de robot</li>
                 <li>Klik op "Scan voor LeRobot"</li>
-                <li>Selecteer het LeRobot-IP apparaat</li>
-                <li>Het IP-adres wordt automatisch getoond</li>
+                <li>Selecteer het LeRobot apparaat</li>
+                <li>Het IP-adres wordt automatisch gelezen via GATT characteristic</li>
             </ol>
-            <div style="margin-top: 15px; padding: 10px; background: #e0f2fe; border-radius: 6px; font-size: 12px;">
+            <div style="margin-top: 15px; padding: 10px; background: #dbeafe; border-radius: 6px; font-size: 12px;">
+                <strong>🔧 Technisch:</strong> Deze scanner gebruikt BLE GATT services om het IP-adres te lezen:
+                <ul style="margin: 8px 0 0 20px; padding: 0;">
+                    <li>Service UUID: <code style="background: #e0f2fe; padding: 2px 4px; border-radius: 3px;">c5f50001-...</code></li>
+                    <li>IP Characteristic: <code style="background: #e0f2fe; padding: 2px 4px; border-radius: 3px;">c5f50002-...</code> (read-only)</li>
+                    <li>Fallback: IP uit apparaatnaam als GATT niet beschikbaar</li>
+                </ul>
+            </div>
+            <div style="margin-top: 10px; padding: 10px; background: #e0f2fe; border-radius: 6px; font-size: 12px;">
                 <strong>⚠️ Android tip:</strong> Als scannen niet werkt, gebruik eerst je Bluetooth instellingen 
-                om "LeRobot-IP-x.x.x.x" te vinden, noteer het IP-adres uit de naam.
+                om "LeRobot" of "LeRobot-x.x.x.x" te vinden.
             </div>
         </div>
 

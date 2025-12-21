@@ -221,6 +221,10 @@
         <button id="scanButton" class="scan-button">
             📡 Scan voor LeRobot
         </button>
+        
+        <button id="manualButton" class="scan-button" style="background: linear-gradient(135deg, #10b981 0%, #059669 100%); margin-bottom: 10px;">
+            🔍 Zoek via Netwerk
+        </button>
 
         <div id="resultCard" class="result-card">
             <div class="result-label">IP Adres gevonden</div>
@@ -241,15 +245,32 @@
             <strong>📱 Hoe te gebruiken:</strong>
             <ol>
                 <li>Zorg dat Bluetooth aan staat op je apparaat</li>
-                <li>Start de Bluetooth service op de robot</li>
+                <li>Start de Bluetooth GATT service op de robot</li>
                 <li>Klik op "Scan voor LeRobot"</li>
-                <li>Selecteer het LeRobot-IP apparaat</li>
-                <li>Het IP-adres wordt automatisch getoond</li>
+                <li>Selecteer het LeRobot apparaat</li>
+                <li>Het IP-adres wordt automatisch gelezen via GATT characteristic</li>
             </ol>
+            <div style="margin-top: 15px; padding: 10px; background: #dbeafe; border-radius: 6px; font-size: 12px;">
+                <strong>🔧 Technisch:</strong> Deze scanner gebruikt BLE GATT services om het IP-adres te lezen:
+                <ul style="margin: 8px 0 0 20px; padding: 0;">
+                    <li>Service UUID: <code style="background: #e0f2fe; padding: 2px 4px; border-radius: 3px;">c5f50001-...</code></li>
+                    <li>IP Characteristic: <code style="background: #e0f2fe; padding: 2px 4px; border-radius: 3px;">c5f50002-...</code> (read-only)</li>
+                    <li>Fallback: IP uit apparaatnaam als GATT niet beschikbaar</li>
+                </ul>
+            </div>
+            <div style="margin-top: 10px; padding: 10px; background: #e0f2fe; border-radius: 6px; font-size: 12px;">
+                <strong>⚠️ Android tip:</strong> Als scannen niet werkt, gebruik eerst je Bluetooth instellingen 
+                om "LeRobot" of "LeRobot-x.x.x.x" te vinden.
+            </div>
         </div>
 
         <div class="browser-support" id="browserWarning" style="display: none;">
             ⚠️ <strong>Let op:</strong> Web Bluetooth wordt alleen ondersteund in Chrome, Edge en Opera browsers.
+        </div>
+        
+        <div class="browser-support" id="httpsWarning" style="display: none; background: #fee2e2; color: #991b1b;">
+            🔒 <strong>HTTPS vereist:</strong> Web Bluetooth werkt alleen via HTTPS. 
+            Probeer via http:// ipv https:// of gebruik Android Bluetooth instellingen.
         </div>
     </div>
 
@@ -259,8 +280,14 @@
             document.getElementById('browserWarning').style.display = 'block';
             document.getElementById('scanButton').disabled = true;
         }
+        
+        // Check if we're on HTTPS (required for Web Bluetooth except on localhost)
+        if (navigator.bluetooth && window.location.protocol !== 'https:' && !window.location.hostname.includes('localhost') && !window.location.hostname.includes('127.0.0.1')) {
+            document.getElementById('httpsWarning').style.display = 'block';
+        }
 
         const scanButton = document.getElementById('scanButton');
+        const manualButton = document.getElementById('manualButton');
         const resultCard = document.getElementById('resultCard');
         const statusMessage = document.getElementById('statusMessage');
         const ipAddress = document.getElementById('ipAddress');
@@ -302,30 +329,91 @@
                 resultCard.classList.remove('show');
                 showStatus('Zoeken naar LeRobot apparaten...', 'info');
 
-                // Request Bluetooth device
-                // We scan for any device since we want to read the name
-                const device = await navigator.bluetooth.requestDevice({
-                    filters: [
-                        { namePrefix: 'LeRobot' },
-                        { namePrefix: 'lerobot' }
-                    ],
-                    optionalServices: ['battery_service']  // Optional, not required
-                });
+                // LeRobot GATT Service UUID
+                const LEROBOT_SERVICE_UUID = 'c5f50001-1234-5678-89ab-123456789abc';
+                const IP_CHARACTERISTIC_UUID = 'c5f50002-1234-5678-89ab-123456789abc';
+
+                // Request Bluetooth device with GATT service filter
+                let device;
+                try {
+                    // Try with service UUID filter first (preferred for GATT)
+                    device = await navigator.bluetooth.requestDevice({
+                        filters: [
+                            { services: [LEROBOT_SERVICE_UUID] },
+                            { namePrefix: 'LeRobot' },
+                            { namePrefix: 'lerobot' }
+                        ],
+                        optionalServices: [LEROBOT_SERVICE_UUID]
+                    });
+                } catch (firstError) {
+                    console.log('Service filter failed, trying name filter:', firstError.message);
+                    // Fallback to name-only filter
+                    try {
+                        device = await navigator.bluetooth.requestDevice({
+                            filters: [
+                                { namePrefix: 'LeRobot' },
+                                { namePrefix: 'lerobot' }
+                            ],
+                            optionalServices: [LEROBOT_SERVICE_UUID]
+                        });
+                    } catch (secondError) {
+                        console.log('Name filter failed, trying acceptAllDevices:', secondError.message);
+                        showStatus('Geen LeRobot gevonden met filter, toon alle apparaten...', 'info');
+                        device = await navigator.bluetooth.requestDevice({
+                            acceptAllDevices: true,
+                            optionalServices: [LEROBOT_SERVICE_UUID]
+                        });
+                    }
+                }
 
                 console.log('Device found:', device.name);
+                showStatus(`Gevonden: ${device.name}. IP ophalen...`, 'info');
 
-                // Extract IP from device name
-                const ip = extractIPFromDeviceName(device.name);
+                let ip = null;
 
-                if (ip) {
+                // Method 1: Try to read from GATT characteristic (preferred)
+                try {
+                    const server = await device.gatt.connect();
+                    showStatus('Verbonden! IP-adres lezen van GATT characteristic...', 'info');
+                    
+                    const service = await server.getPrimaryService(LEROBOT_SERVICE_UUID);
+                    const characteristic = await service.getCharacteristic(IP_CHARACTERISTIC_UUID);
+                    const value = await characteristic.readValue();
+                    
+                    // Convert DataView to string
+                    const decoder = new TextDecoder('utf-8');
+                    ip = decoder.decode(value);
+                    
+                    await server.disconnect();
+                    console.log('IP read from GATT characteristic:', ip);
+                    showStatus('✅ IP gelezen van GATT characteristic', 'success');
+                } catch (gattError) {
+                    console.warn('Failed to read GATT characteristic:', gattError);
+                    
+                    // Method 2: Fallback to device name parsing
+                    ip = extractIPFromDeviceName(device.name);
+                    if (ip) {
+                        console.log('IP extracted from device name:', ip);
+                        showStatus('✅ IP gevonden in apparaatnaam (fallback methode)', 'success');
+                    }
+                }
+
+                if (ip && ip !== "No IP") {
                     // Success! Show the IP address
                     ipAddress.textContent = ip;
                     deviceName.textContent = device.name;
                     connectLink.href = `http://${ip}:8000`;
                     resultCard.classList.add('show');
-                    showStatus('✅ IP-adres gevonden!', 'success');
+                    
+                    // Copy to clipboard
+                    try {
+                        await navigator.clipboard.writeText(ip);
+                        showStatus('✅ IP-adres gevonden en gekopieerd naar klembord!', 'success');
+                    } catch (clipError) {
+                        showStatus('✅ IP-adres gevonden!', 'success');
+                    }
                 } else {
-                    showStatus('⚠️ Kon geen IP-adres vinden in apparaatnaam. Zorg dat de Bluetooth service draait op de robot.', 'error');
+                    showStatus('⚠️ Kon geen IP-adres vinden. Zorg dat de Bluetooth GATT service draait op de robot.', 'error');
                 }
 
             } catch (error) {
@@ -345,6 +433,51 @@
         }
 
         scanButton.addEventListener('click', scanForRobot);
+        
+        // Manual network search - scans common IP ranges
+        manualButton.addEventListener('click', async function() {
+            try {
+                manualButton.disabled = true;
+                manualButton.innerHTML = '<span class="spinner"></span> Zoeken...';
+                resultCard.classList.remove('show');
+                showStatus('Zoeken naar LeRobot op het netwerk...', 'info');
+                
+                // Probeer eerst de huidige host (als we al op de robot zitten)
+                const currentHost = window.location.hostname;
+                const currentPort = window.location.port || '8000';
+                
+                try {
+                    const response = await fetch(`http://${currentHost}:${currentPort}/api/bluetooth/ip`, {
+                        timeout: 2000
+                    });
+                    
+                    if (response.ok) {
+                        const data = await response.json();
+                        if (data.current_ip) {
+                            ipAddress.textContent = data.current_ip;
+                            deviceName.textContent = `LeRobot (via netwerk gevonden)`;
+                            connectLink.href = `http://${data.current_ip}:8000`;
+                            resultCard.classList.add('show');
+                            showStatus('✅ IP-adres gevonden via netwerk!', 'success');
+                            manualButton.disabled = false;
+                            manualButton.textContent = '🔍 Zoek via Netwerk';
+                            return;
+                        }
+                    }
+                } catch (e) {
+                    console.log('Current host not reachable:', e);
+                }
+                
+                // Als dat niet werkt, instrueer gebruiker
+                showStatus('💡 Ga naar Android Bluetooth instellingen, zoek "LeRobot-IP-..." en noteer het IP uit de naam.', 'info');
+                
+            } catch (error) {
+                showStatus(`Netwerk zoeken mislukt: ${error.message}`, 'error');
+            } finally {
+                manualButton.disabled = false;
+                manualButton.textContent = '🔍 Zoek via Netwerk';
+            }
+        });
 
         // Show initial hint
         if (navigator.bluetooth) {
