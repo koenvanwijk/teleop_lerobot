@@ -104,7 +104,7 @@ class WiFiSSIDCharacteristic(ServiceInterface):
     
     @dbus_property(PropertyAccess.READ)
     def Flags(self) -> 'as':
-        return ['write-without-response']
+        return ['write', 'write-without-response']
     
     @method()
     def WriteValue(self, value: 'ay', options: 'a{sv}'):
@@ -139,7 +139,7 @@ class WiFiPasswordCharacteristic(ServiceInterface):
     
     @dbus_property(PropertyAccess.READ)
     def Flags(self) -> 'as':
-        return ['write-without-response']
+        return ['write', 'write-without-response']
     
     @method()
     def WriteValue(self, value: 'ay', options: 'a{sv}'):
@@ -213,7 +213,7 @@ class WiFiConnectCharacteristic(ServiceInterface):
     
     @dbus_property(PropertyAccess.READ)
     def Flags(self) -> 'as':
-        return ['write-without-response']
+        return ['write', 'write-without-response']
     
     @method()
     def WriteValue(self, value: 'ay', options: 'a{sv}'):
@@ -248,7 +248,7 @@ class WiFiScanCharacteristic(ServiceInterface):
     
     @dbus_property(PropertyAccess.READ)
     def Flags(self) -> 'as':
-        return ['write-without-response']
+        return ['write', 'write-without-response']
     
     @method()
     def WriteValue(self, value: 'ay', options: 'a{sv}'):
@@ -292,12 +292,32 @@ class WiFiNetworksCharacteristic(ServiceInterface):
         return self._value
     
     def update_networks(self, networks_json: str):
-        """Update networks list"""
-        # Truncate if too large (BLE MTU limit ~512 bytes typical)
-        if len(networks_json) > 512:
-            logger.warning(f"Networks list truncated from {len(networks_json)} to 512 bytes")
-            networks_json = networks_json[:512]
-        self._value = networks_json.encode('utf-8')
+        """Update networks list, ensuring JSON is valid and under MTU limit"""
+        import json
+        
+        # Parse JSON to get network list
+        try:
+            networks = json.loads(networks_json)
+        except json.JSONDecodeError:
+            logger.error("Invalid JSON provided to update_networks")
+            self._value = b"[]"
+            return
+        
+        # Reduce networks until JSON fits in MTU limit (~512 bytes typical)
+        max_size = 512
+        while len(networks) > 0:
+            compact_json = json.dumps(networks, separators=(',', ':'))
+            if len(compact_json) <= max_size:
+                self._value = compact_json.encode('utf-8')
+                logger.info(f"Stored {len(networks)} networks ({len(self._value)} bytes)")
+                return
+            
+            # Remove last network and try again
+            networks.pop()
+            logger.warning(f"Reducing networks to {len(networks)} to fit MTU limit")
+        
+        # If no networks fit, return empty array
+        self._value = b"[]"
 
 
 class LeRobotGattService(ServiceInterface):
@@ -418,7 +438,6 @@ class BLEGattServer:
         # WiFi credentials storage
         self.wifi_ssid = ""
         self.wifi_password = ""
-        self.wifi_networks = []  # Store scanned networks with security info
         
     def get_local_ip(self) -> str:
         """Get current local IP address"""
@@ -520,17 +539,6 @@ class BLEGattServer:
             else:
                 logger.info(f"No old connection found for {self.wifi_ssid}")
             
-            # Find security type from scanned networks
-            security_type = None
-            for network in self.wifi_networks:
-                if network.get('ssid') == self.wifi_ssid:
-                    security_type = network.get('security', '')
-                    logger.info(f"Found security type for {self.wifi_ssid}: {security_type}")
-                    break
-            
-            if not security_type:
-                logger.warning(f"No security type found for {self.wifi_ssid}, available networks: {[n['ssid'] for n in self.wifi_networks]}")
-            
             # Try to connect using nmcli
             cmd = [
                 'nmcli', 'dev', 'wifi', 'connect',
@@ -540,17 +548,7 @@ class BLEGattServer:
             if self.wifi_password:
                 cmd.extend(['password', self.wifi_password])
             
-            # Add security type if available and not open network
-            if security_type and security_type.strip() and security_type != '--':
-                # Map common security types to key-mgmt values
-                if 'WPA3' in security_type:
-                    logger.info("Using WPA3 (sae) key management")
-                    cmd.extend(['key-mgmt', 'sae'])
-                elif 'WPA' in security_type:
-                    logger.info("Using WPA (wpa-psk) key management")
-                    cmd.extend(['key-mgmt', 'wpa-psk'])
-            
-            logger.info(f"Connecting with command: {' '.join(cmd[:-1])} password:***")
+            logger.info(f"Connecting to WiFi: {self.wifi_ssid}")
             
             result = subprocess.run(
                 cmd,
@@ -632,9 +630,6 @@ class BLEGattServer:
                                 'signal': signal,
                                 'security': security
                             })
-                
-                # Store networks for later use in connect_wifi
-                self.wifi_networks = networks
                 
                 # Convert to compact JSON
                 networks_json = json.dumps(networks, separators=(',', ':'))
