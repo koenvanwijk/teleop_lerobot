@@ -210,6 +210,95 @@
         .instructions li {
             margin-bottom: 5px;
         }
+
+        .wifi-section {
+            margin-top: 20px;
+            padding: 20px;
+            background: #f8fafc;
+            border-radius: 12px;
+            border: 2px dashed #cbd5e1;
+        }
+
+        .wifi-section h3 {
+            color: #334155;
+            font-size: 18px;
+            margin-bottom: 15px;
+        }
+
+        .wifi-networks {
+            max-height: 200px;
+            overflow-y: auto;
+            margin: 10px 0;
+            border: 1px solid #e2e8f0;
+            border-radius: 8px;
+            background: white;
+        }
+
+        .network-item {
+            padding: 12px 15px;
+            border-bottom: 1px solid #e2e8f0;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+
+        .network-item:last-child {
+            border-bottom: none;
+        }
+
+        .network-item:hover {
+            background: #f1f5f9;
+        }
+
+        .network-item.selected {
+            background: #dbeafe;
+            border-left: 4px solid #3b82f6;
+        }
+
+        .network-ssid {
+            font-weight: 600;
+            color: #1e293b;
+        }
+
+        .network-info {
+            font-size: 12px;
+            color: #64748b;
+            margin-top: 4px;
+        }
+
+        .wifi-input {
+            width: 100%;
+            padding: 12px;
+            margin: 10px 0;
+            border: 2px solid #e2e8f0;
+            border-radius: 8px;
+            font-size: 14px;
+        }
+
+        .wifi-input:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+
+        .small-button {
+            padding: 10px 20px;
+            background: #3b82f6;
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-size: 14px;
+            cursor: pointer;
+            margin-right: 10px;
+            transition: background 0.2s;
+        }
+
+        .small-button:hover {
+            background: #2563eb;
+        }
+
+        .small-button:disabled {
+            background: #cbd5e1;
+            cursor: not-allowed;
+        }
     </style>
 </head>
 <body>
@@ -237,6 +326,34 @@
             <a id="connectLink" class="connect-button" href="#" target="_blank">
                 🌐 Open Web Interface
             </a>
+        </div>
+
+        <!-- WiFi Provisioning Section -->
+        <div id="wifiSection" class="wifi-section" style="display: none;">
+            <h3>📶 WiFi Configuratie</h3>
+            <p style="font-size: 13px; color: #64748b; margin-bottom: 15px;">
+                Configureer WiFi op de robot via Bluetooth
+            </p>
+
+            <button id="scanWifiButton" class="small-button">
+                🔍 Scan WiFi Netwerken
+            </button>
+
+            <div id="wifiNetworks" class="wifi-networks" style="display: none;"></div>
+
+            <div id="wifiCredentials" style="display: none;">
+                <input type="text" id="wifiSsid" class="wifi-input" placeholder="WiFi netwerk naam (SSID)" readonly>
+                <input type="password" id="wifiPassword" class="wifi-input" placeholder="WiFi wachtwoord">
+                
+                <button id="connectWifiButton" class="small-button" style="background: #10b981;">
+                    ✓ Verbind met WiFi
+                </button>
+                <button id="cancelWifiButton" class="small-button" style="background: #ef4444;">
+                    ✗ Annuleer
+                </button>
+            </div>
+
+            <div id="wifiStatus" style="margin-top: 15px; padding: 12px; border-radius: 8px; font-size: 13px; display: none;"></div>
         </div>
 
         <div id="statusMessage" class="status-message" style="display: none;"></div>
@@ -302,6 +419,31 @@
         const deviceName = document.getElementById('deviceName');
         const connectLink = document.getElementById('connectLink');
 
+        // WiFi provisioning elements
+        const wifiSection = document.getElementById('wifiSection');
+        const scanWifiButton = document.getElementById('scanWifiButton');
+        const wifiNetworks = document.getElementById('wifiNetworks');
+        const wifiCredentials = document.getElementById('wifiCredentials');
+        const wifiSsid = document.getElementById('wifiSsid');
+        const wifiPassword = document.getElementById('wifiPassword');
+        const connectWifiButton = document.getElementById('connectWifiButton');
+        const cancelWifiButton = document.getElementById('cancelWifiButton');
+        const wifiStatus = document.getElementById('wifiStatus');
+
+        // Global BLE device and server
+        let bleDevice = null;
+        let bleServer = null;
+
+        // UUIDs
+        const LEROBOT_SERVICE_UUID = 'c5f50001-1234-5678-89ab-123456789abc';
+        const IP_CHARACTERISTIC_UUID = 'c5f50002-1234-5678-89ab-123456789abc';
+        const WIFI_SSID_CHAR_UUID = 'c5f50003-1234-5678-89ab-123456789abc';
+        const WIFI_PASSWORD_CHAR_UUID = 'c5f50004-1234-5678-89ab-123456789abc';
+        const WIFI_STATUS_CHAR_UUID = 'c5f50005-1234-5678-89ab-123456789abc';
+        const WIFI_CONNECT_CHAR_UUID = 'c5f50006-1234-5678-89ab-123456789abc';
+        const WIFI_SCAN_CHAR_UUID = 'c5f50007-1234-5678-89ab-123456789abc';
+        const WIFI_NETWORKS_CHAR_UUID = 'c5f50008-1234-5678-89ab-123456789abc';
+
         function showStatus(message, type = 'info') {
             statusMessage.textContent = message;
             statusMessage.className = `status-message ${type}`;
@@ -336,10 +478,6 @@
                 scanButton.innerHTML = '<span class="spinner"></span> Scannen...';
                 resultCard.classList.remove('show');
                 showStatus('Zoeken naar LeRobot apparaten...', 'info');
-
-                // LeRobot GATT Service UUID
-                const LEROBOT_SERVICE_UUID = 'c5f50001-1234-5678-89ab-123456789abc';
-                const IP_CHARACTERISTIC_UUID = 'c5f50002-1234-5678-89ab-123456789abc';
 
                 // Request Bluetooth device - try multiple strategies
                 let device;
@@ -390,17 +528,20 @@
                 console.log(`Device found via strategy ${strategy}:`, device.name);
                 showStatus(`Gevonden: ${device.name}. IP ophalen...`, 'info');
 
+                // Store global reference
+                bleDevice = device;
+
                 let ip = null;
                 let method = 'none';
 
                 // Method 1: Try to read from GATT characteristic
                 try {
                     console.log('Attempting GATT connection...');
-                    const server = await device.gatt.connect();
+                    bleServer = await device.gatt.connect();
                     console.log('GATT connected');
                     showStatus('Verbonden! IP-adres lezen van GATT characteristic...', 'info');
                     
-                    const service = await server.getPrimaryService(LEROBOT_SERVICE_UUID);
+                    const service = await bleServer.getPrimaryService(LEROBOT_SERVICE_UUID);
                     console.log('Service found');
                     const characteristic = await service.getCharacteristic(IP_CHARACTERISTIC_UUID);
                     console.log('Characteristic found');
@@ -412,8 +553,14 @@
                     ip = decoder.decode(value);
                     method = 'GATT';
                     
-                    await server.disconnect();
+                    // Don't disconnect - we'll use the connection for WiFi
                     console.log('IP read from GATT characteristic:', ip);
+                    
+                    // Show WiFi section if no IP or "No IP"
+                    if (!ip || ip === "No IP" || ip.includes("No IP")) {
+                        wifiSection.style.display = 'block';
+                        showStatus('📶 Geen WiFi! Gebruik onderstaande sectie om WiFi te configureren.', 'info');
+                    }
                 } catch (gattError) {
                     console.warn('GATT read failed:', gattError.message);
                     method = 'name';
@@ -433,7 +580,7 @@
                     // Success! Show the IP address
                     ipAddress.textContent = ip;
                     deviceName.textContent = device.name;
-                    connectLink.href = `http://${ip}:8000`;
+                    connectLink.href = `http://${ip}:5000`;
                     resultCard.classList.add('show');
                     
                     const methodText = method === 'GATT' ? 'GATT characteristic' : 'apparaatnaam';
@@ -446,7 +593,8 @@
                         showStatus(`✅ IP gelezen via ${methodText}!`, 'success');
                     }
                 } else {
-                    showStatus('⚠️ Kon geen IP-adres vinden. Zorg dat de Bluetooth service draait op de robot.', 'error');
+                    showStatus('⚠️ Geen IP-adres. Configureer WiFi via onderstaande sectie.', 'error');
+                    wifiSection.style.display = 'block';
                 }
 
             } catch (error) {
@@ -518,6 +666,213 @@
         if (navigator.bluetooth) {
             showStatus('💡 Klik op "Scan voor LeRobot" om te beginnen', 'info');
         }
+
+        // WiFi Provisioning Functions
+        async function scanWifi() {
+            if (!bleServer) {
+                showStatus('⚠️ Eerst verbinding maken met robot via "Scan voor LeRobot"', 'error');
+                return;
+            }
+
+            try {
+                scanWifiButton.disabled = true;
+                scanWifiButton.innerHTML = '<span class="spinner"></span> Scannen...';
+                wifiStatus.style.display = 'none';
+
+                showStatus('WiFi netwerken scannen...', 'info');
+
+                const service = await bleServer.getPrimaryService(LEROBOT_SERVICE_UUID);
+                
+                // Trigger scan
+                const scanChar = await service.getCharacteristic(WIFI_SCAN_CHAR_UUID);
+                await scanChar.writeValue(new Uint8Array([1]));
+                
+                // Wait for scan to complete
+                await new Promise(resolve => setTimeout(resolve, 5000));
+                
+                // Read scan results
+                const networksChar = await service.getCharacteristic(WIFI_NETWORKS_CHAR_UUID);
+                const value = await networksChar.readValue();
+                const decoder = new TextDecoder('utf-8');
+                const networksJson = decoder.decode(value);
+                
+                console.log('Networks JSON:', networksJson);
+                const networks = JSON.parse(networksJson);
+                
+                if (networks.length === 0) {
+                    showStatus('Geen WiFi netwerken gevonden', 'error');
+                    wifiNetworks.style.display = 'none';
+                    return;
+                }
+
+                // Display networks
+                wifiNetworks.innerHTML = '';
+                networks.forEach(network => {
+                    const item = document.createElement('div');
+                    item.className = 'network-item';
+                    item.innerHTML = `
+                        <div class="network-ssid">${network.ssid}</div>
+                        <div class="network-info">
+                            📶 Signal: ${network.signal}% | 🔒 ${network.security || 'Open'}
+                        </div>
+                    `;
+                    item.onclick = () => selectNetwork(network.ssid, item);
+                    wifiNetworks.appendChild(item);
+                });
+
+                wifiNetworks.style.display = 'block';
+                showStatus(`${networks.length} netwerken gevonden. Klik op een netwerk om te selecteren.`, 'success');
+
+            } catch (error) {
+                console.error('WiFi scan error:', error);
+                showStatus(`WiFi scan fout: ${error.message}`, 'error');
+            } finally {
+                scanWifiButton.disabled = false;
+                scanWifiButton.innerHTML = '🔍 Scan WiFi Netwerken';
+            }
+        }
+
+        function selectNetwork(ssid, element) {
+            // Remove previous selection
+            document.querySelectorAll('.network-item').forEach(item => {
+                item.classList.remove('selected');
+            });
+            
+            // Mark as selected
+            element.classList.add('selected');
+            
+            // Show credentials form
+            wifiSsid.value = ssid;
+            wifiPassword.value = '';
+            wifiCredentials.style.display = 'block';
+            wifiPassword.focus();
+        }
+
+        async function connectToWifi() {
+            if (!bleServer) {
+                showStatus('⚠️ Geen BLE verbinding', 'error');
+                return;
+            }
+
+            const ssid = wifiSsid.value;
+            const password = wifiPassword.value;
+
+            if (!ssid) {
+                showStatus('⚠️ Selecteer eerst een netwerk', 'error');
+                return;
+            }
+
+            try {
+                connectWifiButton.disabled = true;
+                connectWifiButton.innerHTML = '<span class="spinner"></span> Verbinden...';
+
+                const service = await bleServer.getPrimaryService(LEROBOT_SERVICE_UUID);
+
+                // Write SSID
+                const ssidChar = await service.getCharacteristic(WIFI_SSID_CHAR_UUID);
+                const ssidEncoder = new TextEncoder();
+                await ssidChar.writeValue(ssidEncoder.encode(ssid));
+                console.log('SSID written');
+
+                // Write password
+                const passwordChar = await service.getCharacteristic(WIFI_PASSWORD_CHAR_UUID);
+                await passwordChar.writeValue(ssidEncoder.encode(password));
+                console.log('Password written');
+
+                // Trigger connection
+                const connectChar = await service.getCharacteristic(WIFI_CONNECT_CHAR_UUID);
+                await connectChar.writeValue(new Uint8Array([1]));
+                console.log('Connect triggered');
+
+                showStatus('⏳ Verbinden met WiFi... Dit kan 30 seconden duren.', 'info');
+                wifiStatus.textContent = '⏳ Verbinden...';
+                wifiStatus.style.display = 'block';
+                wifiStatus.style.background = '#dbeafe';
+                wifiStatus.style.color = '#1e40af';
+
+                // Poll status
+                let attempts = 0;
+                const maxAttempts = 15;
+                const pollInterval = setInterval(async () => {
+                    try {
+                        const statusChar = await service.getCharacteristic(WIFI_STATUS_CHAR_UUID);
+                        const statusValue = await statusChar.readValue();
+                        const decoder = new TextDecoder('utf-8');
+                        const status = decoder.decode(statusValue);
+                        
+                        console.log('WiFi status:', status);
+                        wifiStatus.textContent = `📡 Status: ${status}`;
+
+                        if (status.startsWith('connected')) {
+                            clearInterval(pollInterval);
+                            wifiStatus.textContent = `✅ Verbonden met ${ssid}!`;
+                            wifiStatus.style.background = '#d1fae5';
+                            wifiStatus.style.color = '#065f46';
+                            showStatus('✅ WiFi verbonden! IP-adres wordt opgehaald...', 'success');
+                            
+                            // Wait and refresh IP
+                            setTimeout(async () => {
+                                try {
+                                    const ipChar = await service.getCharacteristic(IP_CHARACTERISTIC_UUID);
+                                    const ipValue = await ipChar.readValue();
+                                    const ip = decoder.decode(ipValue);
+                                    
+                                    if (ip && ip !== 'No IP') {
+                                        ipAddress.textContent = ip;
+                                        connectLink.href = `http://${ip}:5000`;
+                                        resultCard.classList.add('show');
+                                        showStatus(`✅ Nieuw IP: ${ip}`, 'success');
+                                    }
+                                } catch (e) {
+                                    console.error('IP refresh error:', e);
+                                }
+                            }, 5000);
+                            
+                            connectWifiButton.disabled = false;
+                            connectWifiButton.innerHTML = '✓ Verbind met WiFi';
+                        } else if (status.startsWith('error')) {
+                            clearInterval(pollInterval);
+                            wifiStatus.textContent = `❌ Fout: ${status}`;
+                            wifiStatus.style.background = '#fee2e2';
+                            wifiStatus.style.color = '#991b1b';
+                            showStatus(`❌ WiFi verbinding mislukt: ${status}`, 'error');
+                            connectWifiButton.disabled = false;
+                            connectWifiButton.innerHTML = '✓ Verbind met WiFi';
+                        }
+
+                        attempts++;
+                        if (attempts >= maxAttempts) {
+                            clearInterval(pollInterval);
+                            showStatus('⏱️ Timeout - check verbinding handmatig', 'error');
+                            connectWifiButton.disabled = false;
+                            connectWifiButton.innerHTML = '✓ Verbind met WiFi';
+                        }
+                    } catch (e) {
+                        console.error('Status poll error:', e);
+                    }
+                }, 2000);
+
+            } catch (error) {
+                console.error('WiFi connect error:', error);
+                showStatus(`WiFi verbinding fout: ${error.message}`, 'error');
+                connectWifiButton.disabled = false;
+                connectWifiButton.innerHTML = '✓ Verbind met WiFi';
+            }
+        }
+
+        function cancelWifi() {
+            wifiCredentials.style.display = 'none';
+            wifiSsid.value = '';
+            wifiPassword.value = '';
+            document.querySelectorAll('.network-item').forEach(item => {
+                item.classList.remove('selected');
+            });
+        }
+
+        // Event listeners
+        scanWifiButton.addEventListener('click', scanWifi);
+        connectWifiButton.addEventListener('click', connectToWifi);
+        cancelWifiButton.addEventListener('click', cancelWifi);
     </script>
 </body>
 </html>

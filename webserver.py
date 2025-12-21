@@ -50,11 +50,11 @@ except ImportError as e:
     BLOCKLY_AVAILABLE = False
 
 try:
-    from bluetooth_manager import get_bluetooth_manager, BluetoothManager
+    from bluetooth_gatt_server import BLEGattServer
     BLUETOOTH_AVAILABLE = True
 except ImportError as e:
     logger = logging.getLogger(__name__)
-    logger.warning(f"Bluetooth manager not available: {e}")
+    logger.warning(f"Bluetooth GATT server not available: {e}")
     BLUETOOTH_AVAILABLE = False
 
 # Configure logging
@@ -182,7 +182,7 @@ class RobotState:
         self.blockly_enabled: bool = False
         
         # Bluetooth management
-        self.bluetooth_manager: Optional[BluetoothManager] = None
+        self.bluetooth_manager: Optional[BLEGattServer] = None
         self.bluetooth_enabled: bool = False
         
         # WebSocket clients
@@ -513,19 +513,17 @@ async def lifespan(app: FastAPI):
             except Exception as e:
                 logger.error(f"Error initializing Blockly: {e}")
         
-        # Initialize Bluetooth service
+        # Initialize Bluetooth GATT service
         if BLUETOOTH_AVAILABLE:
-            logger.info("📡 Initializing Bluetooth service...")
+            logger.info("📡 Initializing Bluetooth GATT service...")
             try:
-                bluetooth_mgr = get_bluetooth_manager()
-                if bluetooth_mgr.start():
-                    state.bluetooth_manager = bluetooth_mgr
-                    state.bluetooth_enabled = True
-                    logger.info("✅ Bluetooth service started")
-                else:
-                    logger.warning("⚠️  Bluetooth service failed to start")
+                bluetooth_mgr = BLEGattServer("LeRobot")
+                bluetooth_mgr.start()
+                state.bluetooth_manager = bluetooth_mgr
+                state.bluetooth_enabled = True
+                logger.info("✅ Bluetooth GATT service started")
             except Exception as e:
-                logger.error(f"Error initializing Bluetooth: {e}")
+                logger.error(f"Error initializing Bluetooth GATT: {e}")
         
         # Initial state refresh
         state.refresh_state()
@@ -1149,22 +1147,29 @@ async def disconnect_network():
 
 @app.get("/api/bluetooth/status")
 async def bluetooth_status():
-    """Get Bluetooth service status"""
+    """Get Bluetooth GATT service status"""
     if not BLUETOOTH_AVAILABLE:
         return {
             "available": False,
             "running": False,
-            "message": "Bluetooth not available (PyBluez not installed)"
+            "message": "Bluetooth not available (dbus-next not installed)"
         }
     
     if not state.bluetooth_enabled or not state.bluetooth_manager:
         return {
             "available": True,
             "running": False,
-            "message": "Bluetooth service not initialized"
+            "service_name": "LeRobot",
+            "message": "Bluetooth GATT service not initialized"
         }
     
-    return state.bluetooth_manager.get_status()
+    return {
+        "available": True,
+        "running": state.bluetooth_manager.running,
+        "service_name": state.bluetooth_manager.device_name,
+        "ip_address": state.bluetooth_manager.get_local_ip(),
+        "message": "Bluetooth GATT service running" if state.bluetooth_manager.running else "Stopped"
+    }
 
 
 @app.get("/api/bluetooth/ip")
@@ -1190,8 +1195,7 @@ async def bluetooth_get_ip():
             }
     
     return {
-        "primary_ip": state.bluetooth_manager.get_local_ip(),
-        "all_ips": state.bluetooth_manager.get_all_ips()
+        "primary_ip": state.bluetooth_manager.get_local_ip()
     }
 
 
@@ -1199,28 +1203,23 @@ async def bluetooth_get_ip():
 async def bluetooth_start():
     """Start Bluetooth service"""
     if not BLUETOOTH_AVAILABLE:
-        raise HTTPException(status_code=503, detail="Bluetooth not available (PyBluez not installed)")
+        raise HTTPException(status_code=503, detail="Bluetooth not available (dbus-next not installed)")
     
-    if state.bluetooth_enabled and state.bluetooth_manager and state.bluetooth_manager.is_running():
+    if state.bluetooth_enabled and state.bluetooth_manager and state.bluetooth_manager.running:
         return {
             "success": True,
-            "message": "Bluetooth service already running"
+            "message": "Bluetooth GATT service already running"
         }
     
     try:
-        bluetooth_mgr = get_bluetooth_manager()
-        if bluetooth_mgr.start():
-            state.bluetooth_manager = bluetooth_mgr
-            state.bluetooth_enabled = True
-            return {
-                "success": True,
-                "message": "Bluetooth service started"
-            }
-        else:
-            return {
-                "success": False,
-                "message": "Failed to start Bluetooth service"
-            }
+        bluetooth_mgr = BLEGattServer("LeRobot")
+        bluetooth_mgr.start()
+        state.bluetooth_manager = bluetooth_mgr
+        state.bluetooth_enabled = True
+        return {
+            "success": True,
+            "message": "Bluetooth GATT service started"
+        }
     except Exception as e:
         logger.error(f"Error starting Bluetooth: {e}")
         raise HTTPException(status_code=500, detail=str(e))
