@@ -246,21 +246,29 @@
             <ol>
                 <li>Zorg dat Bluetooth aan staat op je apparaat</li>
                 <li>Start de Bluetooth GATT service op de robot</li>
+                <li>Open deze pagina via <strong>HTTPS</strong> of <strong>localhost</strong></li>
                 <li>Klik op "Scan voor LeRobot"</li>
-                <li>Selecteer het LeRobot apparaat</li>
-                <li>Het IP-adres wordt automatisch gelezen via GATT characteristic</li>
+                <li>Selecteer het LeRobot apparaat in de lijst</li>
+                <li>Het IP-adres wordt automatisch gelezen</li>
             </ol>
-            <div style="margin-top: 15px; padding: 10px; background: #dbeafe; border-radius: 6px; font-size: 12px;">
-                <strong>🔧 Technisch:</strong> Deze scanner gebruikt BLE GATT services om het IP-adres te lezen:
+            <div style="margin-top: 15px; padding: 10px; background: #fef3c7; border-left: 4px solid #f59e0b; border-radius: 6px; font-size: 13px;">
+                <strong>🔒 Belangrijk:</strong> Web Bluetooth werkt alleen via:
+                <ul style="margin: 8px 0 0 20px; padding: 0;">
+                    <li><strong>HTTPS:</strong> https://jouwsite.nl/bluetooth</li>
+                    <li><strong>Localhost:</strong> http://localhost:8000/bluetooth of http://127.0.0.1:8000/bluetooth</li>
+                    <li><strong>GitHub Pages:</strong> Werkt automatisch (HTTPS)</li>
+                </ul>
+                <div style="margin-top: 8px; color: #92400e;">
+                    ❌ Werkt NIET via: http://192.168.x.x:8000 (gebruik dan Android Bluetooth instellingen)
+                </div>
+            </div>
+            <div style="margin-top: 10px; padding: 10px; background: #dbeafe; border-radius: 6px; font-size: 12px;">
+                <strong>🔧 Technisch:</strong> Deze scanner gebruikt BLE GATT services:
                 <ul style="margin: 8px 0 0 20px; padding: 0;">
                     <li>Service UUID: <code style="background: #e0f2fe; padding: 2px 4px; border-radius: 3px;">c5f50001-...</code></li>
-                    <li>IP Characteristic: <code style="background: #e0f2fe; padding: 2px 4px; border-radius: 3px;">c5f50002-...</code> (read-only)</li>
+                    <li>IP Characteristic: <code style="background: #e0f2fe; padding: 2px 4px; border-radius: 3px;">c5f50002-...</code> (read)</li>
                     <li>Fallback: IP uit apparaatnaam als GATT niet beschikbaar</li>
                 </ul>
-            </div>
-            <div style="margin-top: 10px; padding: 10px; background: #e0f2fe; border-radius: 6px; font-size: 12px;">
-                <strong>⚠️ Android tip:</strong> Als scannen niet werkt, gebruik eerst je Bluetooth instellingen 
-                om "LeRobot" of "LeRobot-x.x.x.x" te vinden.
             </div>
         </div>
 
@@ -333,68 +341,91 @@
                 const LEROBOT_SERVICE_UUID = 'c5f50001-1234-5678-89ab-123456789abc';
                 const IP_CHARACTERISTIC_UUID = 'c5f50002-1234-5678-89ab-123456789abc';
 
-                // Request Bluetooth device with GATT service filter
+                // Request Bluetooth device - try multiple strategies
                 let device;
+                let strategy = 1;
+                
+                // Strategy 1: Name filter only (most compatible)
                 try {
-                    // Try with service UUID filter first (preferred for GATT)
+                    console.log('Strategy 1: Name filter only');
                     device = await navigator.bluetooth.requestDevice({
                         filters: [
-                            { services: [LEROBOT_SERVICE_UUID] },
                             { namePrefix: 'LeRobot' },
-                            { namePrefix: 'lerobot' }
                         ],
                         optionalServices: [LEROBOT_SERVICE_UUID]
                     });
                 } catch (firstError) {
-                    console.log('Service filter failed, trying name filter:', firstError.message);
-                    // Fallback to name-only filter
+                    console.log('Strategy 1 failed:', firstError.message);
+                    
+                    // Strategy 2: Service UUID filter
                     try {
+                        console.log('Strategy 2: Service UUID filter');
+                        showStatus('Probeer alternatieve scan methode...', 'info');
+                        strategy = 2;
                         device = await navigator.bluetooth.requestDevice({
                             filters: [
-                                { namePrefix: 'LeRobot' },
-                                { namePrefix: 'lerobot' }
+                                { services: [LEROBOT_SERVICE_UUID] }
                             ],
                             optionalServices: [LEROBOT_SERVICE_UUID]
                         });
                     } catch (secondError) {
-                        console.log('Name filter failed, trying acceptAllDevices:', secondError.message);
-                        showStatus('Geen LeRobot gevonden met filter, toon alle apparaten...', 'info');
-                        device = await navigator.bluetooth.requestDevice({
-                            acceptAllDevices: true,
-                            optionalServices: [LEROBOT_SERVICE_UUID]
-                        });
+                        console.log('Strategy 2 failed:', secondError.message);
+                        
+                        // Strategy 3: Accept all devices (let user pick)
+                        try {
+                            console.log('Strategy 3: Accept all devices');
+                            showStatus('Geen filter werkt - toon alle apparaten...', 'info');
+                            strategy = 3;
+                            device = await navigator.bluetooth.requestDevice({
+                                acceptAllDevices: true,
+                                optionalServices: [LEROBOT_SERVICE_UUID]
+                            });
+                        } catch (thirdError) {
+                            console.log('All strategies failed:', thirdError);
+                            throw thirdError;
+                        }
                     }
                 }
 
-                console.log('Device found:', device.name);
+                console.log(`Device found via strategy ${strategy}:`, device.name);
                 showStatus(`Gevonden: ${device.name}. IP ophalen...`, 'info');
 
                 let ip = null;
+                let method = 'none';
 
-                // Method 1: Try to read from GATT characteristic (preferred)
+                // Method 1: Try to read from GATT characteristic
                 try {
+                    console.log('Attempting GATT connection...');
                     const server = await device.gatt.connect();
+                    console.log('GATT connected');
                     showStatus('Verbonden! IP-adres lezen van GATT characteristic...', 'info');
                     
                     const service = await server.getPrimaryService(LEROBOT_SERVICE_UUID);
+                    console.log('Service found');
                     const characteristic = await service.getCharacteristic(IP_CHARACTERISTIC_UUID);
+                    console.log('Characteristic found');
                     const value = await characteristic.readValue();
+                    console.log('Value read:', value);
                     
                     // Convert DataView to string
                     const decoder = new TextDecoder('utf-8');
                     ip = decoder.decode(value);
+                    method = 'GATT';
                     
                     await server.disconnect();
                     console.log('IP read from GATT characteristic:', ip);
-                    showStatus('✅ IP gelezen van GATT characteristic', 'success');
                 } catch (gattError) {
-                    console.warn('Failed to read GATT characteristic:', gattError);
-                    
-                    // Method 2: Fallback to device name parsing
+                    console.warn('GATT read failed:', gattError.message);
+                    method = 'name';
+                }
+
+                // Method 2: Fallback to device name parsing
+                if (!ip || ip === "No IP") {
+                    console.log('Trying to extract IP from device name...');
                     ip = extractIPFromDeviceName(device.name);
                     if (ip) {
                         console.log('IP extracted from device name:', ip);
-                        showStatus('✅ IP gevonden in apparaatnaam (fallback methode)', 'success');
+                        method = 'name';
                     }
                 }
 
@@ -405,24 +436,28 @@
                     connectLink.href = `http://${ip}:8000`;
                     resultCard.classList.add('show');
                     
+                    const methodText = method === 'GATT' ? 'GATT characteristic' : 'apparaatnaam';
+                    
                     // Copy to clipboard
                     try {
                         await navigator.clipboard.writeText(ip);
-                        showStatus('✅ IP-adres gevonden en gekopieerd naar klembord!', 'success');
+                        showStatus(`✅ IP gelezen via ${methodText} en gekopieerd naar klembord!`, 'success');
                     } catch (clipError) {
-                        showStatus('✅ IP-adres gevonden!', 'success');
+                        showStatus(`✅ IP gelezen via ${methodText}!`, 'success');
                     }
                 } else {
-                    showStatus('⚠️ Kon geen IP-adres vinden. Zorg dat de Bluetooth GATT service draait op de robot.', 'error');
+                    showStatus('⚠️ Kon geen IP-adres vinden. Zorg dat de Bluetooth service draait op de robot.', 'error');
                 }
 
             } catch (error) {
                 console.error('Bluetooth error:', error);
                 
                 if (error.name === 'NotFoundError') {
-                    showStatus('Geen LeRobot apparaat gevonden. Zorg dat Bluetooth service draait en het apparaat discoverable is.', 'error');
+                    showStatus('Geen apparaat geselecteerd of gevonden.', 'error');
                 } else if (error.name === 'SecurityError') {
                     showStatus('Bluetooth toegang geweigerd. Controleer browser permissies.', 'error');
+                } else if (error.message && error.message.includes('User cancelled')) {
+                    showStatus('Scan geannuleerd.', 'info');
                 } else {
                     showStatus(`Fout: ${error.message}`, 'error');
                 }

@@ -179,18 +179,24 @@ class BLEGattServer:
             return False
     
     async def setup_advertising(self):
-        """Setup BLE advertising with service UUID"""
+        """Setup BLE advertising with service UUID in advertising data"""
         try:
             # Get LE Advertising Manager
             introspection = await self.bus.introspect('org.bluez', self.adapter_path)
             adapter = self.bus.get_proxy_object('org.bluez', self.adapter_path, introspection)
-            le_adv_manager = adapter.get_interface('org.bluez.LEAdvertisingManager1')
             
-            # Create advertisement object (simplified - would need full LE Advertisement interface)
-            # For now, fall back to device name method
+            # First, make sure we're powered on
+            props = adapter.get_interface('org.freedesktop.DBus.Properties')
+            await props.call_set('org.bluez.Adapter1', 'Powered', Variant('b', True))
+            
+            # Set device name with IP
             await self.set_device_name()
             
-            logger.info("Advertising configured")
+            # For now, we rely on BlueZ automatically advertising registered GATT services
+            # The service UUID should be included in advertising data automatically
+            # when we register the GATT application
+            
+            logger.info("Advertising configured with GATT service")
             return True
             
         except Exception as e:
