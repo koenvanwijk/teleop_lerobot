@@ -104,7 +104,7 @@ class WiFiSSIDCharacteristic(ServiceInterface):
     
     @dbus_property(PropertyAccess.READ)
     def Flags(self) -> 'as':
-        return ['write']
+        return ['write-without-response']
     
     @method()
     def WriteValue(self, value: 'ay', options: 'a{sv}'):
@@ -139,7 +139,7 @@ class WiFiPasswordCharacteristic(ServiceInterface):
     
     @dbus_property(PropertyAccess.READ)
     def Flags(self) -> 'as':
-        return ['write']
+        return ['write-without-response']
     
     @method()
     def WriteValue(self, value: 'ay', options: 'a{sv}'):
@@ -213,7 +213,7 @@ class WiFiConnectCharacteristic(ServiceInterface):
     
     @dbus_property(PropertyAccess.READ)
     def Flags(self) -> 'as':
-        return ['write']
+        return ['write-without-response']
     
     @method()
     def WriteValue(self, value: 'ay', options: 'a{sv}'):
@@ -248,7 +248,7 @@ class WiFiScanCharacteristic(ServiceInterface):
     
     @dbus_property(PropertyAccess.READ)
     def Flags(self) -> 'as':
-        return ['write']
+        return ['write-without-response']
     
     @method()
     def WriteValue(self, value: 'ay', options: 'a{sv}'):

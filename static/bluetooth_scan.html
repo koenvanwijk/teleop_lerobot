@@ -685,7 +685,7 @@
                 
                 // Trigger scan
                 const scanChar = await service.getCharacteristic(WIFI_SCAN_CHAR_UUID);
-                await scanChar.writeValue(new Uint8Array([1]));
+                await scanChar.writeValueWithoutResponse(new Uint8Array([1]));
                 
                 // Wait for scan to complete
                 await new Promise(resolve => setTimeout(resolve, 5000));
@@ -771,17 +771,17 @@
                 // Write SSID
                 const ssidChar = await service.getCharacteristic(WIFI_SSID_CHAR_UUID);
                 const ssidEncoder = new TextEncoder();
-                await ssidChar.writeValue(ssidEncoder.encode(ssid));
+                await ssidChar.writeValueWithoutResponse(ssidEncoder.encode(ssid));
                 console.log('SSID written');
 
                 // Write password
                 const passwordChar = await service.getCharacteristic(WIFI_PASSWORD_CHAR_UUID);
-                await passwordChar.writeValue(ssidEncoder.encode(password));
+                await passwordChar.writeValueWithoutResponse(ssidEncoder.encode(password));
                 console.log('Password written');
 
                 // Trigger connection
                 const connectChar = await service.getCharacteristic(WIFI_CONNECT_CHAR_UUID);
-                await connectChar.writeValue(new Uint8Array([1]));
+                await connectChar.writeValueWithoutResponse(new Uint8Array([1]));
                 console.log('Connect triggered');
 
                 showStatus('⏳ Verbinden met WiFi... Dit kan 30 seconden duren.', 'info');
