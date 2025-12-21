@@ -8,6 +8,9 @@
     <script src="https://unpkg.com/blockly/blockly.min.js"></script>
     <script src="https://unpkg.com/blockly/python_compressed.js"></script>
     
+    <!-- i18next for internationalization -->
+    <script src="https://cdn.jsdelivr.net/npm/i18next@23.7.6/i18next.min.js"></script>
+    
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
         body {
@@ -31,9 +34,36 @@
             color: white;
             padding: 30px;
             text-align: center;
+            position: relative;
         }
         .header h1 { font-size: 2.5em; margin-bottom: 10px; }
         .header .subtitle { font-size: 1em; opacity: 0.9; }
+        
+        /* Language Switcher */
+        .language-switcher {
+            position: absolute;
+            top: 20px;
+            right: 30px;
+        }
+        .language-switcher select {
+            padding: 8px 15px;
+            border: 2px solid rgba(255,255,255,0.3);
+            border-radius: 8px;
+            background: rgba(255,255,255,0.2);
+            color: white;
+            font-size: 0.9em;
+            cursor: pointer;
+            backdrop-filter: blur(10px);
+            transition: all 0.3s;
+        }
+        .language-switcher select:hover {
+            background: rgba(255,255,255,0.3);
+            border-color: rgba(255,255,255,0.5);
+        }
+        .language-switcher select option {
+            background: #667eea;
+            color: white;
+        }
         
         /* Tabs */
         .tabs {
@@ -275,6 +305,12 @@
     <div class="container">
         <!-- Header -->
         <div class="header">
+            <div class="language-switcher">
+                <select id="language-select" onchange="changeLanguage(this.value)">
+                    <option value="nl">🇳🇱 Nederlands</option>
+                    <option value="en">🇬🇧 English</option>
+                </select>
+            </div>
             <h1>🤖 LeRobot Control Center</h1>
             <div class="subtitle">Advanced Teleoperation Management System</div>
         </div>
@@ -315,162 +351,162 @@
         
         <!-- Teleoperation Tab -->
         <div id="teleoperation" class="tab-content active">
-            <h2>🎮 Teleoperation Control</h2>
+            <h2 data-i18n="teleoperation.title">🎮 Teleoperation Control</h2>
             
             <!-- Device Selection Card -->
             <div class="status-card" style="margin-bottom: 20px;">
-                <h3>🔌 Device Selection</h3>
-                <p style="color: #666; margin-bottom: 15px;">Select which robot and teleoperator devices to use</p>
+                <h3 data-i18n="teleoperation.device_selection">🔌 Device Selection</h3>
+                <p style="color: #666; margin-bottom: 15px;" data-i18n="teleoperation.device_selection_desc">Select which robot and teleoperator devices to use</p>
                 
                 <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px;">
                     <!-- Leader Selection (Left) -->
                     <div>
-                        <label style="font-weight: 600; display: block; margin-bottom: 8px;">
+                        <label style="font-weight: 600; display: block; margin-bottom: 8px;" data-i18n="teleoperation.leader_teleop">
                             🎮 Leader (Teleop):
                         </label>
                         <select id="leader-select" class="form-select" style="width: 100%; padding: 10px; border: 2px solid #ddd; border-radius: 5px; font-size: 1em;">
-                            <option value="">Loading devices...</option>
+                            <option value="" data-i18n="teleoperation.loading_devices">Loading devices...</option>
                         </select>
                         <div id="leader-info" style="margin-top: 8px; font-size: 0.9em; color: #666;"></div>
                     </div>
                     
                     <!-- Follower Selection (Right) -->
                     <div>
-                        <label style="font-weight: 600; display: block; margin-bottom: 8px;">
+                        <label style="font-weight: 600; display: block; margin-bottom: 8px;" data-i18n="teleoperation.follower_robot">
                             🤖 Follower (Robot):
                         </label>
                         <select id="follower-select" class="form-select" style="width: 100%; padding: 10px; border: 2px solid #ddd; border-radius: 5px; font-size: 1em;">
-                            <option value="">Loading devices...</option>
+                            <option value="" data-i18n="teleoperation.loading_devices">Loading devices...</option>
                         </select>
                         <div id="follower-info" style="margin-top: 8px; font-size: 0.9em; color: #666;"></div>
                     </div>
                 </div>
                 
                 <div style="margin-top: 15px;">
-                    <button class="btn btn-secondary" onclick="refreshDevices()" style="width: 100%;">
+                    <button class="btn btn-secondary" onclick="refreshDevices()" style="width: 100%;" data-i18n="teleoperation.refresh_devices">
                         🔄 Refresh Device List
                     </button>
-                    <button class="btn btn-primary" onclick="saveDeviceDefaults()" style="width: 100%; margin-top: 10px;">
+                    <button class="btn btn-primary" onclick="saveDeviceDefaults()" style="width: 100%; margin-top: 10px;" data-i18n="teleoperation.save_as_default">
                         💾 Save Selection as Default
                     </button>
                 </div>
             </div>
             
             <div class="status-card">
-                <h3>Status</h3>
+                <h3 data-i18n="teleoperation.status">Status</h3>
                 <div class="status-row">
-                    <span class="status-label">Mode:</span>
+                    <span class="status-label" data-i18n="teleoperation.mode">Mode:</span>
                     <span class="status-value">
                         <span id="status-indicator" class="status-indicator status-unknown"></span>
                         <span id="mode-value">Loading...</span>
                     </span>
                 </div>
                 <div class="status-row">
-                    <span class="status-label">Devices:</span>
+                    <span class="status-label" data-i18n="teleoperation.devices">Devices:</span>
                     <span class="status-value" id="devices-value">-</span>
                 </div>
                 <div class="status-row">
-                    <span class="status-label">Leader:</span>
+                    <span class="status-label" data-i18n="teleoperation.leader">Leader:</span>
                     <span class="status-value" id="leader-value">-</span>
                 </div>
                 <div class="status-row">
-                    <span class="status-label">Follower:</span>
+                    <span class="status-label" data-i18n="teleoperation.follower">Follower:</span>
                     <span class="status-value" id="follower-value">-</span>
                 </div>
             </div>
             
             <div class="button-group">
-                <button class="btn btn-primary" onclick="startTeleoperation()" id="start-btn">
+                <button class="btn btn-primary" onclick="startTeleoperation()" id="start-btn" data-i18n="teleoperation.start">
                     ▶️ Start Teleoperation
                 </button>
-                <button class="btn btn-danger" onclick="stopTeleoperation()" id="stop-btn" disabled>
+                <button class="btn btn-danger" onclick="stopTeleoperation()" id="stop-btn" disabled data-i18n="teleoperation.stop">
                     ⏹️ Stop Teleoperation
                 </button>
             </div>
             
             <!-- Position Saving Section -->
             <div class="status-card" style="margin-top: 20px;">
-                <h3>💾 Save Current Position</h3>
-                <p style="margin-bottom: 15px;">Save the current robot position for use in Blockly programs</p>
+                <h3 data-i18n="teleoperation.save_position">💾 Save Current Position</h3>
+                <p style="margin-bottom: 15px;" data-i18n="teleoperation.save_position_desc">Save the current robot position for use in Blockly programs</p>
                 
                 <div style="margin-bottom: 10px;">
-                    <button class="btn btn-primary" onclick="readCurrentPosition()" style="width: 100%;">
+                    <button class="btn btn-primary" onclick="readCurrentPosition()" style="width: 100%;" data-i18n="teleoperation.read_current_position">
                         📍 Read Current Position
                     </button>
                 </div>
                 
                 <div id="current-position-display" style="margin-bottom: 15px; padding: 10px; background: #f0f0f0; border-radius: 5px; display: none;">
-                    <strong>Current Position:</strong>
+                    <strong data-i18n="teleoperation.current_position">Current Position:</strong>
                     <pre id="current-position-text" style="margin: 5px 0; font-family: monospace; font-size: 12px;"></pre>
                 </div>
                 
                 <div style="margin-bottom: 10px;">
-                    <input type="text" id="position-name" placeholder="Position name (e.g., 'home', 'pick', 'place')" 
+                    <input type="text" id="position-name" data-i18n="[placeholder]teleoperation.position_name" placeholder="Position name (e.g., 'home', 'pick', 'place')" 
                            style="width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 5px; font-size: 14px;">
                 </div>
                 
                 <div style="margin-bottom: 10px;">
-                    <input type="text" id="position-description" placeholder="Description (optional)" 
+                    <input type="text" id="position-description" data-i18n="[placeholder]teleoperation.description" placeholder="Description (optional)" 
                            style="width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 5px; font-size: 14px;">
                 </div>
                 
-                <button class="btn btn-success" onclick="saveCurrentPosition()" style="width: 100%;">
+                <button class="btn btn-success" onclick="saveCurrentPosition()" style="width: 100%;" data-i18n="teleoperation.save_position">
                     💾 Save Current Position
                 </button>
                 
                 <div id="saved-positions-list" style="margin-top: 15px;">
-                    <h4>Saved Positions:</h4>
-                    <div id="positions-list-content">Loading...</div>
+                    <h4 data-i18n="teleoperation.saved_positions">Saved Positions:</h4>
+                    <div id="positions-list-content" data-i18n="teleoperation.loading">Loading...</div>
                 </div>
             </div>
             
             <div class="alert alert-info" style="margin-top: 20px;">
-                <strong>💡 Tip:</strong> Sluit USB devices aan en klik op "Start" om teleoperation te starten.
-                De server detecteert automatisch de aangesloten apparaten.
+                <strong data-i18n="teleoperation.tip">💡 Tip:</strong> <span data-i18n="teleoperation.tip_message">Sluit USB devices aan en klik op "Start" om teleoperation te starten.
+                De server detecteert automatisch de aangesloten apparaten.</span>
             </div>
         </div>
 
         <!-- Commands Tab -->
         <div id="commands" class="tab-content">
-            <h2>💻 Command-line examples</h2>
-            <p style="color:#666; margin: 10px 0 20px;">These commands are auto-filled based on your selected Leader and Follower. Use the copy buttons to paste in a terminal.</p>
+            <h2 data-i18n="commands.title">💻 Command-line examples</h2>
+            <p style="color:#666; margin: 10px 0 20px;" data-i18n="commands.description">These commands are auto-filled based on your selected Leader and Follower. Use the copy buttons to paste in a terminal.</p>
 
             <div class="status-card">
-                <h3>Start Teleoperation (CLI)</h3>
-                <pre id="cmd-teleoperate" style="background:#f8f9fa; padding:12px; border-radius:8px; overflow-x:auto;"># Select devices above to populate…</pre>
-                <button class="btn btn-primary" onclick="copyCmd('cmd-teleoperate')">📋 Copy</button>
+                <h3 data-i18n="commands.start_teleoperation">Start Teleoperation (CLI)</h3>
+                <pre id="cmd-teleoperate" style="background:#f8f9fa; padding:12px; border-radius:8px; overflow-x:auto;" data-i18n="commands.select_devices"># Select devices above to populate…</pre>
+                <button class="btn btn-primary" onclick="copyCmd('cmd-teleoperate')" data-i18n="commands.copy">📋 Copy</button>
             </div>
 
             <div class="status-card">
-                <h3>Record Dataset (CLI)</h3>
-                <p style="color:#666; font-size:0.9em;">Records teleoperated trajectories to a local folder.</p>
-                <pre id="cmd-record" style="background:#f8f9fa; padding:12px; border-radius:8px; overflow-x:auto;"># Select devices above to populate…</pre>
-                <button class="btn btn-primary" onclick="copyCmd('cmd-record')">📋 Copy</button>
+                <h3 data-i18n="commands.record_dataset">Record Dataset (CLI)</h3>
+                <p style="color:#666; font-size:0.9em;" data-i18n="commands.record_desc">Records teleoperated trajectories to a local folder.</p>
+                <pre id="cmd-record" style="background:#f8f9fa; padding:12px; border-radius:8px; overflow-x:auto;" data-i18n="commands.select_devices"># Select devices above to populate…</pre>
+                <button class="btn btn-primary" onclick="copyCmd('cmd-record')" data-i18n="commands.copy">📋 Copy</button>
             </div>
 
             <div class="status-card">
-                <h3>Evaluate / Replay (CLI)</h3>
-                <p style="color:#666; font-size:0.9em;">Replays a recorded trajectory or evaluates a policy.</p>
-                <pre id="cmd-eval" style="background:#f8f9fa; padding:12px; border-radius:8px; overflow-x:auto;"># Select devices above to populate…</pre>
-                <button class="btn btn-primary" onclick="copyCmd('cmd-eval')">📋 Copy</button>
+                <h3 data-i18n="commands.evaluate_replay">Evaluate / Replay (CLI)</h3>
+                <p style="color:#666; font-size:0.9em;" data-i18n="commands.evaluate_desc">Replays a recorded trajectory or evaluates a policy.</p>
+                <pre id="cmd-eval" style="background:#f8f9fa; padding:12px; border-radius:8px; overflow-x:auto;" data-i18n="commands.select_devices"># Select devices above to populate…</pre>
+                <button class="btn btn-primary" onclick="copyCmd('cmd-eval')" data-i18n="commands.copy">📋 Copy</button>
             </div>
         </div>
         
         <!-- Cameras Tab -->
         <div id="cameras" class="tab-content">
-            <h2>📹 Camera Streams</h2>
+            <h2 data-i18n="cameras.title">📹 Camera Streams</h2>
             
             <div class="button-group">
-                <button class="btn btn-primary" onclick="detectCameras()">
+                <button class="btn btn-primary" onclick="detectCameras()" data-i18n="cameras.detect">
                     🔍 Detect Cameras
                 </button>
-                <button class="btn btn-success" onclick="refreshCameras()">
+                <button class="btn btn-success" onclick="refreshCameras()" data-i18n="cameras.refresh">
                     🔄 Refresh Streams
                 </button>
             </div>
             
             <div id="camera-status" class="alert alert-info" style="margin-top: 20px;">
-                <strong>ℹ️</strong> <span id="camera-status-text">Loading camera information...</span>
+                <strong>ℹ️</strong> <span id="camera-status-text" data-i18n="cameras.loading">Loading camera information...</span>
             </div>
             
             <div id="camera-grid" class="camera-grid">
@@ -480,24 +516,24 @@
         
         <!-- 3D Viewer Tab -->
         <div id="viewer" class="tab-content">
-            <h2>🤖 Robot 3D Viewer</h2>
+            <h2 data-i18n="viewer.title">🤖 Robot 3D Viewer</h2>
             
             <div class="status-card">
-                <p style="margin-bottom: 15px;">Real-time 3D visualization of your robot. The viewer updates automatically to show the current robot position during teleoperation.</p>
+                <p style="margin-bottom: 15px;" data-i18n="viewer.description">Real-time 3D visualization of your robot. The viewer updates automatically to show the current robot position during teleoperation.</p>
                 <div style="display: flex; gap: 10px; margin-bottom: 15px;">
-                    <button class="btn btn-primary" onclick="openViewer()">
+                    <button class="btn btn-primary" onclick="openViewer()" data-i18n="viewer.open">
                         🚀 Open 3D Viewer
                     </button>
-                    <button class="btn btn-secondary" onclick="openViewerNewWindow()">
+                    <button class="btn btn-secondary" onclick="openViewerNewWindow()" data-i18n="viewer.open_new_window">
                         🪟 Open in New Window
                     </button>
                 </div>
                 <p style="color: #666; font-size: 0.9em;">
-                    <strong>Features:</strong>
-                    <br>• Real-time position updates (20Hz)
-                    <br>• Manual joint control with sliders
-                    <br>• Sync with robot button
-                    <br>• Interactive 3D controls (rotate, zoom, pan)
+                    <strong data-i18n="viewer.features">Features:</strong>
+                    <br>• <span data-i18n="viewer.feature_realtime">Real-time position updates (20Hz)</span>
+                    <br>• <span data-i18n="viewer.feature_manual">Manual joint control with sliders</span>
+                    <br>• <span data-i18n="viewer.feature_sync">Sync with robot button</span>
+                    <br>• <span data-i18n="viewer.feature_interactive">Interactive 3D controls (rotate, zoom, pan)</span>
                 </p>
             </div>
             
@@ -511,25 +547,25 @@
         
         <!-- Blockly Tab -->
         <div id="blockly" class="tab-content">
-            <h2>🧩 Blockly Visual Programming</h2>
+            <h2 data-i18n="blockly.title">🧩 Blockly Visual Programming</h2>
             
             <div class="button-group">
-                <button class="btn btn-primary" onclick="saveBlocklyProgram()">
+                <button class="btn btn-primary" onclick="saveBlocklyProgram()" data-i18n="blockly.save_program">
                     💾 Save Program
                 </button>
-                <button class="btn btn-success" onclick="loadBlocklyProgram()">
+                <button class="btn btn-success" onclick="loadBlocklyProgram()" data-i18n="blockly.load_program">
                     📂 Load Program
                 </button>
-                <button class="btn btn-danger" onclick="clearBlockly()">
+                <button class="btn btn-danger" onclick="clearBlockly()" data-i18n="blockly.clear_workspace">
                     🗑️ Clear Workspace
                 </button>
-                <button class="btn btn-primary" onclick="runBlocklyProgram()">
+                <button class="btn btn-primary" onclick="runBlocklyProgram()" data-i18n="blockly.run_program">
                     ▶️ Run Program
                 </button>
             </div>
             
             <div class="alert alert-info" style="margin-top: 20px;">
-                <strong>ℹ️ Blockly Editor:</strong> Drag and drop blocks to create programs. Custom robot blocks available!
+                <strong data-i18n="blockly.editor_info">ℹ️ Blockly Editor:</strong> <span data-i18n="blockly.editor_desc">Drag and drop blocks to create programs. Custom robot blocks available!</span>
             </div>
             
             <!-- Blockly Workspace -->
@@ -537,21 +573,21 @@
             
             <!-- Generated Code Display -->
             <div class="status-card" style="margin-top: 20px;">
-                <h3>Generated Python Code</h3>
-                <pre id="generated-code" style="background: #f8f9fa; padding: 15px; border-radius: 8px; overflow-x: auto; max-height: 300px;">
+                <h3 data-i18n="blockly.generated_code">Generated Python Code</h3>
+                <pre id="generated-code" style="background: #f8f9fa; padding: 15px; border-radius: 8px; overflow-x: auto; max-height: 300px;" data-i18n="blockly.code_placeholder">
 # Python code will appear here
                 </pre>
             </div>
             
             <!-- Execution Results -->
             <div id="execution-results" style="display: none;" class="status-card">
-                <h3>Execution Results</h3>
+                <h3 data-i18n="blockly.execution_results">Execution Results</h3>
                 <div id="execution-output"></div>
             </div>
             
             <!-- Saved Programs List -->
             <div class="status-card" style="margin-top: 20px;">
-                <h3>Saved Programs</h3>
+                <h3 data-i18n="blockly.saved_programs">Saved Programs</h3>
                 <div id="saved-programs-list">
                     <!-- Program list will be populated here -->
                 </div>
@@ -560,61 +596,61 @@
         
         <!-- Network Tab -->
         <div id="network" class="tab-content">
-            <h2>🌐 Network Management</h2>
+            <h2 data-i18n="network.title">🌐 Network Management</h2>
             
             <div class="status-card">
-                <h3>Current Network Status</h3>
+                <h3 data-i18n="network.current_status">Current Network Status</h3>
                 <div class="status-row">
-                    <span class="status-label">Mode:</span>
+                    <span class="status-label" data-i18n="network.mode">Mode:</span>
                     <span class="status-value" id="network-mode">-</span>
                 </div>
                 <div class="status-row">
-                    <span class="status-label">IP Address:</span>
+                    <span class="status-label" data-i18n="network.ip_address">IP Address:</span>
                     <span class="status-value" id="network-ip">-</span>
                 </div>
                 <div class="status-row">
-                    <span class="status-label">SSID:</span>
+                    <span class="status-label" data-i18n="network.ssid">SSID:</span>
                     <span class="status-value" id="network-ssid">-</span>
                 </div>
                 <div class="status-row">
-                    <span class="status-label">Signal:</span>
+                    <span class="status-label" data-i18n="network.signal">Signal:</span>
                     <span class="status-value" id="network-signal">-</span>
                 </div>
             </div>
             
             <div class="network-mode">
-                <button class="btn btn-primary" onclick="startAccessPoint()">
+                <button class="btn btn-primary" onclick="startAccessPoint()" data-i18n="network.start_ap">
                     📡 Start Access Point
                 </button>
-                <button class="btn btn-danger" onclick="stopAccessPoint()">
+                <button class="btn btn-danger" onclick="stopAccessPoint()" data-i18n="network.stop_ap">
                     ⏹️ Stop Access Point
                 </button>
-                <button class="btn btn-success" onclick="scanWiFi()">
+                <button class="btn btn-success" onclick="scanWiFi()" data-i18n="network.scan_wifi">
                     🔍 Scan WiFi
                 </button>
             </div>
             
             <div id="wifi-scan-results" style="display:none;">
-                <h3>Available Networks</h3>
+                <h3 data-i18n="network.available_networks">Available Networks</h3>
                 <div id="wifi-list" class="wifi-list">
                     <!-- WiFi networks will be added here -->
                 </div>
             </div>
             
             <div id="wifi-connect-form" style="display:none;">
-                <h3>Connect to WiFi</h3>
+                <h3 data-i18n="network.connect_to_wifi">Connect to WiFi</h3>
                 <div class="form-group">
-                    <label>SSID:</label>
-                    <input type="text" id="wifi-ssid" placeholder="Network name">
+                    <label data-i18n="network.ssid">SSID:</label>
+                    <input type="text" id="wifi-ssid" data-i18n="[placeholder]network.network_name" placeholder="Network name">
                 </div>
                 <div class="form-group">
-                    <label>Password:</label>
-                    <input type="password" id="wifi-password" placeholder="Password">
+                    <label data-i18n="network.password">Password:</label>
+                    <input type="password" id="wifi-password" data-i18n="[placeholder]network.password" placeholder="Password">
                 </div>
-                <button class="btn btn-primary" onclick="connectWiFi()">
+                <button class="btn btn-primary" onclick="connectWiFi()" data-i18n="network.connect">
                     🔗 Connect
                 </button>
-                <button class="btn" onclick="cancelWiFiConnect()">
+                <button class="btn" onclick="cancelWiFiConnect()" data-i18n="network.cancel">
                     ❌ Cancel
                 </button>
             </div>
@@ -622,30 +658,30 @@
         
         <!-- System Tab -->
         <div id="system" class="tab-content">
-            <h2>⚙️ System Information</h2>
+            <h2 data-i18n="system.title">⚙️ System Information</h2>
             
             <div class="status-card">
-                <h3>Server Status</h3>
+                <h3 data-i18n="system.status">Server Status</h3>
                 <div class="status-row">
                     <span class="status-label">Server Version:</span>
                     <span class="status-value">2.0.0</span>
                 </div>
                 <div class="status-row">
-                    <span class="status-label">Cameras Enabled:</span>
+                    <span class="status-label" data-i18n="system.cameras">Cameras Enabled:</span>
                     <span class="status-value" id="sys-cameras">-</span>
                 </div>
                 <div class="status-row">
-                    <span class="status-label">Network Enabled:</span>
+                    <span class="status-label" data-i18n="system.network">Network Enabled:</span>
                     <span class="status-value" id="sys-network">-</span>
                 </div>
                 <div class="status-row">
-                    <span class="status-label">WebSocket:</span>
+                    <span class="status-label" data-i18n="system.websocket">WebSocket:</span>
                     <span class="status-value" id="sys-websocket">-</span>
                 </div>
             </div>
             
             <div class="status-card">
-                <h3>API Endpoints</h3>
+                <h3 data-i18n="system.api_endpoints">API Endpoints</h3>
                 <div class="status-row">
                     <span class="status-label">Health:</span>
                     <span class="status-value"><code>/health</code></span>
@@ -689,6 +725,137 @@
         let ws = null;
         let blocklyWorkspace = null;
         let pythonGenerator = null;
+        
+        // =====================================================================
+        // i18next Initialization
+        // =====================================================================
+        
+        // Initialize i18next
+        i18next.init({
+            lng: localStorage.getItem('language') || 'nl', // Default to Dutch
+            fallbackLng: 'nl',
+            debug: false,
+            resources: {} // Will be loaded dynamically
+        }, function(err, t) {
+            if (err) {
+                console.error('i18next initialization error:', err);
+            }
+            // Load translations after init
+            loadTranslations();
+        });
+        
+        // Load translation files
+        async function loadTranslations() {
+            try {
+                const languages = ['nl', 'en'];
+                for (const lang of languages) {
+                    const response = await fetch(`/static/i18n/${lang}.json`);
+                    const translations = await response.json();
+                    i18next.addResourceBundle(lang, 'translation', translations);
+                }
+                // Update UI with current language
+                updateUILanguage();
+                console.log('Translations loaded successfully');
+            } catch (error) {
+                console.error('Error loading translations:', error);
+            }
+        }
+        
+        // Change language
+        function changeLanguage(lang) {
+            i18next.changeLanguage(lang, (err) => {
+                if (err) {
+                    console.error('Error changing language:', err);
+                    return;
+                }
+                localStorage.setItem('language', lang);
+                updateUILanguage();
+                console.log('Language changed to:', lang);
+            });
+        }
+        
+        // Update all UI elements with translations
+        function updateUILanguage() {
+            // Helper function to translate and update element
+            const t = (key) => i18next.t(key);
+            window.t = t; // Make available globally for dynamic content
+            
+            // Update tab labels
+            document.querySelectorAll('.tab').forEach((tab, index) => {
+                const keys = ['navigation.teleoperation', 'navigation.commands', 'navigation.cameras', 
+                             'navigation.viewer', 'navigation.blockly', 'navigation.network', 'navigation.system'];
+                if (keys[index]) {
+                    const textNode = Array.from(tab.childNodes).find(node => node.nodeType === Node.TEXT_NODE);
+                    if (textNode) {
+                        textNode.textContent = '\n                ' + t(keys[index]) + '\n            ';
+                    }
+                }
+            });
+            
+            // Update data-i18n attributes
+            document.querySelectorAll('[data-i18n]').forEach(element => {
+                const attrValue = element.getAttribute('data-i18n');
+                
+                // Check if it's a special attribute like [placeholder]key
+                if (attrValue.startsWith('[')) {
+                    const match = attrValue.match(/\[(\w+)\](.+)/);
+                    if (match) {
+                        const attr = match[1];
+                        const key = match[2];
+                        element.setAttribute(attr, t(key));
+                    }
+                } else {
+                    // Regular text content
+                    const key = attrValue;
+                    const translated = t(key);
+                    
+                    // Preserve icons by only updating text nodes
+                    if (element.childNodes.length > 0) {
+                        let hasIcon = false;
+                        element.childNodes.forEach(node => {
+                            if (node.nodeType === Node.TEXT_NODE) {
+                                node.textContent = translated;
+                                hasIcon = true;
+                            }
+                        });
+                        if (!hasIcon) {
+                            element.textContent = translated;
+                        }
+                    } else {
+                        element.textContent = translated;
+                    }
+                }
+            });
+            
+            // Update language selector to match current language
+            const langSelect = document.getElementById('language-select');
+            if (langSelect) {
+                langSelect.value = i18next.language;
+            }
+            
+            // Update Blockly blocks if workspace exists
+            if (window.savedPositionsList && blocklyWorkspace) {
+                updateBlocklyTranslations();
+            }
+            
+            // Refresh dynamic content that may contain text
+            if (document.querySelector('#teleoperation.active')) {
+                loadDevices();
+            }
+        }
+        
+        // Update Blockly block translations
+        function updateBlocklyTranslations() {
+            // Update saved positions dropdown text
+            const noPositionsText = i18next.t('blockly.blocks.no_saved_positions');
+            if (window.savedPositionsList && window.savedPositionsList[0] && window.savedPositionsList[0][0] === '(no saved positions)') {
+                window.savedPositionsList[0][0] = noPositionsText;
+            }
+        }
+        
+        // =====================================================================
+        // Original Code
+        // =====================================================================
         
             // Status/Toast helper
             function showStatus(message, type = 'info', timeout = 3000) {
@@ -1581,7 +1748,14 @@
         // =====================================================================
         
         // Global variable to store saved positions for dropdown
-        window.savedPositionsList = [["(no saved positions)", "none"]];
+        window.savedPositionsList = [];
+        
+        // Initialize with translated text
+        function initSavedPositionsList() {
+            const noPositionsText = i18next.t ? i18next.t('blockly.blocks.no_saved_positions') : '(no saved positions)';
+            window.savedPositionsList = [[noPositionsText, "none"]];
+        }
+        initSavedPositionsList();
         
         // Fetch saved positions and update the dropdown options
         async function updateSavedPositionsDropdown() {
@@ -1593,7 +1767,8 @@
                     // Convert positions object to dropdown format [["Display Name", "value"], ...]
                     window.savedPositionsList = Object.keys(data.positions).map(name => [name, name]);
                 } else {
-                    window.savedPositionsList = [["(no saved positions)", "none"]];
+                    const noPositionsText = i18next.t ? i18next.t('blockly.blocks.no_saved_positions') : '(no saved positions)';
+                    window.savedPositionsList = [[noPositionsText, "none"]];
                 }
                 
                 // If blockly workspace exists, update any existing dropdown fields
@@ -1771,7 +1946,8 @@
                     if (window.savedPositionsList && window.savedPositionsList.length > 0) {
                         return window.savedPositionsList;
                     }
-                    return [["(no saved positions)", "none"]];
+                    const noPositionsText = i18next.t ? i18next.t('blockly.blocks.no_saved_positions') : '(no saved positions)';
+                    return [[noPositionsText, "none"]];
                 }
             };
             
@@ -1806,7 +1982,8 @@ else:
                     if (window.savedPositionsList && window.savedPositionsList.length > 0) {
                         return window.savedPositionsList;
                     }
-                    return [["(no saved positions)", "none"]];
+                    const noPositionsText = i18next.t ? i18next.t('blockly.blocks.no_saved_positions') : '(no saved positions)';
+                    return [[noPositionsText, "none"]];
                 }
             };
             
