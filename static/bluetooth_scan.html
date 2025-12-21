@@ -221,6 +221,10 @@
         <button id="scanButton" class="scan-button">
             📡 Scan voor LeRobot
         </button>
+        
+        <button id="manualButton" class="scan-button" style="background: linear-gradient(135deg, #10b981 0%, #059669 100%); margin-bottom: 10px;">
+            🔍 Zoek via Netwerk
+        </button>
 
         <div id="resultCard" class="result-card">
             <div class="result-label">IP Adres gevonden</div>
@@ -246,10 +250,19 @@
                 <li>Selecteer het LeRobot-IP apparaat</li>
                 <li>Het IP-adres wordt automatisch getoond</li>
             </ol>
+            <div style="margin-top: 15px; padding: 10px; background: #e0f2fe; border-radius: 6px; font-size: 12px;">
+                <strong>⚠️ Android tip:</strong> Als scannen niet werkt, gebruik eerst je Bluetooth instellingen 
+                om "LeRobot-IP-x.x.x.x" te vinden, noteer het IP-adres uit de naam.
+            </div>
         </div>
 
         <div class="browser-support" id="browserWarning" style="display: none;">
             ⚠️ <strong>Let op:</strong> Web Bluetooth wordt alleen ondersteund in Chrome, Edge en Opera browsers.
+        </div>
+        
+        <div class="browser-support" id="httpsWarning" style="display: none; background: #fee2e2; color: #991b1b;">
+            🔒 <strong>HTTPS vereist:</strong> Web Bluetooth werkt alleen via HTTPS. 
+            Probeer via http:// ipv https:// of gebruik Android Bluetooth instellingen.
         </div>
     </div>
 
@@ -259,8 +272,14 @@
             document.getElementById('browserWarning').style.display = 'block';
             document.getElementById('scanButton').disabled = true;
         }
+        
+        // Check if we're on HTTPS (required for Web Bluetooth except on localhost)
+        if (navigator.bluetooth && window.location.protocol !== 'https:' && !window.location.hostname.includes('localhost') && !window.location.hostname.includes('127.0.0.1')) {
+            document.getElementById('httpsWarning').style.display = 'block';
+        }
 
         const scanButton = document.getElementById('scanButton');
+        const manualButton = document.getElementById('manualButton');
         const resultCard = document.getElementById('resultCard');
         const statusMessage = document.getElementById('statusMessage');
         const ipAddress = document.getElementById('ipAddress');
@@ -302,15 +321,30 @@
                 resultCard.classList.remove('show');
                 showStatus('Zoeken naar LeRobot apparaten...', 'info');
 
-                // Request Bluetooth device
-                // We scan for any device since we want to read the name
-                const device = await navigator.bluetooth.requestDevice({
-                    filters: [
-                        { namePrefix: 'LeRobot' },
-                        { namePrefix: 'lerobot' }
-                    ],
-                    optionalServices: ['battery_service']  // Optional, not required
-                });
+                // Request Bluetooth device with broader filter options
+                // Android Chrome kan soms stricter zijn met filters
+                const options = {
+                    // Accepteer alle apparaten - gebruiker moet zelf LeRobot selecteren
+                    acceptAllDevices: true,
+                    optionalServices: []  // Geen services vereist
+                };
+                
+                // Probeer eerst met filter, als dat faalt gebruik acceptAllDevices
+                let device;
+                try {
+                    device = await navigator.bluetooth.requestDevice({
+                        filters: [
+                            { namePrefix: 'LeRobot' },
+                            { namePrefix: 'lerobot' }
+                        ],
+                        optionalServices: []
+                    });
+                } catch (firstError) {
+                    console.log('Filter scan failed, trying acceptAllDevices:', firstError.message);
+                    // Als gefilterde scan faalt, probeer dan alle apparaten
+                    showStatus('Geen LeRobot gevonden met filter, toon alle apparaten...', 'info');
+                    device = await navigator.bluetooth.requestDevice(options);
+                }
 
                 console.log('Device found:', device.name);
 
@@ -345,6 +379,51 @@
         }
 
         scanButton.addEventListener('click', scanForRobot);
+        
+        // Manual network search - scans common IP ranges
+        manualButton.addEventListener('click', async function() {
+            try {
+                manualButton.disabled = true;
+                manualButton.innerHTML = '<span class="spinner"></span> Zoeken...';
+                resultCard.classList.remove('show');
+                showStatus('Zoeken naar LeRobot op het netwerk...', 'info');
+                
+                // Probeer eerst de huidige host (als we al op de robot zitten)
+                const currentHost = window.location.hostname;
+                const currentPort = window.location.port || '8000';
+                
+                try {
+                    const response = await fetch(`http://${currentHost}:${currentPort}/api/bluetooth/ip`, {
+                        timeout: 2000
+                    });
+                    
+                    if (response.ok) {
+                        const data = await response.json();
+                        if (data.current_ip) {
+                            ipAddress.textContent = data.current_ip;
+                            deviceName.textContent = `LeRobot (via netwerk gevonden)`;
+                            connectLink.href = `http://${data.current_ip}:8000`;
+                            resultCard.classList.add('show');
+                            showStatus('✅ IP-adres gevonden via netwerk!', 'success');
+                            manualButton.disabled = false;
+                            manualButton.textContent = '🔍 Zoek via Netwerk';
+                            return;
+                        }
+                    }
+                } catch (e) {
+                    console.log('Current host not reachable:', e);
+                }
+                
+                // Als dat niet werkt, instrueer gebruiker
+                showStatus('💡 Ga naar Android Bluetooth instellingen, zoek "LeRobot-IP-..." en noteer het IP uit de naam.', 'info');
+                
+            } catch (error) {
+                showStatus(`Netwerk zoeken mislukt: ${error.message}`, 'error');
+            } finally {
+                manualButton.disabled = false;
+                manualButton.textContent = '🔍 Zoek via Netwerk';
+            }
+        });
 
         // Show initial hint
         if (navigator.bluetooth) {
