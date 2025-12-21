@@ -4,9 +4,13 @@
     "blockly": "Blockly",
     "cameras": "Cameras",
     "viewer": "Robot Viewer",
-    "network": "Network",
+    "advanced": "Advanced",
     "commands": "Commands",
+    "network": "Network",
     "system": "System"
+  },
+  "advanced": {
+    "title": "Advanced Settings"
   },
   "teleoperation": {
     "title": "Teleoperation Control",

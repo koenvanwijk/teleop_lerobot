@@ -98,6 +98,12 @@
         }
         .tab-content.active { display: block; }
         
+        /* Sub-tab Content */
+        .subtab-content {
+            display: none;
+        }
+        .subtab-content.active { display: block; }
+        
         /* Status Cards */
         .status-card {
             background: #f8f9fa;
@@ -319,31 +325,23 @@
         <div class="tabs">
             <button class="tab active" onclick="showTab('teleoperation')">
                 <span class="tab-icon">🎮</span>
-                Teleoperation
-            </button>
-            <button class="tab" onclick="showTab('commands')">
-                <span class="tab-icon">💻</span>
-                Commands
+                <span data-i18n="navigation.teleoperation">Teleoperation</span>
             </button>
             <button class="tab" onclick="showTab('cameras')">
                 <span class="tab-icon">📹</span>
-                Cameras
+                <span data-i18n="navigation.cameras">Cameras</span>
             </button>
             <button class="tab" onclick="showTab('viewer')">
                 <span class="tab-icon">🤖</span>
-                3D Viewer
+                <span data-i18n="navigation.viewer">3D Viewer</span>
             </button>
             <button class="tab" onclick="showTab('blockly')">
                 <span class="tab-icon">🧩</span>
-                Blockly
+                <span data-i18n="navigation.blockly">Blockly</span>
             </button>
-            <button class="tab" onclick="showTab('network')">
-                <span class="tab-icon">🌐</span>
-                Network
-            </button>
-            <button class="tab" onclick="showTab('system')">
+            <button class="tab" onclick="showTab('advanced')">
                 <span class="tab-icon">⚙️</span>
-                System
+                <span data-i18n="navigation.advanced">Advanced</span>
             </button>
         </div>
         
@@ -466,10 +464,30 @@
             </div>
         </div>
 
-        <!-- Commands Tab -->
-        <div id="commands" class="tab-content">
-            <h2 data-i18n="commands.title">💻 Command-line examples</h2>
-            <p style="color:#666; margin: 10px 0 20px;" data-i18n="commands.description">These commands are auto-filled based on your selected Leader and Follower. Use the copy buttons to paste in a terminal.</p>
+        <!-- Advanced Tab -->
+        <div id="advanced" class="tab-content">
+            <h2 data-i18n="advanced.title">⚙️ Advanced Settings</h2>
+            
+            <!-- Sub-tabs for Advanced -->
+            <div class="tabs" style="background: #fff; border: none; margin-bottom: 20px; border-bottom: 2px solid #e9ecef;">
+                <button class="tab active" onclick="showAdvancedSubTab('commands')" id="subtab-commands">
+                    <span class="tab-icon">💻</span>
+                    <span data-i18n="navigation.commands">Commands</span>
+                </button>
+                <button class="tab" onclick="showAdvancedSubTab('network')" id="subtab-network">
+                    <span class="tab-icon">🌐</span>
+                    <span data-i18n="navigation.network">Network</span>
+                </button>
+                <button class="tab" onclick="showAdvancedSubTab('system')" id="subtab-system">
+                    <span class="tab-icon">📊</span>
+                    <span data-i18n="navigation.system">System</span>
+                </button>
+            </div>
+            
+            <!-- Commands Sub-tab Content -->
+            <div id="commands" class="subtab-content active">
+                <h3 data-i18n="commands.title">💻 Command-line examples</h3>
+                <p style="color:#666; margin: 10px 0 20px;" data-i18n="commands.description">These commands are auto-filled based on your selected Leader and Follower. Use the copy buttons to paste in a terminal.</p>
 
             <div class="status-card">
                 <h3 data-i18n="commands.start_teleoperation">Start Teleoperation (CLI)</h3>
@@ -490,7 +508,130 @@
                 <pre id="cmd-eval" style="background:#f8f9fa; padding:12px; border-radius:8px; overflow-x:auto;" data-i18n="commands.select_devices"># Select devices above to populate…</pre>
                 <button class="btn btn-primary" onclick="copyCmd('cmd-eval')" data-i18n="commands.copy">📋 Copy</button>
             </div>
+            </div>
+            <!-- End Commands Sub-tab -->
+            
+            <!-- Network Sub-tab Content -->
+            <div id="network" class="subtab-content">
+                <h3 data-i18n="network.title">🌐 Network Management</h3>
+            
+            <div class="status-card">
+                <h3 data-i18n="network.current_status">Current Network Status</h3>
+                <div class="status-row">
+                    <span class="status-label" data-i18n="network.mode">Mode:</span>
+                    <span class="status-value" id="network-mode">-</span>
+                </div>
+                <div class="status-row">
+                    <span class="status-label" data-i18n="network.ip_address">IP Address:</span>
+                    <span class="status-value" id="network-ip">-</span>
+                </div>
+                <div class="status-row">
+                    <span class="status-label" data-i18n="network.ssid">SSID:</span>
+                    <span class="status-value" id="network-ssid">-</span>
+                </div>
+                <div class="status-row">
+                    <span class="status-label" data-i18n="network.signal">Signal:</span>
+                    <span class="status-value" id="network-signal">-</span>
+                </div>
+            </div>
+            
+            <div class="network-mode">
+                <button class="btn btn-primary" onclick="startAccessPoint()" data-i18n="network.start_ap">
+                    📡 Start Access Point
+                </button>
+                <button class="btn btn-danger" onclick="stopAccessPoint()" data-i18n="network.stop_ap">
+                    ⏹️ Stop Access Point
+                </button>
+                <button class="btn btn-success" onclick="scanWiFi()" data-i18n="network.scan_wifi">
+                    🔍 Scan WiFi
+                </button>
+            </div>
+            
+            <div id="wifi-scan-results" style="display:none;">
+                <h3 data-i18n="network.available_networks">Available Networks</h3>
+                <div id="wifi-list" class="wifi-list">
+                    <!-- WiFi networks will be added here -->
+                </div>
+            </div>
+            
+            <div id="wifi-connect-form" style="display:none;">
+                <h3 data-i18n="network.connect_to_wifi">Connect to WiFi</h3>
+                <div class="form-group">
+                    <label data-i18n="network.ssid">SSID:</label>
+                    <input type="text" id="wifi-ssid" data-i18n="[placeholder]network.network_name" placeholder="Network name">
+                </div>
+                <div class="form-group">
+                    <label data-i18n="network.password">Password:</label>
+                    <input type="password" id="wifi-password" data-i18n="[placeholder]network.password" placeholder="Password">
+                </div>
+                <button class="btn btn-primary" onclick="connectWiFi()" data-i18n="network.connect">
+                    🔗 Connect
+                </button>
+                <button class="btn" onclick="cancelWiFiConnect()" data-i18n="network.cancel">
+                    ❌ Cancel
+                </button>
+            </div>
+            </div>
+            
+            <!-- System Sub-tab Content -->
+            <div id="system" class="subtab-content">
+                <h3 data-i18n="system.title">⚙️ System Information</h3>
+            
+            <div class="status-card">
+                <h3 data-i18n="system.status">Server Status</h3>
+                <div class="status-row">
+                    <span class="status-label">Server Version:</span>
+                    <span class="status-value">2.0.0</span>
+                </div>
+                <div class="status-row">
+                    <span class="status-label" data-i18n="system.cameras">Cameras Enabled:</span>
+                    <span class="status-value" id="sys-cameras">-</span>
+                </div>
+                <div class="status-row">
+                    <span class="status-label" data-i18n="system.network">Network Enabled:</span>
+                    <span class="status-value" id="sys-network">-</span>
+                </div>
+                <div class="status-row">
+                    <span class="status-label" data-i18n="system.websocket">WebSocket:</span>
+                    <span class="status-value" id="sys-websocket">-</span>
+                </div>
+            </div>
+            
+            <div class="status-card">
+                <h3 data-i18n="system.api_endpoints">API Endpoints</h3>
+                <div class="status-row">
+                    <span class="status-label">Health:</span>
+                    <span class="status-value"><code>/health</code></span>
+                </div>
+                <div class="status-row">
+                    <span class="status-label">API Docs:</span>
+                    <span class="status-value"><code>/api</code></span>
+                </div>
+                <div class="status-row">
+                    <span class="status-label">Status:</span>
+                    <span class="status-value"><code>/api/status</code></span>
+                </div>
+                <div class="status-row">
+                    <span class="status-label">Cameras:</span>
+                    <span class="status-value"><code>/api/cameras</code></span>
+                </div>
+                <div class="status-row">
+                    <span class="status-label">Network:</span>
+                    <span class="status-value"><code>/api/network/status</code></span>
+                </div>
+                <div class="status-row">
+                    <span class="status-label">WebSocket:</span>
+                    <span class="status-value"><code>/ws</code></span>
+                </div>
+            </div>
+            
+            <div class="alert alert-info">
+                <strong>📖 Documentation:</strong> Visit <code>/docs</code> for interactive API documentation (Swagger UI).
+            </div>
+            </div>
+            <!-- End System Sub-tab -->
         </div>
+        <!-- End Advanced Tab -->
         
         <!-- Cameras Tab -->
         <div id="cameras" class="tab-content">
@@ -593,125 +734,6 @@
                 </div>
             </div>
         </div>
-        
-        <!-- Network Tab -->
-        <div id="network" class="tab-content">
-            <h2 data-i18n="network.title">🌐 Network Management</h2>
-            
-            <div class="status-card">
-                <h3 data-i18n="network.current_status">Current Network Status</h3>
-                <div class="status-row">
-                    <span class="status-label" data-i18n="network.mode">Mode:</span>
-                    <span class="status-value" id="network-mode">-</span>
-                </div>
-                <div class="status-row">
-                    <span class="status-label" data-i18n="network.ip_address">IP Address:</span>
-                    <span class="status-value" id="network-ip">-</span>
-                </div>
-                <div class="status-row">
-                    <span class="status-label" data-i18n="network.ssid">SSID:</span>
-                    <span class="status-value" id="network-ssid">-</span>
-                </div>
-                <div class="status-row">
-                    <span class="status-label" data-i18n="network.signal">Signal:</span>
-                    <span class="status-value" id="network-signal">-</span>
-                </div>
-            </div>
-            
-            <div class="network-mode">
-                <button class="btn btn-primary" onclick="startAccessPoint()" data-i18n="network.start_ap">
-                    📡 Start Access Point
-                </button>
-                <button class="btn btn-danger" onclick="stopAccessPoint()" data-i18n="network.stop_ap">
-                    ⏹️ Stop Access Point
-                </button>
-                <button class="btn btn-success" onclick="scanWiFi()" data-i18n="network.scan_wifi">
-                    🔍 Scan WiFi
-                </button>
-            </div>
-            
-            <div id="wifi-scan-results" style="display:none;">
-                <h3 data-i18n="network.available_networks">Available Networks</h3>
-                <div id="wifi-list" class="wifi-list">
-                    <!-- WiFi networks will be added here -->
-                </div>
-            </div>
-            
-            <div id="wifi-connect-form" style="display:none;">
-                <h3 data-i18n="network.connect_to_wifi">Connect to WiFi</h3>
-                <div class="form-group">
-                    <label data-i18n="network.ssid">SSID:</label>
-                    <input type="text" id="wifi-ssid" data-i18n="[placeholder]network.network_name" placeholder="Network name">
-                </div>
-                <div class="form-group">
-                    <label data-i18n="network.password">Password:</label>
-                    <input type="password" id="wifi-password" data-i18n="[placeholder]network.password" placeholder="Password">
-                </div>
-                <button class="btn btn-primary" onclick="connectWiFi()" data-i18n="network.connect">
-                    🔗 Connect
-                </button>
-                <button class="btn" onclick="cancelWiFiConnect()" data-i18n="network.cancel">
-                    ❌ Cancel
-                </button>
-            </div>
-        </div>
-        
-        <!-- System Tab -->
-        <div id="system" class="tab-content">
-            <h2 data-i18n="system.title">⚙️ System Information</h2>
-            
-            <div class="status-card">
-                <h3 data-i18n="system.status">Server Status</h3>
-                <div class="status-row">
-                    <span class="status-label">Server Version:</span>
-                    <span class="status-value">2.0.0</span>
-                </div>
-                <div class="status-row">
-                    <span class="status-label" data-i18n="system.cameras">Cameras Enabled:</span>
-                    <span class="status-value" id="sys-cameras">-</span>
-                </div>
-                <div class="status-row">
-                    <span class="status-label" data-i18n="system.network">Network Enabled:</span>
-                    <span class="status-value" id="sys-network">-</span>
-                </div>
-                <div class="status-row">
-                    <span class="status-label" data-i18n="system.websocket">WebSocket:</span>
-                    <span class="status-value" id="sys-websocket">-</span>
-                </div>
-            </div>
-            
-            <div class="status-card">
-                <h3 data-i18n="system.api_endpoints">API Endpoints</h3>
-                <div class="status-row">
-                    <span class="status-label">Health:</span>
-                    <span class="status-value"><code>/health</code></span>
-                </div>
-                <div class="status-row">
-                    <span class="status-label">API Docs:</span>
-                    <span class="status-value"><code>/api</code></span>
-                </div>
-                <div class="status-row">
-                    <span class="status-label">Status:</span>
-                    <span class="status-value"><code>/api/status</code></span>
-                </div>
-                <div class="status-row">
-                    <span class="status-label">Cameras:</span>
-                    <span class="status-value"><code>/api/cameras</code></span>
-                </div>
-                <div class="status-row">
-                    <span class="status-label">Network:</span>
-                    <span class="status-value"><code>/api/network/status</code></span>
-                </div>
-                <div class="status-row">
-                    <span class="status-label">WebSocket:</span>
-                    <span class="status-value"><code>/ws</code></span>
-                </div>
-            </div>
-            
-            <div class="alert alert-info">
-                <strong>📖 Documentation:</strong> Visit <code>/docs</code> for interactive API documentation (Swagger UI).
-            </div>
-        </div>
     </div>
     
         <!-- Floating Status Notifications (bottom-left) -->
@@ -780,15 +802,19 @@
             const t = (key) => i18next.t(key);
             window.t = t; // Make available globally for dynamic content
             
-            // Update tab labels
-            document.querySelectorAll('.tab').forEach((tab, index) => {
-                const keys = ['navigation.teleoperation', 'navigation.commands', 'navigation.cameras', 
-                             'navigation.viewer', 'navigation.blockly', 'navigation.network', 'navigation.system'];
-                if (keys[index]) {
-                    const textNode = Array.from(tab.childNodes).find(node => node.nodeType === Node.TEXT_NODE);
-                    if (textNode) {
-                        textNode.textContent = '\n                ' + t(keys[index]) + '\n            ';
-                    }
+            // Update tab labels (main navigation)
+            document.querySelectorAll('.tabs:first-of-type .tab span[data-i18n]').forEach((span) => {
+                const key = span.getAttribute('data-i18n');
+                if (key) {
+                    span.textContent = t(key);
+                }
+            });
+            
+            // Update advanced subtab labels
+            document.querySelectorAll('#advanced .tabs .tab span[data-i18n]').forEach((span) => {
+                const key = span.getAttribute('data-i18n');
+                if (key) {
+                    span.textContent = t(key);
                 }
             });
             
@@ -925,14 +951,43 @@
                 initBlockly();
                 loadSavedPrograms();
                 updateSavedPositionsDropdown();
-            } else if (tabName === 'network') {
-                loadNetworkStatus();
-            } else if (tabName === 'system') {
-                loadSystemInfo();
+            } else if (tabName === 'advanced') {
+                // Show first subtab (commands) by default
+                showAdvancedSubTab('commands');
             } else if (tabName === 'teleoperation') {
                 loadSavedPositionsList();
                 updateCommandsFromSelection();
-            } else if (tabName === 'commands') {
+            }
+        }
+        
+        // Advanced sub-tab switching
+        function showAdvancedSubTab(subtabName) {
+            // Hide all subtabs
+            document.querySelectorAll('.subtab-content').forEach(subtab => {
+                subtab.classList.remove('active');
+            });
+            document.querySelectorAll('#advanced .tab').forEach(tab => {
+                tab.classList.remove('active');
+            });
+            
+            // Show selected subtab
+            const subtab = document.getElementById(subtabName);
+            if (subtab) {
+                subtab.classList.add('active');
+            }
+            
+            // Activate corresponding button
+            const button = document.getElementById('subtab-' + subtabName);
+            if (button) {
+                button.classList.add('active');
+            }
+            
+            // Load subtab-specific data
+            if (subtabName === 'network') {
+                loadNetworkStatus();
+            } else if (subtabName === 'system') {
+                loadSystemInfo();
+            } else if (subtabName === 'commands') {
                 updateCommandsFromSelection();
             }
         }
