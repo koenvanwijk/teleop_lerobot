@@ -1,0 +1,355 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>LeRobot Bluetooth Finder</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+
+        .container {
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+            padding: 40px;
+            max-width: 500px;
+            width: 100%;
+        }
+
+        h1 {
+            color: #333;
+            font-size: 28px;
+            margin-bottom: 10px;
+            text-align: center;
+        }
+
+        .subtitle {
+            color: #666;
+            text-align: center;
+            margin-bottom: 30px;
+            font-size: 14px;
+        }
+
+        .robot-icon {
+            text-align: center;
+            font-size: 80px;
+            margin-bottom: 20px;
+        }
+
+        .scan-button {
+            width: 100%;
+            padding: 18px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            border-radius: 12px;
+            font-size: 18px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: transform 0.2s, box-shadow 0.2s;
+            margin-bottom: 20px;
+        }
+
+        .scan-button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 25px rgba(102, 126, 234, 0.4);
+        }
+
+        .scan-button:active {
+            transform: translateY(0);
+        }
+
+        .scan-button:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .result-card {
+            display: none;
+            background: #f8f9fa;
+            border-radius: 12px;
+            padding: 20px;
+            margin-top: 20px;
+        }
+
+        .result-card.show {
+            display: block;
+            animation: slideIn 0.3s ease-out;
+        }
+
+        @keyframes slideIn {
+            from {
+                opacity: 0;
+                transform: translateY(20px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .result-label {
+            font-size: 12px;
+            color: #666;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            margin-bottom: 5px;
+        }
+
+        .result-value {
+            font-size: 24px;
+            font-weight: 700;
+            color: #667eea;
+            margin-bottom: 15px;
+            word-break: break-all;
+        }
+
+        .device-name {
+            font-size: 16px;
+            color: #333;
+            margin-bottom: 20px;
+        }
+
+        .connect-button {
+            width: 100%;
+            padding: 15px;
+            background: #10b981;
+            color: white;
+            border: none;
+            border-radius: 10px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: background 0.3s;
+            text-decoration: none;
+            display: block;
+            text-align: center;
+        }
+
+        .connect-button:hover {
+            background: #059669;
+        }
+
+        .status-message {
+            margin-top: 15px;
+            padding: 12px;
+            border-radius: 8px;
+            font-size: 14px;
+            text-align: center;
+        }
+
+        .status-message.info {
+            background: #dbeafe;
+            color: #1e40af;
+        }
+
+        .status-message.error {
+            background: #fee2e2;
+            color: #991b1b;
+        }
+
+        .status-message.success {
+            background: #d1fae5;
+            color: #065f46;
+        }
+
+        .browser-support {
+            margin-top: 20px;
+            padding: 15px;
+            background: #fef3c7;
+            border-radius: 8px;
+            font-size: 13px;
+            color: #92400e;
+        }
+
+        .spinner {
+            display: inline-block;
+            width: 14px;
+            height: 14px;
+            border: 2px solid rgba(255,255,255,.3);
+            border-radius: 50%;
+            border-top-color: white;
+            animation: spin 0.6s linear infinite;
+            margin-right: 8px;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        .instructions {
+            margin-top: 20px;
+            padding: 15px;
+            background: #f1f5f9;
+            border-radius: 8px;
+            font-size: 13px;
+            line-height: 1.6;
+            color: #475569;
+        }
+
+        .instructions ol {
+            margin-left: 20px;
+            margin-top: 10px;
+        }
+
+        .instructions li {
+            margin-bottom: 5px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="robot-icon">🤖</div>
+        <h1>LeRobot Bluetooth Finder</h1>
+        <p class="subtitle">Vind je robot via Bluetooth</p>
+
+        <button id="scanButton" class="scan-button">
+            📡 Scan voor LeRobot
+        </button>
+
+        <div id="resultCard" class="result-card">
+            <div class="result-label">IP Adres gevonden</div>
+            <div class="result-value" id="ipAddress">-</div>
+            
+            <div class="device-name">
+                <strong>Apparaat:</strong> <span id="deviceName">-</span>
+            </div>
+
+            <a id="connectLink" class="connect-button" href="#" target="_blank">
+                🌐 Open Web Interface
+            </a>
+        </div>
+
+        <div id="statusMessage" class="status-message" style="display: none;"></div>
+
+        <div class="instructions">
+            <strong>📱 Hoe te gebruiken:</strong>
+            <ol>
+                <li>Zorg dat Bluetooth aan staat op je apparaat</li>
+                <li>Start de Bluetooth service op de robot</li>
+                <li>Klik op "Scan voor LeRobot"</li>
+                <li>Selecteer het LeRobot-IP apparaat</li>
+                <li>Het IP-adres wordt automatisch getoond</li>
+            </ol>
+        </div>
+
+        <div class="browser-support" id="browserWarning" style="display: none;">
+            ⚠️ <strong>Let op:</strong> Web Bluetooth wordt alleen ondersteund in Chrome, Edge en Opera browsers.
+        </div>
+    </div>
+
+    <script>
+        // Check Web Bluetooth support
+        if (!navigator.bluetooth) {
+            document.getElementById('browserWarning').style.display = 'block';
+            document.getElementById('scanButton').disabled = true;
+        }
+
+        const scanButton = document.getElementById('scanButton');
+        const resultCard = document.getElementById('resultCard');
+        const statusMessage = document.getElementById('statusMessage');
+        const ipAddress = document.getElementById('ipAddress');
+        const deviceName = document.getElementById('deviceName');
+        const connectLink = document.getElementById('connectLink');
+
+        function showStatus(message, type = 'info') {
+            statusMessage.textContent = message;
+            statusMessage.className = `status-message ${type}`;
+            statusMessage.style.display = 'block';
+            
+            if (type === 'success' || type === 'error') {
+                setTimeout(() => {
+                    statusMessage.style.display = 'none';
+                }, 5000);
+            }
+        }
+
+        function extractIPFromDeviceName(name) {
+            // Device name format: "LeRobot-IP-192.168.1.100"
+            const match = name.match(/LeRobot-IP-(\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})/);
+            if (match) {
+                return match[1];
+            }
+            
+            // Alternative: try to find any IP pattern in the name
+            const ipMatch = name.match(/(\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})/);
+            if (ipMatch) {
+                return ipMatch[1];
+            }
+            
+            return null;
+        }
+
+        async function scanForRobot() {
+            try {
+                scanButton.disabled = true;
+                scanButton.innerHTML = '<span class="spinner"></span> Scannen...';
+                resultCard.classList.remove('show');
+                showStatus('Zoeken naar LeRobot apparaten...', 'info');
+
+                // Request Bluetooth device
+                // We scan for any device since we want to read the name
+                const device = await navigator.bluetooth.requestDevice({
+                    filters: [
+                        { namePrefix: 'LeRobot' },
+                        { namePrefix: 'lerobot' }
+                    ],
+                    optionalServices: ['battery_service']  // Optional, not required
+                });
+
+                console.log('Device found:', device.name);
+
+                // Extract IP from device name
+                const ip = extractIPFromDeviceName(device.name);
+
+                if (ip) {
+                    // Success! Show the IP address
+                    ipAddress.textContent = ip;
+                    deviceName.textContent = device.name;
+                    connectLink.href = `http://${ip}:8000`;
+                    resultCard.classList.add('show');
+                    showStatus('✅ IP-adres gevonden!', 'success');
+                } else {
+                    showStatus('⚠️ Kon geen IP-adres vinden in apparaatnaam. Zorg dat de Bluetooth service draait op de robot.', 'error');
+                }
+
+            } catch (error) {
+                console.error('Bluetooth error:', error);
+                
+                if (error.name === 'NotFoundError') {
+                    showStatus('Geen LeRobot apparaat gevonden. Zorg dat Bluetooth service draait en het apparaat discoverable is.', 'error');
+                } else if (error.name === 'SecurityError') {
+                    showStatus('Bluetooth toegang geweigerd. Controleer browser permissies.', 'error');
+                } else {
+                    showStatus(`Fout: ${error.message}`, 'error');
+                }
+            } finally {
+                scanButton.disabled = false;
+                scanButton.textContent = '📡 Scan voor LeRobot';
+            }
+        }
+
+        scanButton.addEventListener('click', scanForRobot);
+
+        // Show initial hint
+        if (navigator.bluetooth) {
+            showStatus('💡 Klik op "Scan voor LeRobot" om te beginnen', 'info');
+        }
+    </script>
+</body>
+</html>

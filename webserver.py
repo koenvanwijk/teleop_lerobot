@@ -49,6 +49,14 @@ except ImportError as e:
     logger.warning(f"Blockly manager not available: {e}")
     BLOCKLY_AVAILABLE = False
 
+try:
+    from bluetooth_manager import get_bluetooth_manager, BluetoothManager
+    BLUETOOTH_AVAILABLE = True
+except ImportError as e:
+    logger = logging.getLogger(__name__)
+    logger.warning(f"Bluetooth manager not available: {e}")
+    BLUETOOTH_AVAILABLE = False
+
 # Configure logging
 logging.basicConfig(
     level=logging.INFO,
@@ -172,6 +180,10 @@ class RobotState:
         # Blockly management
         self.blockly_manager: Optional[BlocklyManager] = None
         self.blockly_enabled: bool = False
+        
+        # Bluetooth management
+        self.bluetooth_manager: Optional[BluetoothManager] = None
+        self.bluetooth_enabled: bool = False
         
         # WebSocket clients
         self.websocket_clients: List[WebSocket] = []
@@ -501,6 +513,20 @@ async def lifespan(app: FastAPI):
             except Exception as e:
                 logger.error(f"Error initializing Blockly: {e}")
         
+        # Initialize Bluetooth service
+        if BLUETOOTH_AVAILABLE:
+            logger.info("📡 Initializing Bluetooth service...")
+            try:
+                bluetooth_mgr = get_bluetooth_manager()
+                if bluetooth_mgr.start():
+                    state.bluetooth_manager = bluetooth_mgr
+                    state.bluetooth_enabled = True
+                    logger.info("✅ Bluetooth service started")
+                else:
+                    logger.warning("⚠️  Bluetooth service failed to start")
+            except Exception as e:
+                logger.error(f"Error initializing Bluetooth: {e}")
+        
         # Initial state refresh
         state.refresh_state()
         
@@ -547,6 +573,11 @@ async def lifespan(app: FastAPI):
         if state.blockly_manager:
             logger.info("Shutting down Blockly manager...")
             state.blockly_manager.shutdown()
+        
+        # Shutdown Bluetooth service
+        if state.bluetooth_manager:
+            logger.info("Shutting down Bluetooth service...")
+            state.bluetooth_manager.stop()
         
         # Close WebSocket connections
         for ws in state.websocket_clients:
@@ -611,6 +642,28 @@ async def robot_viewer():
             return HTMLResponse(content=f.read())
     else:
         return HTMLResponse(content="<h1>Viewer not found</h1><p>Please ensure templates/robot_viewer.html exists</p>")
+
+
+@app.get("/bluetooth")
+async def bluetooth_scanner():
+    """Bluetooth scanner page - find robot IP via Web Bluetooth"""
+    static_path = Path(__file__).parent / "static" / "bluetooth_scan.html"
+    if static_path.exists():
+        with open(static_path, 'r') as f:
+            return HTMLResponse(content=f.read())
+    else:
+        return HTMLResponse(content="<h1>Bluetooth scanner not found</h1><p>Please ensure static/bluetooth_scan.html exists</p>")
+
+
+@app.get("/qr")
+async def qr_codes():
+    """QR codes page - printable QR codes for easy access"""
+    static_path = Path(__file__).parent / "static" / "qr_codes.html"
+    if static_path.exists():
+        with open(static_path, 'r') as f:
+            return HTMLResponse(content=f.read())
+    else:
+        return HTMLResponse(content="<h1>QR codes page not found</h1><p>Please ensure static/qr_codes.html exists</p>")
 
 
 @app.get("/api")
@@ -1088,6 +1141,109 @@ async def disconnect_network():
         "success": success,
         "message": "Disconnected" if success else "Failed to disconnect"
     }
+
+
+# ============================================================================
+# Bluetooth API Endpoints
+# ============================================================================
+
+@app.get("/api/bluetooth/status")
+async def bluetooth_status():
+    """Get Bluetooth service status"""
+    if not BLUETOOTH_AVAILABLE:
+        return {
+            "available": False,
+            "running": False,
+            "message": "Bluetooth not available (PyBluez not installed)"
+        }
+    
+    if not state.bluetooth_enabled or not state.bluetooth_manager:
+        return {
+            "available": True,
+            "running": False,
+            "message": "Bluetooth service not initialized"
+        }
+    
+    return state.bluetooth_manager.get_status()
+
+
+@app.get("/api/bluetooth/ip")
+async def bluetooth_get_ip():
+    """Get current IP address(es) - for Bluetooth clients"""
+    if not state.bluetooth_manager:
+        # Fallback: use socket to get IP even if Bluetooth not available
+        try:
+            import socket
+            s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+            s.connect(("8.8.8.8", 80))
+            ip = s.getsockname()[0]
+            s.close()
+            return {
+                "primary_ip": ip,
+                "all_ips": {"default": ip}
+            }
+        except Exception as e:
+            return {
+                "primary_ip": "No IP",
+                "all_ips": {},
+                "error": str(e)
+            }
+    
+    return {
+        "primary_ip": state.bluetooth_manager.get_local_ip(),
+        "all_ips": state.bluetooth_manager.get_all_ips()
+    }
+
+
+@app.post("/api/bluetooth/start")
+async def bluetooth_start():
+    """Start Bluetooth service"""
+    if not BLUETOOTH_AVAILABLE:
+        raise HTTPException(status_code=503, detail="Bluetooth not available (PyBluez not installed)")
+    
+    if state.bluetooth_enabled and state.bluetooth_manager and state.bluetooth_manager.is_running():
+        return {
+            "success": True,
+            "message": "Bluetooth service already running"
+        }
+    
+    try:
+        bluetooth_mgr = get_bluetooth_manager()
+        if bluetooth_mgr.start():
+            state.bluetooth_manager = bluetooth_mgr
+            state.bluetooth_enabled = True
+            return {
+                "success": True,
+                "message": "Bluetooth service started"
+            }
+        else:
+            return {
+                "success": False,
+                "message": "Failed to start Bluetooth service"
+            }
+    except Exception as e:
+        logger.error(f"Error starting Bluetooth: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.post("/api/bluetooth/stop")
+async def bluetooth_stop():
+    """Stop Bluetooth service"""
+    if not state.bluetooth_enabled or not state.bluetooth_manager:
+        return {
+            "success": True,
+            "message": "Bluetooth service not running"
+        }
+    
+    try:
+        state.bluetooth_manager.stop()
+        return {
+            "success": True,
+            "message": "Bluetooth service stopped"
+        }
+    except Exception as e:
+        logger.error(f"Error stopping Bluetooth: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
 
 
 # ============================================================================

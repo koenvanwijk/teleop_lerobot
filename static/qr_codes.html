@@ -1,0 +1,135 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>LeRobot QR Codes</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 50px auto;
+            padding: 20px;
+            text-align: center;
+        }
+        .qr-section {
+            margin: 40px 0;
+            padding: 30px;
+            border: 2px solid #667eea;
+            border-radius: 10px;
+            background: #f8f9fa;
+        }
+        h1 {
+            color: #667eea;
+        }
+        h2 {
+            color: #333;
+            margin-bottom: 20px;
+        }
+        .qr-code {
+            margin: 20px auto;
+            padding: 20px;
+            background: white;
+            border-radius: 10px;
+            display: inline-block;
+        }
+        .instructions {
+            text-align: left;
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            margin-top: 20px;
+        }
+        .print-button {
+            padding: 15px 30px;
+            background: #667eea;
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-size: 16px;
+            cursor: pointer;
+            margin: 20px;
+        }
+        .print-button:hover {
+            background: #5568d3;
+        }
+        @media print {
+            .print-button, .instructions { display: none; }
+            .qr-section { page-break-after: always; }
+        }
+    </style>
+    <script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.3/build/qrcode.min.js"></script>
+</head>
+<body>
+    <h1>🤖 LeRobot QR Codes</h1>
+    <p>Scan deze QR codes om snel verbinding te maken met je robot</p>
+
+    <button class="print-button" onclick="window.print()">🖨️ Print QR Codes</button>
+
+    <div class="qr-section">
+        <h2>📡 Bluetooth Scanner</h2>
+        <p>Scan om het IP-adres te vinden via Bluetooth</p>
+        <div class="qr-code">
+            <canvas id="qr-bluetooth"></canvas>
+        </div>
+        <p><strong>URL:</strong> <span id="bluetooth-url"></span></p>
+    </div>
+
+    <div class="qr-section">
+        <h2>🌐 Directe Verbinding (via IP)</h2>
+        <p>Werkt alleen als je het IP-adres kent</p>
+        <div class="qr-code">
+            <canvas id="qr-direct"></canvas>
+        </div>
+        <p><strong>URL:</strong> <span id="direct-url"></span></p>
+        <p><small>Vervang <code>&lt;IP&gt;</code> met je robot IP-adres</small></p>
+    </div>
+
+    <div class="instructions">
+        <h3>📱 Gebruik instructies:</h3>
+        <ol>
+            <li><strong>Print deze pagina</strong> met de QR codes</li>
+            <li><strong>Plak op de robot</strong> of houd bij de hand</li>
+            <li><strong>Scan met camera app</strong> op je telefoon</li>
+            <li><strong>Voor Bluetooth scanner:</strong>
+                <ul>
+                    <li>Scan de eerste QR code</li>
+                    <li>Klik op "Scan voor LeRobot"</li>
+                    <li>Selecteer je robot</li>
+                    <li>IP-adres wordt automatisch getoond</li>
+                </ul>
+            </li>
+        </ol>
+    </div>
+
+    <script>
+        // Get current hostname or use placeholder
+        const hostname = window.location.hostname || 'localhost';
+        const port = window.location.port || '8000';
+        
+        // Generate QR code for Bluetooth scanner
+        const bluetoothUrl = `http://${hostname}:${port}/bluetooth`;
+        document.getElementById('bluetooth-url').textContent = bluetoothUrl;
+        QRCode.toCanvas(document.getElementById('qr-bluetooth'), bluetoothUrl, {
+            width: 300,
+            margin: 2,
+            color: {
+                dark: '#000000',
+                light: '#FFFFFF'
+            }
+        });
+
+        // Generate QR code for direct connection (placeholder)
+        const directUrl = `http://<IP>:8000`;
+        document.getElementById('direct-url').textContent = directUrl;
+        QRCode.toCanvas(document.getElementById('qr-direct'), directUrl, {
+            width: 300,
+            margin: 2,
+            color: {
+                dark: '#000000',
+                light: '#FFFFFF'
+            }
+        });
+    </script>
+</body>
+</html>

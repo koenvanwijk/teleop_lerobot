@@ -159,7 +159,17 @@
     "network_api": "Netwerk",
     "websocket_api": "WebSocket",
     "documentation": "Documentatie",
-    "docs_info": "Bezoek <code>/docs</code> voor interactieve API documentatie (Swagger UI)."
+    "docs_info": "Bezoek <code>/docs</code> voor interactieve API documentatie (Swagger UI).",
+    "bluetooth": "Bluetooth",
+    "bluetooth_service": "📡 Bluetooth IP Service",
+    "bt_status": "Status",
+    "bt_service_name": "Service Naam",
+    "bt_current_ip": "Huidig IP",
+    "bt_refresh": "🔄 Verversen",
+    "bt_start": "▶️ Start Service",
+    "bt_stop": "⏹️ Stop Service",
+    "bt_info_title": "ℹ️ Info",
+    "bt_info_text": "Gebruik de Bluetooth service om het IP-adres van de robot op te vragen vanaf een mobiel apparaat."
   },
   "common": {
     "close": "Sluiten",

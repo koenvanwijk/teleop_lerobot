@@ -1,0 +1,45 @@
+name: Deploy Bluetooth Scanner to GitHub Pages
+
+on:
+  push:
+    branches:
+      - main
+      - master
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: "pages"
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      
+      - name: Setup Pages
+        uses: actions/configure-pages@v4
+      
+      - name: Copy Bluetooth Scanner to docs
+        run: |
+          mkdir -p docs
+          cp static/bluetooth_scan.html docs/index.html
+          cp static/qr_codes.html docs/qr.html
+      
+      - name: Upload artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: './docs'
+      
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4

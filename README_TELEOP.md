@@ -1,5 +1,22 @@
 # LeRobot Teleoperation
 
+## 📡 Vind je Robot via Bluetooth
+
+**Weet je het IP-adres van je robot niet?**
+
+Gebruik de Bluetooth Scanner om automatisch het IP-adres te vinden:
+
+🌐 **[Open Bluetooth Scanner](https://koenvanwijk.github.io/teleop_lerobot/)**
+
+1. Klik op "Scan voor LeRobot"
+2. Selecteer je robot
+3. IP-adres wordt automatisch getoond
+4. Klik "Open Web Interface" om te verbinden
+
+*Werkt in Chrome, Edge en Opera browsers*
+
+---
+
 ## Overzicht
 
 Dit systeem gebruikt een **webserver** voor teleoperation control:

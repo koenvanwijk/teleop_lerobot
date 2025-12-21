@@ -595,6 +595,41 @@
                     <span class="status-label" data-i18n="system.websocket">WebSocket:</span>
                     <span class="status-value" id="sys-websocket">-</span>
                 </div>
+                <div class="status-row">
+                    <span class="status-label" data-i18n="system.bluetooth">Bluetooth:</span>
+                    <span class="status-value" id="sys-bluetooth">-</span>
+                </div>
+            </div>
+            
+            <div class="status-card">
+                <h3 data-i18n="system.bluetooth_service">📡 Bluetooth IP Service</h3>
+                <div class="status-row">
+                    <span class="status-label" data-i18n="system.bt_status">Status:</span>
+                    <span class="status-value" id="bt-status">-</span>
+                </div>
+                <div class="status-row">
+                    <span class="status-label" data-i18n="system.bt_service_name">Service Name:</span>
+                    <span class="status-value" id="bt-service-name">-</span>
+                </div>
+                <div class="status-row">
+                    <span class="status-label" data-i18n="system.bt_current_ip">Current IP:</span>
+                    <span class="status-value" id="bt-current-ip">-</span>
+                </div>
+                <div class="button-group" style="margin-top: 15px;">
+                    <button class="btn btn-primary" onclick="refreshBluetoothStatus()">
+                        <span data-i18n="system.bt_refresh">🔄 Refresh</span>
+                    </button>
+                    <button class="btn btn-success" onclick="startBluetoothService()" id="bt-start-btn">
+                        <span data-i18n="system.bt_start">▶️ Start Service</span>
+                    </button>
+                    <button class="btn btn-danger" onclick="stopBluetoothService()" id="bt-stop-btn">
+                        <span data-i18n="system.bt_stop">⏹️ Stop Service</span>
+                    </button>
+                </div>
+                <div class="alert alert-info" style="margin-top: 15px;">
+                    <strong data-i18n="system.bt_info_title">ℹ️ Info:</strong>
+                    <span data-i18n="system.bt_info_text">Gebruik de Bluetooth service om het IP-adres van de robot op te vragen vanaf een mobiel apparaat.</span>
+                </div>
             </div>
             
             <div class="status-card">
@@ -618,6 +653,10 @@
                 <div class="status-row">
                     <span class="status-label">Network:</span>
                     <span class="status-value"><code>/api/network/status</code></span>
+                </div>
+                <div class="status-row">
+                    <span class="status-label">Bluetooth:</span>
+                    <span class="status-value"><code>/api/bluetooth/status</code></span>
                 </div>
                 <div class="status-row">
                     <span class="status-label">WebSocket:</span>
@@ -1793,8 +1832,86 @@
                 const networkData = await networkResponse.json();
                 document.getElementById('sys-network').textContent = 
                     networkData.enabled ? '✅ Enabled' : '❌ Disabled';
+                
+                // Load Bluetooth status
+                await refreshBluetoothStatus();
             } catch (error) {
                 console.error('Error loading system info:', error);
+            }
+        }
+        
+        // Bluetooth Functions
+        async function refreshBluetoothStatus() {
+            try {
+                const response = await fetch('/api/bluetooth/status');
+                const data = await response.json();
+                
+                // Update status indicators
+                document.getElementById('sys-bluetooth').textContent = 
+                    data.running ? '✅ Running' : (data.available ? '⏹️ Stopped' : '❌ Not Available');
+                
+                document.getElementById('bt-status').textContent = 
+                    data.running ? '✅ Running' : (data.available ? '⏹️ Stopped' : '❌ Not Available');
+                
+                document.getElementById('bt-service-name').textContent = 
+                    data.service_name || 'N/A';
+                
+                // Get IP address
+                const ipResponse = await fetch('/api/bluetooth/ip');
+                const ipData = await ipResponse.json();
+                document.getElementById('bt-current-ip').textContent = 
+                    ipData.primary_ip || 'No IP';
+                
+                // Update buttons
+                const startBtn = document.getElementById('bt-start-btn');
+                const stopBtn = document.getElementById('bt-stop-btn');
+                if (data.running) {
+                    startBtn.disabled = true;
+                    stopBtn.disabled = false;
+                } else {
+                    startBtn.disabled = !data.available;
+                    stopBtn.disabled = true;
+                }
+            } catch (error) {
+                console.error('Error loading Bluetooth status:', error);
+                document.getElementById('sys-bluetooth').textContent = '❌ Error';
+                document.getElementById('bt-status').textContent = '❌ Error';
+            }
+        }
+        
+        async function startBluetoothService() {
+            try {
+                const response = await fetch('/api/bluetooth/start', {
+                    method: 'POST'
+                });
+                const data = await response.json();
+                
+                if (data.success) {
+                    showStatus('Bluetooth service started', 'success');
+                    await refreshBluetoothStatus();
+                } else {
+                    showStatus('Failed to start Bluetooth: ' + data.message, 'error');
+                }
+            } catch (error) {
+                showStatus('Error starting Bluetooth: ' + error, 'error');
+            }
+        }
+        
+        async function stopBluetoothService() {
+            try {
+                const response = await fetch('/api/bluetooth/stop', {
+                    method: 'POST'
+                });
+                const data = await response.json();
+                
+                if (data.success) {
+                    showStatus('Bluetooth service stopped', 'success');
+                    await refreshBluetoothStatus();
+                } else {
+                    showStatus('Failed to stop Bluetooth: ' + data.message, 'error');
+                }
+            } catch (error) {
+                showStatus('Error stopping Bluetooth: ' + error, 'error');
             }
         }
         

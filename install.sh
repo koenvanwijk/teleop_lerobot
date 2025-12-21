@@ -145,6 +145,26 @@ fi
 pip install fastapi uvicorn[standard] pydantic websockets python-multipart
 pip install opencv-python numpy draccus
 
+# Bluetooth dependencies (optioneel) - Using Bleak (modern BLE library)
+echo "📡 Installeer Bluetooth dependencies…"
+if [[ "$ARCH" == "aarch64" ]] || [[ "$ARCH" == "x86_64" ]]; then
+  # Installeer system dependencies
+  if command -v apt-get >/dev/null 2>&1; then
+    echo "🔧 Installeer bluetooth system packages…"
+    sudo apt-get install -y bluetooth bluez || {
+      echo "⚠️  Kon bluetooth packages niet installeren"
+    }
+  fi
+  
+  # Installeer Python packages voor BLE advertising
+  pip install dbus-next netifaces || {
+    echo "⚠️  Kon dbus-next niet installeren (optioneel)"
+    echo "   BLE advertising zal niet beschikbaar zijn"
+  }
+else
+  echo "⚠️  Bluetooth overgeslagen voor architectuur: $ARCH"
+fi
+
 # ---- 3) Calibration files installeren ----
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
@@ -261,7 +281,8 @@ echo "✨ Features:"
 echo "   🎮 Teleoperation: Start/Stop control"
 echo "   📹 Cameras: Live MJPEG streaming"
 echo "   🌐 Network: AP/WiFi management"
-echo "   🔌 WebSocket: Real-time updates"
+echo "   � Bluetooth: IP address query service"
+echo "   �🔌 WebSocket: Real-time updates"
 echo "   ⚙️  System: Info & monitoring"
 echo ""
 echo "📖 Zie FEATURES.md voor complete documentatie"

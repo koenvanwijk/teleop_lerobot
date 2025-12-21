@@ -159,7 +159,17 @@
     "network_api": "Network",
     "websocket_api": "WebSocket",
     "documentation": "Documentation",
-    "docs_info": "Visit <code>/docs</code> for interactive API documentation (Swagger UI)."
+    "docs_info": "Visit <code>/docs</code> for interactive API documentation (Swagger UI).",
+    "bluetooth": "Bluetooth",
+    "bluetooth_service": "📡 Bluetooth IP Service",
+    "bt_status": "Status",
+    "bt_service_name": "Service Name",
+    "bt_current_ip": "Current IP",
+    "bt_refresh": "🔄 Refresh",
+    "bt_start": "▶️ Start Service",
+    "bt_stop": "⏹️ Stop Service",
+    "bt_info_title": "ℹ️ Info",
+    "bt_info_text": "Use the Bluetooth service to query the robot's IP address from a mobile device."
   },
   "common": {
     "close": "Close",
