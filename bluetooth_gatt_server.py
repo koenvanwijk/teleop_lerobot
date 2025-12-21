@@ -139,7 +139,7 @@ class WiFiPasswordCharacteristic(ServiceInterface):
     
     @dbus_property(PropertyAccess.READ)
     def Flags(self) -> 'as':
-        return ['write', 'write-without-response']
+        return ['write', 'encrypt-write']
     
     @method()
     def WriteValue(self, value: 'ay', options: 'a{sv}'):
@@ -174,7 +174,7 @@ class WiFiStatusCharacteristic(ServiceInterface):
     
     @dbus_property(PropertyAccess.READ)
     def Flags(self) -> 'as':
-        return ['read', 'notify']
+        return ['read', 'encrypt-read', 'notify']
     
     @method()
     def ReadValue(self, options: 'a{sv}') -> 'ay':
@@ -213,7 +213,7 @@ class WiFiConnectCharacteristic(ServiceInterface):
     
     @dbus_property(PropertyAccess.READ)
     def Flags(self) -> 'as':
-        return ['write']
+        return ['write', 'encrypt-write']
     
     @method()
     def WriteValue(self, value: 'ay', options: 'a{sv}'):
@@ -248,7 +248,7 @@ class WiFiScanCharacteristic(ServiceInterface):
     
     @dbus_property(PropertyAccess.READ)
     def Flags(self) -> 'as':
-        return ['write']
+        return ['write', 'encrypt-write']
     
     @method()
     def WriteValue(self, value: 'ay', options: 'a{sv}'):
@@ -283,7 +283,7 @@ class WiFiNetworksCharacteristic(ServiceInterface):
     
     @dbus_property(PropertyAccess.READ)
     def Flags(self) -> 'as':
-        return ['read']
+        return ['read', 'encrypt-read']
     
     @method()
     def ReadValue(self, options: 'a{sv}') -> 'ay':
@@ -431,6 +431,33 @@ class BLEGattServer:
             logger.debug(f"No IP available: {e}")
             return "No IP"
     
+    def get_bluetooth_mac_suffix(self) -> str:
+        """Get last 4 digits of Bluetooth MAC address"""
+        try:
+            import subprocess
+            result = subprocess.run(
+                ['hciconfig', 'hci0'],
+                capture_output=True,
+                text=True,
+                timeout=2
+            )
+            if result.returncode == 0:
+                # Parse MAC address from output like "BD Address: XX:XX:XX:XX:YY:ZZ"
+                for line in result.stdout.split('\n'):
+                    if 'BD Address:' in line:
+                        parts = line.split()
+                        # Find index of "Address:" and get next element
+                        for i, part in enumerate(parts):
+                            if part == 'Address:' and i + 1 < len(parts):
+                                mac = parts[i + 1]
+                                # Get last 4 hex digits without colons
+                                mac_clean = mac.replace(':', '')
+                                return mac_clean[-4:].upper()
+            return "0000"
+        except Exception as e:
+            logger.error(f"Could not get MAC address: {e}")
+            return "0000"
+    
     def get_wifi_status(self) -> str:
         """Get current WiFi connection status via nmcli"""
         try:
@@ -508,12 +535,6 @@ class BLEGattServer:
                 if self.char_ip and new_ip != "No IP":
                     self.char_ip.update_ip(new_ip)
                     logger.info(f"New IP after WiFi connect: {new_ip}")
-                    
-                    # Update advertisement name
-                    if self.advertisement:
-                        adv_name = f"{self.device_name}-{new_ip}"
-                        self.advertisement.update_name(adv_name)
-                    await self.set_device_name()
             else:
                 error_msg = result.stderr.strip() or result.stdout.strip()
                 logger.error(f"Failed to connect to WiFi: {error_msg}")
@@ -660,8 +681,8 @@ class BLEGattServer:
             await props.call_set('org.bluez.Adapter1', 'Powered', Variant('b', True))
             
             # Create and register advertisement
-            ip = self.get_local_ip()
-            adv_name = f"{self.device_name}-{ip}"
+            mac_suffix = self.get_bluetooth_mac_suffix()
+            adv_name = f"{self.device_name}-{mac_suffix}"
             
             self.advertisement = LEAdvertisement(self.adv_path)
             self.advertisement.update_name(adv_name)
@@ -687,10 +708,10 @@ class BLEGattServer:
                 return False
     
     async def set_device_name(self):
-        """Set Bluetooth device name to include IP"""
+        """Set Bluetooth device name to include MAC suffix"""
         try:
-            ip = self.get_local_ip()
-            device_name = f"{self.device_name}-{ip}"
+            mac_suffix = self.get_bluetooth_mac_suffix()
+            device_name = f"{self.device_name}-{mac_suffix}"
             
             # Set via adapter properties
             introspection = await self.bus.introspect('org.bluez', self.adapter_path)
@@ -755,14 +776,6 @@ class BLEGattServer:
                     # Update characteristic value
                     if self.char_ip:
                         self.char_ip.update_ip(current_ip)
-                    
-                    # Update advertisement name
-                    if self.advertisement:
-                        adv_name = f"{self.device_name}-{current_ip}"
-                        self.advertisement.update_name(adv_name)
-                    
-                    # Also update adapter alias as fallback
-                    await self.set_device_name()
                 
                 await asyncio.sleep(10)
                 
