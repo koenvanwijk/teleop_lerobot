@@ -212,19 +212,13 @@ WEBSERVER_SCRIPT="$SCRIPT_DIR/webserver.py"
 # Gebruik conda uit condabin voor crontab
 CONDA_BIN="$CONDA_DIR/condabin/conda"
 
-# Verwijder oude startup.py entries als die er zijn
-if crontab -l 2>/dev/null | grep -qF "startup.py"; then
-  echo "🗑️  Verwijder oude startup.py entry uit crontab…"
-  crontab -l 2>/dev/null | grep -vF "startup.py" | crontab -
-fi
-
 if [[ -f "$WEBSERVER_SCRIPT" ]]; then
   echo "🔧 Configureer crontab voor webserver.py (FastAPI met uvicorn)…"
   
   chmod +x "$WEBSERVER_SCRIPT"
   
-  # Use uvicorn to run FastAPI app
-  WEBSERVER_CRON="@reboot $CONDA_BIN run -n $CONDA_ENV uvicorn webserver:app --host 0.0.0.0 --port 5000 >> $HOME/webserver.log 2>&1"
+  # Run webserver.py directly (includes uvicorn.run in __main__)
+  WEBSERVER_CRON="@reboot cd $SCRIPT_DIR && $CONDA_BIN run -n $CONDA_ENV python webserver.py >> $HOME/webserver.log 2>&1"
   
   # Verwijder bestaande webserver.py entries en voeg nieuwe toe
   if crontab -l 2>/dev/null | grep -qF "webserver"; then

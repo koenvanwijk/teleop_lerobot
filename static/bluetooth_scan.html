@@ -563,17 +563,12 @@
                     }
                 } catch (gattError) {
                     console.warn('GATT read failed:', gattError.message);
-                    method = 'name';
                 }
 
-                // Method 2: Fallback to device name parsing
+                // Device name now contains MAC suffix (e.g., LeRobot-0402), not IP
+                // Only show WiFi section if no IP is available
                 if (!ip || ip === "No IP") {
-                    console.log('Trying to extract IP from device name...');
-                    ip = extractIPFromDeviceName(device.name);
-                    if (ip) {
-                        console.log('IP extracted from device name:', ip);
-                        method = 'name';
-                    }
+                    console.log('No IP available - device might need WiFi configuration');
                 }
 
                 if (ip && ip !== "No IP") {
