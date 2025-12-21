@@ -17,6 +17,7 @@ try:
     from dbus_next.aio import MessageBus
     from dbus_next.service import ServiceInterface, method, dbus_property
     from dbus_next import Variant
+    from dbus_next.constants import BusType
     DBUS_AVAILABLE = True
 except ImportError:
     DBUS_AVAILABLE = False
@@ -117,7 +118,7 @@ class BluetoothManager:
             logger.info("Note: Requires bluetoothd running with --experimental flag")
             
             # Connect to system bus
-            bus = await MessageBus(bus_type='system').connect()
+            bus = await MessageBus(bus_type=BusType.SYSTEM).connect()
             
             # Simple approach: Use bluetoothctl to set device name
             # The IP will be visible in the device name when scanning
