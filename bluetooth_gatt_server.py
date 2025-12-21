@@ -139,7 +139,7 @@ class WiFiPasswordCharacteristic(ServiceInterface):
     
     @dbus_property(PropertyAccess.READ)
     def Flags(self) -> 'as':
-        return ['write', 'encrypt-write']
+        return ['write', 'write-without-response']
     
     @method()
     def WriteValue(self, value: 'ay', options: 'a{sv}'):
@@ -174,7 +174,7 @@ class WiFiStatusCharacteristic(ServiceInterface):
     
     @dbus_property(PropertyAccess.READ)
     def Flags(self) -> 'as':
-        return ['read', 'encrypt-read', 'notify']
+        return ['read', 'notify']
     
     @method()
     def ReadValue(self, options: 'a{sv}') -> 'ay':
@@ -213,7 +213,7 @@ class WiFiConnectCharacteristic(ServiceInterface):
     
     @dbus_property(PropertyAccess.READ)
     def Flags(self) -> 'as':
-        return ['write', 'encrypt-write']
+        return ['write', 'write-without-response']
     
     @method()
     def WriteValue(self, value: 'ay', options: 'a{sv}'):
@@ -248,7 +248,7 @@ class WiFiScanCharacteristic(ServiceInterface):
     
     @dbus_property(PropertyAccess.READ)
     def Flags(self) -> 'as':
-        return ['write', 'encrypt-write']
+        return ['write', 'write-without-response']
     
     @method()
     def WriteValue(self, value: 'ay', options: 'a{sv}'):
@@ -283,7 +283,7 @@ class WiFiNetworksCharacteristic(ServiceInterface):
     
     @dbus_property(PropertyAccess.READ)
     def Flags(self) -> 'as':
-        return ['read', 'encrypt-read']
+        return ['read']
     
     @method()
     def ReadValue(self, options: 'a{sv}') -> 'ay':
