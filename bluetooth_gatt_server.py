@@ -116,6 +116,37 @@ class GattApplication(ServiceInterface):
         }
 
 
+class LEAdvertisement(ServiceInterface):
+    """
+    BLE Advertisement - controls what data is broadcast in BLE advertisements
+    Only includes essential properties to avoid BlueZ compatibility issues
+    """
+    
+    def __init__(self, adv_path: str, adv_type: str = 'peripheral'):
+        super().__init__('org.bluez.LEAdvertisement1')
+        self.path = adv_path
+        self.adv_type = adv_type
+        self.service_uuids = [LEROBOT_SERVICE_UUID]
+        self.local_name = "LeRobot"
+        
+    @dbus_property(PropertyAccess.READ)
+    def Type(self) -> 's':
+        return self.adv_type
+    
+    @dbus_property(PropertyAccess.READ)
+    def ServiceUUIDs(self) -> 'as':
+        return self.service_uuids
+    
+    @dbus_property(PropertyAccess.READ)
+    def LocalName(self) -> 's':
+        return self.local_name
+    
+    def update_name(self, name: str):
+        """Update the advertised local name"""
+        self.local_name = name
+        logger.info(f"Advertisement name updated to: {name}")
+
+
 class BLEGattServer:
     """
     Complete BLE GATT Server for IP broadcasting
@@ -132,11 +163,13 @@ class BLEGattServer:
         self.app_path = '/org/bluez/lerobot'
         self.service_path = '/org/bluez/lerobot/service0'
         self.char_path = '/org/bluez/lerobot/service0/char0'
+        self.adv_path = '/org/bluez/lerobot/advertisement0'
         
-        # GATT objects
+        # GATT and Advertisement objects
         self.application = None
         self.service = None
         self.characteristic = None
+        self.advertisement = None
         
     def get_local_ip(self) -> str:
         """Get current local IP address"""
@@ -179,29 +212,43 @@ class BLEGattServer:
             return False
     
     async def setup_advertising(self):
-        """Setup BLE advertising with service UUID in advertising data"""
+        """Setup BLE advertising with service UUID and device name"""
         try:
             # Get LE Advertising Manager
             introspection = await self.bus.introspect('org.bluez', self.adapter_path)
             adapter = self.bus.get_proxy_object('org.bluez', self.adapter_path, introspection)
+            le_adv_manager = adapter.get_interface('org.bluez.LEAdvertisingManager1')
             
-            # First, make sure we're powered on
+            # Make sure we're powered on
             props = adapter.get_interface('org.freedesktop.DBus.Properties')
             await props.call_set('org.bluez.Adapter1', 'Powered', Variant('b', True))
             
-            # Set device name with IP
-            await self.set_device_name()
+            # Create and register advertisement
+            ip = self.get_local_ip()
+            adv_name = f"{self.device_name}-{ip}"
             
-            # For now, we rely on BlueZ automatically advertising registered GATT services
-            # The service UUID should be included in advertising data automatically
-            # when we register the GATT application
+            self.advertisement = LEAdvertisement(self.adv_path)
+            self.advertisement.update_name(adv_name)
             
-            logger.info("Advertising configured with GATT service")
+            # Export advertisement to D-Bus
+            self.bus.export(self.adv_path, self.advertisement)
+            
+            # Register advertisement with BlueZ
+            await le_adv_manager.call_register_advertisement(self.adv_path, {})
+            
+            logger.info(f"Advertisement registered with name: {adv_name}")
+            logger.info(f"Service UUID in advertisement: {LEROBOT_SERVICE_UUID}")
             return True
             
         except Exception as e:
-            logger.error(f"Failed to setup advertising: {e}")
-            return False
+            logger.error(f"Failed to setup advertising: {e}", exc_info=True)
+            # Try fallback method
+            try:
+                await self.set_device_name()
+                return True
+            except Exception as e2:
+                logger.error(f"Fallback also failed: {e2}")
+                return False
     
     async def set_device_name(self):
         """Set Bluetooth device name to include IP"""
@@ -273,7 +320,12 @@ class BLEGattServer:
                     if self.characteristic:
                         self.characteristic.update_ip(current_ip)
                     
-                    # Update device name
+                    # Update advertisement name
+                    if self.advertisement:
+                        adv_name = f"{self.device_name}-{current_ip}"
+                        self.advertisement.update_name(adv_name)
+                    
+                    # Also update adapter alias as fallback
                     await self.set_device_name()
                 
                 await asyncio.sleep(10)
@@ -282,6 +334,18 @@ class BLEGattServer:
             logger.error(f"GATT server error: {e}", exc_info=True)
         finally:
             self.running = False
+            
+            # Unregister advertisement
+            if self.bus and self.advertisement:
+                try:
+                    introspection = await self.bus.introspect('org.bluez', self.adapter_path)
+                    adapter = self.bus.get_proxy_object('org.bluez', self.adapter_path, introspection)
+                    le_adv_manager = adapter.get_interface('org.bluez.LEAdvertisingManager1')
+                    await le_adv_manager.call_unregister_advertisement(self.adv_path)
+                    logger.info("Advertisement unregistered")
+                except Exception as e:
+                    logger.warning(f"Failed to unregister advertisement: {e}")
+            
             if self.bus:
                 self.bus.disconnect()
     
