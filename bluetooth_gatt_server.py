@@ -507,6 +507,19 @@ class BLEGattServer:
         try:
             import subprocess
             
+            # Delete old connection if it exists
+            logger.info(f"Deleting old connection for {self.wifi_ssid} if exists...")
+            delete_result = subprocess.run(
+                ['nmcli', 'con', 'delete', 'id', self.wifi_ssid],
+                capture_output=True,
+                text=True,
+                timeout=5
+            )
+            if delete_result.returncode == 0:
+                logger.info(f"Deleted old connection for {self.wifi_ssid}")
+            else:
+                logger.info(f"No old connection found for {self.wifi_ssid}")
+            
             # Find security type from scanned networks
             security_type = None
             for network in self.wifi_networks:
