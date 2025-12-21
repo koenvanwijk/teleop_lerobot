@@ -418,6 +418,7 @@ class BLEGattServer:
         # WiFi credentials storage
         self.wifi_ssid = ""
         self.wifi_password = ""
+        self.wifi_networks = []  # Store scanned networks with security info
         
     def get_local_ip(self) -> str:
         """Get current local IP address"""
@@ -506,6 +507,17 @@ class BLEGattServer:
         try:
             import subprocess
             
+            # Find security type from scanned networks
+            security_type = None
+            for network in self.wifi_networks:
+                if network.get('ssid') == self.wifi_ssid:
+                    security_type = network.get('security', '')
+                    logger.info(f"Found security type for {self.wifi_ssid}: {security_type}")
+                    break
+            
+            if not security_type:
+                logger.warning(f"No security type found for {self.wifi_ssid}, available networks: {[n['ssid'] for n in self.wifi_networks]}")
+            
             # Try to connect using nmcli
             cmd = [
                 'nmcli', 'dev', 'wifi', 'connect',
@@ -514,6 +526,18 @@ class BLEGattServer:
             
             if self.wifi_password:
                 cmd.extend(['password', self.wifi_password])
+            
+            # Add security type if available and not open network
+            if security_type and security_type.strip() and security_type != '--':
+                # Map common security types to key-mgmt values
+                if 'WPA3' in security_type:
+                    logger.info("Using WPA3 (sae) key management")
+                    cmd.extend(['key-mgmt', 'sae'])
+                elif 'WPA' in security_type:
+                    logger.info("Using WPA (wpa-psk) key management")
+                    cmd.extend(['key-mgmt', 'wpa-psk'])
+            
+            logger.info(f"Connecting with command: {' '.join(cmd[:-1])} password:***")
             
             result = subprocess.run(
                 cmd,
@@ -595,6 +619,9 @@ class BLEGattServer:
                                 'signal': signal,
                                 'security': security
                             })
+                
+                # Store networks for later use in connect_wifi
+                self.wifi_networks = networks
                 
                 # Convert to compact JSON
                 networks_json = json.dumps(networks, separators=(',', ':'))
