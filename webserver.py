@@ -486,6 +486,31 @@ async def lifespan(app: FastAPI):
                 if await state.network_manager.initialize():
                     state.network_enabled = True
                     logger.info("✅ Network manager initialized")
+                    
+                    # Check for network connectivity
+                    logger.info("🔍 Checking network connectivity...")
+                    status = await state.network_manager.get_status()
+                    
+                    # If no network connection, auto-start AP
+                    if status.get('state') != 'connected' and status.get('connectivity') != 'full':
+                        logger.warning("⚠️  No network connection detected")
+                        logger.info("📡 Auto-starting WiFi Access Point for setup...")
+                        
+                        try:
+                            # Start AP mode
+                            ap_started = await state.network_manager.start_ap()
+                            if ap_started:
+                                logger.info("✅ WiFi Access Point started")
+                                logger.info(f"   SSID: LeRobot-AP")
+                                logger.info(f"   Password: robotics123")
+                                logger.info(f"   Connect and visit: http://192.168.4.1:5000")
+                            else:
+                                logger.error("❌ Failed to start Access Point")
+                        except Exception as ap_error:
+                            logger.error(f"Error starting AP: {ap_error}")
+                    else:
+                        logger.info(f"✅ Network connected: {status.get('ssid', 'unknown')}")
+                        
                 else:
                     logger.warning("⚠️  Network manager failed to initialize")
             except Exception as e:
