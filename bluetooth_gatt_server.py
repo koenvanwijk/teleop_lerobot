@@ -526,6 +526,23 @@ class BLEGattServer:
         try:
             import subprocess
             
+            # Stop AP if running (switching to station mode)
+            logger.info("Checking for running AP...")
+            ap_result = subprocess.run(
+                ['nmcli', 'con', 'show', '--active'],
+                capture_output=True,
+                text=True,
+                timeout=5
+            )
+            
+            if ap_result.returncode == 0:
+                for line in ap_result.stdout.split('\n'):
+                    if 'Hotspot' in line or 'hotspot' in line.lower():
+                        logger.info("Stopping AP before connecting to WiFi network...")
+                        subprocess.run(['nmcli', 'con', 'down', 'Hotspot'], capture_output=True, timeout=5)
+                        await asyncio.sleep(1)
+                        break
+            
             # Delete old connection if it exists
             logger.info(f"Deleting old connection for {self.wifi_ssid} if exists...")
             delete_result = subprocess.run(
@@ -593,6 +610,30 @@ class BLEGattServer:
             import subprocess
             import json
             
+            # Check if AP is running on wlan0
+            ap_was_running = False
+            check_ap = subprocess.run(
+                ['nmcli', '-t', '-f', 'GENERAL.STATE,GENERAL.CONNECTION', 'dev', 'show', 'wlan0'],
+                capture_output=True,
+                text=True,
+                timeout=2
+            )
+            
+            if check_ap.returncode == 0:
+                for line in check_ap.stdout.split('\n'):
+                    if 'hotspot' in line.lower() or 'ap' in line.lower():
+                        ap_was_running = True
+                        logger.info("AP detected, will temporarily disable for scan")
+                        break
+            
+            # Temporarily stop AP if running
+            if ap_was_running:
+                logger.info("Stopping AP temporarily for WiFi scan...")
+                subprocess.run(['nmcli', 'radio', 'wifi', 'off'], capture_output=True, timeout=5)
+                await asyncio.sleep(1)
+                subprocess.run(['nmcli', 'radio', 'wifi', 'on'], capture_output=True, timeout=5)
+                await asyncio.sleep(2)
+            
             # Trigger fresh scan
             subprocess.run(
                 ['nmcli', 'dev', 'wifi', 'rescan'],
@@ -610,6 +651,13 @@ class BLEGattServer:
                 text=True,
                 timeout=5
             )
+            
+            # Restore AP if it was running
+            if ap_was_running:
+                logger.info("Restarting AP after scan...")
+                await asyncio.sleep(1)
+                # AP will be restarted by the connection that was stored
+                subprocess.run(['nmcli', 'con', 'up', 'Hotspot'], capture_output=True, timeout=5)
             
             if result.returncode == 0:
                 networks = []
