@@ -4,6 +4,7 @@ set -euo pipefail
 # ========= Config =========
 CONDA_DIR="$HOME/miniconda3"
 CONDA_ENV="lerobot"
+LEROBOT_VERSION="0.4.3"  # Exacte versie voor consistentie (belangrijke wijzigingen in 0.4.3: so101/so100 → so)
 UDEV_RULE="/etc/udev/rules.d/99-usb-serial-aliases.rules"
 GITHUB_REPO="koenvanwijk/teleop_lerobot"
 # ==========================
@@ -116,6 +117,24 @@ fi
 echo "📦 pip install lerobot en dependencies…"
 conda activate "$CONDA_ENV"
 pip install --upgrade pip
+
+# ---- Verwijder oude lerobot versie (clean install) ----
+echo ""
+echo "🗑️  Controleer bestaande lerobot versie..."
+if pip show lerobot >/dev/null 2>&1; then
+  OLD_VERSION=$(pip show lerobot | grep "^Version:" | awk '{print $2}')
+  echo "   Huidige versie: $OLD_VERSION"
+  if [[ "$OLD_VERSION" != "$LEROBOT_VERSION" ]]; then
+    echo "   Verwijderen oude versie..."
+    pip uninstall -y lerobot || echo "⚠️  Kon lerobot niet verwijderen"
+  else
+    echo "   ✅ Juiste versie al geïnstalleerd ($LEROBOT_VERSION)"
+  fi
+else
+  echo "   Geen bestaande lerobot installatie gevonden"
+fi
+echo ""
+
 # Kies installatiemodus voor lerobot
 if [[ -n "$LEROBOT_SRC" ]]; then
   echo "🔗 Installeer lerobot editable vanuit lokale bron: $LEROBOT_SRC"
@@ -139,9 +158,28 @@ elif [[ -n "$LEROBOT_GIT" ]]; then
   echo "🧪 Editable install: $CLONE_DIR"
   pip install -e "$CLONE_DIR"[feetech]
 else
-  echo "📦 Installeer lerobot vanaf PyPI (met feetech)"
-  pip install lerobot[feetech]
+  echo "📦 Installeer lerobot v$LEROBOT_VERSION vanaf PyPI (met feetech)"
+  pip install "lerobot[feetech]==$LEROBOT_VERSION"
 fi
+
+# ---- Verificatie van geïnstalleerde versie ----
+echo ""
+echo "✅ Verificatie lerobot versie:"
+if pip show lerobot >/dev/null 2>&1; then
+  INSTALLED_VERSION=$(pip show lerobot | grep "^Version:" | awk '{print $2}')
+  echo "   Geïnstalleerde versie: $INSTALLED_VERSION"
+  if [[ -z "$LEROBOT_SRC" && -z "$LEROBOT_GIT" ]]; then
+    if [[ "$INSTALLED_VERSION" != "$LEROBOT_VERSION" ]]; then
+      echo "   ⚠️  WAARSCHUWING: Verwachte versie $LEROBOT_VERSION, maar geïnstalleerd: $INSTALLED_VERSION"
+    else
+      echo "   ✅ Versie komt overeen!"
+    fi
+  fi
+else
+  echo "   ❌ FOUT: lerobot niet gedetecteerd na installatie!"
+  exit 1
+fi
+echo ""
 pip install fastapi uvicorn[standard] pydantic websockets python-multipart
 pip install opencv-python numpy draccus
 
@@ -241,7 +279,7 @@ echo ""
 echo "═══════════════════════════════════════════════════════════"
 echo "📋 Geïnstalleerde componenten:"
 echo "   • Miniconda met conda env 'lerobot'"
-echo "   • lerobot package met feetech support"
+echo "   • lerobot package v$LEROBOT_VERSION met feetech support"
 echo "   • FastAPI webserver met uvicorn (auto-start bij reboot)"
 echo "   • Camera streaming met OpenCV (multi-camera support)"
 echo "   • Network management (AP/WiFi switching)"

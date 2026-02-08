@@ -61,8 +61,15 @@ export_calibration() {
     nice_name="${nice_name// /}"
     robot_type="${robot_type// /}"
     
-    # Bepaal paths
-    type_dir="${robot_type}_${role}"
+    # LeRobot 0.4.3+: Calibratie directories gebruiken unified naam 'so' ipv 'so101'/'so100'
+    # Map robot type voor calibration paths
+    calibration_type="$robot_type"
+    if [[ "$robot_type" == "so101" || "$robot_type" == "so100" ]]; then
+      calibration_type="so"  # Unified name in lerobot 0.4.3
+    fi
+    
+    # Bepaal paths (beide repo en cache gebruiken unified names)
+    type_dir="${calibration_type}_${role}"
     cache_file="$CALIBRATION_CACHE/$category/$type_dir/${nice_name}.json"
     repo_dir="$CALIBRATION_REPO/$category/$type_dir"
     repo_file="$repo_dir/${nice_name}.json"
@@ -109,8 +116,8 @@ import_calibration() {
     
     for robot_dir in "$repo_category_dir"/*; do
       if [[ -d "$robot_dir" ]]; then
-        robot_type="$(basename "$robot_dir")"
-        cache_dir="$CALIBRATION_CACHE/$category/$robot_type"
+        type_dir="$(basename "$robot_dir")"  # e.g., "so_follower" or "koch_follower"
+        cache_dir="$CALIBRATION_CACHE/$category/$type_dir"
         
         mkdir -p "$cache_dir"
         
@@ -119,7 +126,7 @@ import_calibration() {
           for json_file in "$robot_dir"/*.json; do
             filename="$(basename "$json_file")"
             cp "$json_file" "$cache_dir/$filename"
-            echo "   ✅ Imported: $category/$robot_type/$filename"
+            echo "   ✅ Imported: $category/$type_dir/$filename"
             ((imported_count++)) || true
           done
         fi
