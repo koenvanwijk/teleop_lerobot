@@ -35,8 +35,8 @@ from lerobot.teleoperators import (
     TeleoperatorConfig,
     make_teleoperator_from_config,
 )
-from lerobot.utils.import_utils import register_third_party_devices
-from lerobot.utils.robot_utils import busy_wait
+from lerobot.utils.import_utils import register_third_party_plugins
+from lerobot.utils.robot_utils import precise_sleep
 from lerobot.utils.utils import init_logging
 from lerobot.scripts.lerobot_teleoperate import TeleoperateConfig
 
@@ -63,7 +63,7 @@ class TeleoperationManager:
         self.robot_observation_processor = None
         
         init_logging()
-        register_third_party_devices()
+        register_third_party_plugins()
     
     def start(self, robot_type: str, robot_port: str, robot_id: str, 
               teleop_type: str, teleop_port: str, teleop_id: str, fps: int = 60):
@@ -175,7 +175,7 @@ class TeleoperationManager:
                 
                 # Maintain target FPS (LeRobot's busy_wait)
                 dt_s = time.perf_counter() - loop_start
-                busy_wait(1 / self.fps - dt_s)
+                precise_sleep(1 / self.fps - dt_s)
                 
             except Exception as e:
                 if self.is_running:  # Only log if not stopping
