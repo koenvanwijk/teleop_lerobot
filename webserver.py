@@ -58,15 +58,17 @@ except ImportError as e:
     BLUETOOTH_AVAILABLE = False
 
 # Configure logging
+LOG_FILE = Path.home() / 'webserver.log'
 logging.basicConfig(
     level=logging.INFO,
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
     handlers=[
         logging.StreamHandler(sys.stdout),
-        logging.FileHandler('webserver.log')
+        logging.FileHandler(LOG_FILE)
     ]
 )
 logger = logging.getLogger(__name__)
+logger.info(f"Logging to: {LOG_FILE}")
 
 
 # ============================================================================
