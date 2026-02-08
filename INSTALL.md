@@ -239,7 +239,7 @@ Je zou symlinks moeten zien:
 ```
 /dev/tty_follower -> /dev/ttyACM0
 /dev/tty_leader -> /dev/ttyUSB0
-/dev/tty_white_12_follower_so101 -> /dev/ttyACM0
+/dev/tty_white_12_follower_so -> /dev/ttyACM0
 ```
 
 #### 6.2 Nieuwe Devices Toevoegen
@@ -406,10 +406,10 @@ Dit laat je kiezen welke follower/leader combinatie je wilt gebruiken.
 conda activate lerobot
 
 lerobot-teleoperate \
-  --robot.type=so101_follower \
+  --robot.type=so_follower \
   --robot.port=/dev/tty_follower \
   --robot.id=default \
-  --teleop.type=so101_leader \
+  --teleop.type=so_leader \
   --teleop.port=/dev/tty_leader \
   --teleop.id=default
 ```

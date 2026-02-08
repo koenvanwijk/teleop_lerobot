@@ -54,15 +54,15 @@ Na reboot is de webserver automatisch beschikbaar op:
 De webserver gebruikt automatisch:
 - `/dev/tty_follower` (standaard: eerste follower uit mapping.csv)
 - `/dev/tty_leader` (standaard: eerste leader uit mapping.csv)
-- Type: `so101` (standaard robot type)
+- Type: `so` (standaard robot type)
 
 ```bash
 # Commando dat automatisch uitgevoerd wordt bij boot:
 lerobot-teleoperate \
-  --robot.type=so101_follower \
+  --robot.type=so_follower \
   --robot.port=/dev/tty_follower \
   --robot.id=default \
-  --teleop.type=so101_leader \
+  --teleop.type=so_leader \
   --teleop.port=/dev/tty_leader \
   --teleop.id=default
 ```
@@ -119,39 +119,39 @@ $ ./select_teleop.py
 ✅ Gevonden: 3 follower(s), 2 leader(s)
 
   FOLLOWERS:
-    [1] white_12 (so101)
-    [2] blue (so101)
-    [3] pink (so101)
+    [1] white_12 (so)
+    [2] blue (so)
+    [3] pink (so)
 
   LEADERS:
-    [1] black (so101)
-    [2] yellow (so101)
+    [1] black (so)
+    [2] yellow (so)
 
 ------------------------------------------------------------
 
 🤖 Selecteer een follower:
-  [1] white_12 (so101)
-  [2] blue (so101)
-  [3] pink (so101)
+  [1] white_12 (so)
+  [2] blue (so)
+  [3] pink (so)
 
 Kies follower [1-3]: 2
-✅ Geselecteerd: blue (so101)
+✅ Geselecteerd: blue (so)
 
 🤖 Selecteer een leader:
-  [1] black (so101)
-  [2] yellow (so101)
+  [1] black (so)
+  [2] yellow (so)
 
 Kies leader [1-2]: 1
-✅ Geselecteerd: black (so101)
+✅ Geselecteerd: black (so)
 
 ============================================================
 🎮 START TELEOPERATION
 ============================================================
-  Follower: blue (so101)
-    Port: /dev/tty_blue_follower_so101 -> /dev/ttyACM1
+  Follower: blue (so)
+    Port: /dev/tty_blue_follower_so -> /dev/ttyACM1
 
-  Leader: black (so101)
-    Port: /dev/tty_black_leader_so101 -> /dev/ttyACM3
+  Leader: black (so)
+    Port: /dev/tty_black_leader_so -> /dev/ttyACM3
 ============================================================
 
 💾 Configuratie opgeslagen in /home/pi/.lerobot_teleop_config
@@ -181,7 +181,7 @@ De udev rules maken voor elk device meerdere symlinks:
 
 ```
 # Specifieke link:
-/dev/tty_white_12_follower_so101 -> /dev/ttyACM0
+/dev/tty_white_12_follower_so -> /dev/ttyACM0
 
 # Generieke link (eerste van elk type):
 /dev/tty_follower -> /dev/ttyACM0
@@ -192,8 +192,8 @@ De udev rules maken voor elk device meerdere symlinks:
 
 `~/.lerobot_teleop_config` bevat twee regels:
 ```
-/dev/tty_blue_follower_so101
-/dev/tty_black_leader_so101
+/dev/tty_blue_follower_so
+/dev/tty_black_leader_so
 ```
 
 ### Startup flow
@@ -207,7 +207,7 @@ Bestaat ~/.lerobot_teleop_config?
 Devices bestaan?    Gebruik standaard:
   ↓ JA    ↓ NEE    /dev/tty_follower
   ↓       ↓        /dev/tty_leader
-Gebruik Reset      Type: so101
+Gebruik Reset      Type: so
 saved   config     ID: default
 config    ↓
   ↓       ↓

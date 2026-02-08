@@ -35,7 +35,7 @@ def parse_line(line: str) -> tuple[str, str, str, str, str] | None:
         return None
     
     serial, nice, role = parts[0], parts[1], parts[2]
-    robot_type = parts[3] if len(parts) > 3 else "so101"  # Default naar so101
+    robot_type = parts[3] if len(parts) > 3 else "so"  # Default naar so (lerobot 0.4.3+)
     calibration = parts[4] if len(parts) > 4 else ""  # Optional calibration file
     
     # Valideer dat velden niet leeg zijn

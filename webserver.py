@@ -278,9 +278,9 @@ class RobotState:
         # Defaults
         self.follower_port = "/dev/tty_follower"
         self.leader_port = "/dev/tty_leader"
-        self.follower_type = "so101"
+        self.follower_type = "so"
         self.follower_id = "default"
-        self.leader_type = "so101"
+        self.leader_type = "so"
         self.leader_id = "default"
         
         return Path(self.follower_port).exists() and Path(self.leader_port).exists()

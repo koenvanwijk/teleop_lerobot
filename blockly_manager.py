@@ -28,12 +28,12 @@ class RobotAPI:
         
         Args:
             robot_port: Serial port of the follower robot (e.g., /dev/tty_follower)
-            robot_type: Robot type (e.g., 'so101', 'so100', 'koch')
+            robot_type: Robot type (e.g., 'so', 'koch')
             robot_id: Robot identifier (e.g., 'white', 'black', 'default')
         """
         self.robot = None
         self.robot_port = robot_port
-        self.robot_type = robot_type or "so101"  # Default to so101
+        self.robot_type = robot_type or "so"  # Default to so (lerobot 0.4.3+)
         self.robot_id = robot_id or "default"  # Default to 'default'
         self.positions = [0.0] * 6  # Cache for 5 DOF + gripper
         # Don't initialize robot here - do it lazily when needed
@@ -43,10 +43,10 @@ class RobotAPI:
         """Initialize the real LeRobot connection"""
         try:
             if self.robot_port:
-                # Dynamic import based on robot type (from port name like /dev/tty_white_follower_so101)
+                # Dynamic import based on robot type (from port name like /dev/tty_white_follower_so)
                 # Extract robot type from port if not provided
                 if not self.robot_type and "_follower_" in self.robot_port:
-                    # e.g., /dev/tty_white_follower_so101 -> so101
+                    # e.g., /dev/tty_white_follower_so -> so
                     self.robot_type = self.robot_port.split("_follower_")[-1].split("_")[0]
                 
                 robot_type = self.robot_type.lower()

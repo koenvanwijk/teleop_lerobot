@@ -333,10 +333,10 @@ if __name__ == "__main__":
     manager = TeleoperationManager()
     
     if manager.start(
-        robot_type="so101_follower",
+        robot_type="so_follower",
         robot_port="/dev/ttyACM0",
         robot_id="black",
-        teleop_type="so101_leader",
+        teleop_type="so_leader",
         teleop_port="/dev/ttyACM1",
         teleop_id="yellow",
         fps=60
