@@ -246,42 +246,20 @@ class RobotState:
         self._load_persisted_defaults()
     
     def load_device_config(self) -> bool:
-        """Laad device configuratie."""
-        config_file = Path.home() / ".lerobot_teleop_config"
-        
-        if config_file.exists():
-            try:
-                with open(config_file, 'r') as f:
-                    lines = f.read().strip().split('\n')
-                    if len(lines) >= 2:
-                        saved_follower = lines[0].strip()
-                        saved_leader = lines[1].strip()
-                        
-                        if Path(saved_follower).exists() and Path(saved_leader).exists():
-                            follower_name = Path(saved_follower).name.replace("tty_", "")
-                            leader_name = Path(saved_leader).name.replace("tty_", "")
-                            
-                            follower_parts = follower_name.split("_")
-                            leader_parts = leader_name.split("_")
-                            
-                            if len(follower_parts) >= 3 and len(leader_parts) >= 3:
-                                self.follower_type = follower_parts[-1]
-                                self.follower_id = "_".join(follower_parts[:-2])
-                                self.leader_type = leader_parts[-1]
-                                self.leader_id = "_".join(leader_parts[:-2])
-                                self.follower_port = saved_follower
-                                self.leader_port = saved_leader
-                                return True
-            except Exception:
-                pass
-        
-        # Defaults
-        self.follower_port = "/dev/tty_follower"
-        self.leader_port = "/dev/tty_leader"
-        self.follower_type = "so101"
-        self.follower_id = "default"
-        self.leader_type = "so101"
-        self.leader_id = "default"
+        """Laad device configuratie (fallback defaults only - JSON loading via _load_persisted_defaults)."""
+        # Set defaults if not already loaded from JSON
+        if not self.follower_port:
+            self.follower_port = "/dev/tty_follower"
+        if not self.leader_port:
+            self.leader_port = "/dev/tty_leader"
+        if not self.follower_type:
+            self.follower_type = "so101"
+        if not self.follower_id:
+            self.follower_id = "default"
+        if not self.leader_type:
+            self.leader_type = "so101"
+        if not self.leader_id:
+            self.leader_id = "default"
         
         return Path(self.follower_port).exists() and Path(self.leader_port).exists()
 
@@ -759,23 +737,6 @@ async def set_device_defaults(request: Request):
         state.leader_id = body.get('leader_id', state.leader_id)
         saved_json = state.save_persisted_defaults()
 
-        # Also write legacy config file used by select_teleop.py for compatibility
-        legacy_file = Path.home() / ".lerobot_teleop_config"
-        legacy_saved = False
-        try:
-            # Ensure we store the symlink paths as expected by the CLI script
-            follower_symlink = state.follower_port
-            leader_symlink = state.leader_port
-            if follower_symlink and leader_symlink:
-                with open(legacy_file, 'w') as f:
-                    f.write(f"{follower_symlink}\n")
-                    f.write(f"{leader_symlink}\n")
-                legacy_saved = True
-                logger.info(f"Legacy defaults saved to {legacy_file}")
-        except Exception as e:
-            logger.error(f"Error saving legacy defaults: {e}")
-            legacy_saved = False
-
         # Reinitialize Blockly manager to use the updated follower selection
         try:
             if BLOCKLY_AVAILABLE:
@@ -794,14 +755,8 @@ async def set_device_defaults(request: Request):
             logger.error(f"Error reinitializing Blockly after defaults change: {e}")
 
         return {
-            'success': bool(saved_json and legacy_saved),
-            'message': 'Defaults saved' if (saved_json and legacy_saved) else (
-                'Saved JSON defaults only' if saved_json else 'Failed to save defaults'
-            ),
-            'details': {
-                'json_saved': saved_json,
-                'legacy_saved': legacy_saved,
-            }
+            'success': saved_json,
+            'message': 'Defaults saved' if saved_json else 'Failed to save defaults'
         }
     except Exception as e:
         logger.error(f"Error setting device defaults: {e}")
