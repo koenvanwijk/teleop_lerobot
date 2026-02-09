@@ -673,20 +673,50 @@
                 const scanChar = await service.getCharacteristic(WIFI_SCAN_CHAR_UUID);
                 await scanChar.writeValueWithoutResponse(new Uint8Array([1]));
                 
-                // Wait for scan to complete
-                await new Promise(resolve => setTimeout(resolve, 5000));
+                // Wait for scan to complete (longer on some systems)
+                showStatus('Wachten op scan resultaten...', 'info');
+                await new Promise(resolve => setTimeout(resolve, 8000));
                 
-                // Read scan results
+                // Read scan results with retry logic for Linux/desktop Chrome
                 const networksChar = await service.getCharacteristic(WIFI_NETWORKS_CHAR_UUID);
-                const value = await networksChar.readValue();
-                const decoder = new TextDecoder('utf-8');
-                const networksJson = decoder.decode(value);
                 
-                console.log('Networks JSON:', networksJson);
+                let networksJson = '';
+                let attempts = 0;
+                const maxAttempts = 3;
+                
+                while (attempts < maxAttempts) {
+                    try {
+                        attempts++;
+                        console.log(`Reading networks (attempt ${attempts}/${maxAttempts})...`);
+                        
+                        const value = await networksChar.readValue();
+                        const decoder = new TextDecoder('utf-8');
+                        networksJson = decoder.decode(value);
+                        
+                        console.log('Networks JSON:', networksJson);
+                        
+                        // Validate JSON
+                        if (networksJson && networksJson.trim().length > 0) {
+                            JSON.parse(networksJson); // Test parse
+                            break; // Success
+                        }
+                        
+                        if (attempts < maxAttempts) {
+                            await new Promise(resolve => setTimeout(resolve, 1000));
+                        }
+                    } catch (readError) {
+                        console.error(`Read attempt ${attempts} failed:`, readError);
+                        if (attempts >= maxAttempts) {
+                            throw readError;
+                        }
+                        await new Promise(resolve => setTimeout(resolve, 1000));
+                    }
+                }
+                
                 const networks = JSON.parse(networksJson);
                 
                 if (networks.length === 0) {
-                    showStatus('Geen WiFi netwerken gevonden', 'error');
+                    showStatus('Geen WiFi netwerken gevonden. Probeer nogmaals te scannen.', 'warning');
                     wifiNetworks.style.display = 'none';
                     return;
                 }
@@ -711,7 +741,26 @@
 
             } catch (error) {
                 console.error('WiFi scan error:', error);
-                showStatus(`WiFi scan fout: ${error.message}`, 'error');
+                let errorMsg = error.message;
+                
+                // More helpful error messages
+                if (error.message.includes('GATT operation')) {
+                    errorMsg = 'BLE communicatie fout. Probeer de verbinding te vernieuwen.';
+                } else if (error.message.includes('Unexpected token')) {
+                    errorMsg = 'Ongeldige data ontvangen. Scan opnieuw.';
+                } else if (error.message.includes('timeout')) {
+                    errorMsg = 'Timeout tijdens scannen. Probeer opnieuw.';
+                }
+                
+                showStatus(`WiFi scan fout: ${errorMsg}`, 'error');
+                
+                // Suggest manual connection for persistent errors
+                const suggestion = document.createElement('div');
+                suggestion.style.marginTop = '10px';
+                suggestion.style.fontSize = '0.9em';
+                suggestion.style.color = '#666';
+                suggestion.innerHTML = '💡 Tip: Je kunt ook handmatig SSID en wachtwoord invoeren hieronder.';
+                wifiStatus.appendChild(suggestion);
             } finally {
                 scanWifiButton.disabled = false;
                 scanWifiButton.innerHTML = '🔍 Scan WiFi Netwerken';
