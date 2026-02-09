@@ -399,6 +399,71 @@ class LEAdvertisement(ServiceInterface):
         logger.info(f"Advertisement name updated to: {name}")
 
 
+class NoInputNoOutputAgent(ServiceInterface):
+    """
+    Bluetooth Agent that automatically accepts pairing without user interaction.
+    Uses NoInputNoOutput capability for headless systems.
+    """
+    
+    def __init__(self, agent_path: str):
+        super().__init__('org.bluez.Agent1')
+        self.path = agent_path
+    
+    @method()
+    def Release(self):
+        """Called when agent is unregistered"""
+        logger.info("Agent released")
+    
+    @method()
+    def RequestPinCode(self, device: 'o') -> 's':
+        """Request PIN code - not used for NoInputNoOutput"""
+        logger.info(f"RequestPinCode called for {device}")
+        return "0000"
+    
+    @method()
+    def DisplayPinCode(self, device: 'o', pincode: 's'):
+        """Display PIN code - not used for NoInputNoOutput"""
+        logger.info(f"DisplayPinCode: {device} -> {pincode}")
+    
+    @method()
+    def RequestPasskey(self, device: 'o') -> 'u':
+        """Request passkey - not used for NoInputNoOutput"""
+        logger.info(f"RequestPasskey called for {device}")
+        return 0
+    
+    @method()
+    def DisplayPasskey(self, device: 'o', passkey: 'u', entered: 'q'):
+        """Display passkey - not used for NoInputNoOutput"""
+        logger.info(f"DisplayPasskey: {device} -> {passkey} (entered: {entered})")
+    
+    @method()
+    def RequestConfirmation(self, device: 'o', passkey: 'u'):
+        """Request confirmation - automatically accept for NoInputNoOutput"""
+        logger.info(f"RequestConfirmation: {device} -> {passkey} (auto-accepting)")
+        # For NoInputNoOutput, we automatically accept
+        # No exception means accept
+        return
+    
+    @method()
+    def RequestAuthorization(self, device: 'o'):
+        """Request authorization - automatically accept"""
+        logger.info(f"RequestAuthorization: {device} (auto-accepting)")
+        # Auto-accept authorization
+        return
+    
+    @method()
+    def AuthorizeService(self, device: 'o', uuid: 's'):
+        """Authorize service - automatically accept"""
+        logger.info(f"AuthorizeService: {device} -> {uuid} (auto-accepting)")
+        # Auto-accept service authorization
+        return
+    
+    @method()
+    def Cancel(self):
+        """Pairing cancelled"""
+        logger.info("Agent pairing cancelled")
+
+
 class BLEGattServer:
     """
     Complete BLE GATT Server for IP broadcasting
@@ -422,6 +487,7 @@ class BLEGattServer:
         self.char_wifi_scan_path = '/org/bluez/lerobot/service0/char5'
         self.char_wifi_networks_path = '/org/bluez/lerobot/service0/char6'
         self.adv_path = '/org/bluez/lerobot/advertisement0'
+        self.agent_path = '/org/bluez/lerobot/agent'
         
         # GATT and Advertisement objects
         self.application = None
@@ -434,6 +500,7 @@ class BLEGattServer:
         self.char_wifi_scan = None
         self.char_wifi_networks = None
         self.advertisement = None
+        self.agent = None
         
         # WiFi credentials storage
         self.wifi_ssid = ""
@@ -751,6 +818,32 @@ class BLEGattServer:
             logger.error(f"Failed to register GATT service: {e}")
             return False
     
+    async def register_agent(self):
+        """Register Bluetooth agent for automatic pairing without user interaction"""
+        try:
+            # Create and export agent
+            self.agent = NoInputNoOutputAgent(self.agent_path)
+            self.bus.export(self.agent_path, self.agent)
+            
+            # Get AgentManager
+            introspection = await self.bus.introspect('org.bluez', '/org/bluez')
+            obj = self.bus.get_proxy_object('org.bluez', '/org/bluez', introspection)
+            agent_manager = obj.get_interface('org.bluez.AgentManager1')
+            
+            # Register agent with NoInputNoOutput capability
+            await agent_manager.call_register_agent(self.agent_path, 'NoInputNoOutput')
+            
+            # Request to be the default agent
+            await agent_manager.call_request_default_agent(self.agent_path)
+            
+            logger.info("Bluetooth agent registered successfully (NoInputNoOutput)")
+            return True
+            
+        except Exception as e:
+            logger.error(f"Failed to register agent: {e}")
+            logger.warning("Pairing may require manual confirmation")
+            return False
+    
     async def setup_advertising(self):
         """Setup BLE advertising with service UUID and device name"""
         try:
@@ -808,19 +901,24 @@ class BLEGattServer:
             logger.error(f"Failed to set device name: {e}")
     
     async def make_discoverable(self):
-        """Make adapter discoverable"""
+        """Make adapter discoverable and pairable"""
         try:
             introspection = await self.bus.introspect('org.bluez', self.adapter_path)
             adapter = self.bus.get_proxy_object('org.bluez', self.adapter_path, introspection)
             props = adapter.get_interface('org.freedesktop.DBus.Properties')
             
+            # Make discoverable
             await props.call_set('org.bluez.Adapter1', 'Discoverable', Variant('b', True))
             await props.call_set('org.bluez.Adapter1', 'DiscoverableTimeout', Variant('u', 0))
             
-            logger.info("Adapter is now discoverable")
+            # Make pairable (no timeout)
+            await props.call_set('org.bluez.Adapter1', 'Pairable', Variant('b', True))
+            await props.call_set('org.bluez.Adapter1', 'PairableTimeout', Variant('u', 0))
+            
+            logger.info("Adapter is now discoverable and pairable (no user confirmation required)")
             
         except Exception as e:
-            logger.error(f"Failed to make discoverable: {e}")
+            logger.error(f"Failed to make discoverable/pairable: {e}")
     
     async def run(self):
         """Main run loop for GATT server"""
@@ -832,6 +930,9 @@ class BLEGattServer:
             # Connect to system bus
             self.bus = await MessageBus(bus_type=BusType.SYSTEM).connect()
             logger.info("Connected to D-Bus system bus")
+            
+            # Register Bluetooth agent for automatic pairing (headless mode)
+            await self.register_agent()
             
             # Register GATT service
             if not await self.register_gatt_service():
@@ -866,6 +967,17 @@ class BLEGattServer:
             logger.error(f"GATT server error: {e}", exc_info=True)
         finally:
             self.running = False
+            
+            # Unregister agent
+            if self.bus and self.agent:
+                try:
+                    introspection = await self.bus.introspect('org.bluez', '/org/bluez')
+                    obj = self.bus.get_proxy_object('org.bluez', '/org/bluez', introspection)
+                    agent_manager = obj.get_interface('org.bluez.AgentManager1')
+                    await agent_manager.call_unregister_agent(self.agent_path)
+                    logger.info("Agent unregistered")
+                except Exception as e:
+                    logger.warning(f"Failed to unregister agent: {e}")
             
             # Unregister advertisement
             if self.bus and self.advertisement:
