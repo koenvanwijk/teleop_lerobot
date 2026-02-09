@@ -213,8 +213,16 @@ else
   echo "⚠️  sync_calibration.sh niet gevonden, overgeslagen"
 fi
 
-# ---- 4) Udev rules downloaden ----
-echo "⬇️  Download udev-regels van GitHub release…"
+# ---- 4) Udev rules genereren uit mapping.csv ----
+echo "📝 Genereer udev-regels uit mapping.csv…"
+
+# Check of mapping.csv bestaat
+MAPPING_FILE="$SCRIPT_DIR/mapping.csv"
+if [[ ! -f "$MAPPING_FILE" ]]; then
+  echo "❌ mapping.csv niet gevonden: $MAPPING_FILE"
+  echo "   Gebruik ./create_mapping.sh om mapping.csv te maken"
+  exit 1
+fi
 
 # Backup bestaand rules-bestand
 if [[ -f "$UDEV_RULE" ]]; then
@@ -222,18 +230,19 @@ if [[ -f "$UDEV_RULE" ]]; then
   echo "🗂  Backup: ${UDEV_RULE}.bak.*"
 fi
 
+# Genereer udev rules uit mapping.csv
 TMP_RULE="$(mktemp /tmp/udev.rules.XXXXXX)"
 
-# Download laatste release .rules bestand
-DOWNLOAD_URL="https://github.com/$GITHUB_REPO/releases/latest/download/99-usb-serial-aliases.rules"
-if curl -fsSL "$DOWNLOAD_URL" -o "$TMP_RULE"; then
-  echo "✅ Udev rules gedownload"
-else
-  echo "❌ Kon udev rules niet downloaden van $DOWNLOAD_URL"
-  echo "   Gebruik ./create_mapping.sh en gen_udev-rules.py om handmatig te genereren"
+echo "   • Lezen mapping.csv: $MAPPING_FILE"
+python3 "$SCRIPT_DIR/gen_udev_rules.py" "$MAPPING_FILE" --output "$TMP_RULE"
+
+if [[ ! -s "$TMP_RULE" ]]; then
+  echo "❌ gen_udev_rules.py produceerde geen output"
   rm -f "$TMP_RULE"
   exit 1
 fi
+
+echo "✅ Udev rules gegenereerd uit mapping.csv"
 
 echo "📝 Schrijf naar $UDEV_RULE…"
 sudo mv "$TMP_RULE" "$UDEV_RULE"
