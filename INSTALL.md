@@ -370,7 +370,7 @@ Of via web interface:
 1. Ga naar **Advanced** → **System**
 2. Klik **Start Bluetooth Service**
 
-Device advertiseert als: `LeRobot-IP-[IP_ADDRESS]`
+Device advertiseert als: `LeRobot-xxxx` (xxxx = laatste 4 chars van MAC adres)
 
 ---
 

@@ -58,7 +58,7 @@ De robot moet BLE advertising ingeschakeld hebben met IP in device naam:
 1. Start de LeRobot webserver
 2. Ga naar Advanced → System
 3. Start de Bluetooth IP Service
-4. De robot is nu discoverable als "LeRobot-IP-xxx.xxx.xxx.xxx"
+4. De robot is nu discoverable als "LeRobot-xxxx" (xxxx = MAC suffix). Het IP adres wordt via GATT characteristic uitgelezen.
 
 ## Browser Ondersteuning
 
