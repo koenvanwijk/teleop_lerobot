@@ -536,16 +536,44 @@
                     console.log('Service found');
                     const characteristic = await service.getCharacteristic(IP_CHARACTERISTIC_UUID);
                     console.log('Characteristic found');
-                    const value = await characteristic.readValue();
-                    console.log('Value read:', value);
                     
-                    // Convert DataView to string
-                    const decoder = new TextDecoder('utf-8');
-                    ip = decoder.decode(value);
-                    method = 'GATT';
+                    // Read with retry logic (similar to WiFi scan)
+                    let attempts = 0;
+                    const maxAttempts = 3;
+                    let ipValue = null;
                     
-                    // Don't disconnect - we'll use the connection for WiFi
-                    console.log('IP read from GATT characteristic:', ip);
+                    while (attempts < maxAttempts && !ipValue) {
+                        try {
+                            attempts++;
+                            console.log(`Reading IP characteristic (attempt ${attempts}/${maxAttempts})...`);
+                            
+                            const value = await characteristic.readValue();
+                            console.log('Value read:', value);
+                            
+                            // Convert DataView to string
+                            const decoder = new TextDecoder('utf-8');
+                            const readIp = decoder.decode(value);
+                            
+                            // Validate IP
+                            if (readIp && readIp !== "No IP" && readIp.trim().length > 0) {
+                                ipValue = readIp;
+                                ip = readIp;
+                                method = 'GATT';
+                                console.log('IP read from GATT characteristic:', ip);
+                                break;
+                            }
+                            
+                            if (attempts < maxAttempts) {
+                                console.log('Invalid IP, retrying...');
+                                await new Promise(resolve => setTimeout(resolve, 1000));
+                            }
+                        } catch (readError) {
+                            console.warn(`Read attempt ${attempts} failed:`, readError.message);
+                            if (attempts < maxAttempts) {
+                                await new Promise(resolve => setTimeout(resolve, 1000));
+                            }
+                        }
+                    }
                     
                     // Show WiFi section if no IP or "No IP"
                     if (!ip || ip === "No IP" || ip.includes("No IP")) {

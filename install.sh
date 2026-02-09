@@ -275,20 +275,52 @@ if [[ -f "$BLUETOOTH_CONF" ]]; then
   
   echo "✅ Bluetooth configuratie bijgewerkt voor headless pairing"
   
-  # Disable GNOME Bluetooth agents (if running)
+  # Disable GNOME Bluetooth agents and pairing dialogs aggressively
   if command -v systemctl >/dev/null 2>&1; then
-    # Check if running in user session
-    if systemctl --user list-units --type=service 2>/dev/null | grep -q obex; then
-      echo "🔇 Uitschakelen GNOME Bluetooth agents…"
-      systemctl --user mask obex.service 2>/dev/null || true
-      systemctl --user stop obex.service 2>/dev/null || true
+    echo "🔇 Uitschakelen GNOME Bluetooth agents en pairing dialogs…"
+    
+    # Disable obex service
+    systemctl --user mask obex.service 2>/dev/null || true
+    systemctl --user stop obex.service 2>/dev/null || true
+    
+    # Kill any running GNOME Bluetooth agent processes
+    pkill -f gnome-bluetooth-agent 2>/dev/null || true
+    pkill -f bluetooth-agent 2>/dev/null || true
+    pkill -f blueman-agent 2>/dev/null || true
+    
+    # Disable GNOME Settings daemon's Bluetooth pairing plugin (if exists)
+    if [[ -d "/usr/lib/gnome-settings-daemon-3.0" ]]; then
+      # Create override to disable Bluetooth pairing UI
+      mkdir -p "$HOME/.config/autostart"
+      
+      # Disable bluetooth applet if it exists
+      if [[ -f "/etc/xdg/autostart/blueman.desktop" ]]; then
+        cat > "$HOME/.config/autostart/blueman.desktop" <<'AUTOSTART_EOF'
+[Desktop Entry]
+Type=Application
+Name=Blueman
+Hidden=true
+AUTOSTART_EOF
+        echo "   • Disabled blueman autostart"
+      fi
     fi
+    
+    echo "   • GNOME Bluetooth GUI agents uitgeschakeld"
+    echo "   ⚠️  BELANGRIJK: Log uit en in om GUI dialogen volledig te verwijderen"
   fi
   
   # Herstart Bluetooth service om veranderingen toe te passen
   echo "🔄 Herstarten Bluetooth service…"
   sudo systemctl restart bluetooth
+  sleep 2
+  
   echo "✅ Bluetooth geconfigureerd voor automatische pairing zonder GUI prompts"
+  echo ""
+  echo "⚠️  BELANGRIJK voor GUI systemen (GNOME/Ubuntu Desktop):"
+  echo "   Om pairing dialogs volledig te verwijderen:"
+  echo "   1. Log uit en weer in (of herstart)"
+  echo "   2. Zorg dat geen Bluetooth applets actief zijn in systray"
+  echo "   3. Test: 'ps aux | grep bluetooth-agent' moet leeg zijn"
 else
   echo "⚠️  Bluetooth configuratie bestand niet gevonden: $BLUETOOTH_CONF"
   echo "   Bluetooth agent in bluetooth_gatt_server.py zal nog steeds automatisch pairing doen"
