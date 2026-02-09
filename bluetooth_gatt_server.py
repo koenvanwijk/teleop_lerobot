@@ -219,9 +219,8 @@ class WiFiConnectCharacteristic(ServiceInterface):
     def WriteValue(self, value: 'ay', options: 'a{sv}'):
         """Called when client writes to trigger connection"""
         logger.info("WiFi connect triggered via BLE")
-        # Trigger connection in background
-        import asyncio
-        asyncio.create_task(self.server.connect_wifi())
+        # Set flag for main loop to handle
+        self.server.wifi_connect_requested = True
 
 
 class WiFiScanCharacteristic(ServiceInterface):
@@ -254,9 +253,8 @@ class WiFiScanCharacteristic(ServiceInterface):
     def WriteValue(self, value: 'ay', options: 'a{sv}'):
         """Called when client writes to trigger WiFi scan"""
         logger.info("WiFi scan triggered via BLE")
-        # Trigger scan in background
-        import asyncio
-        asyncio.create_task(self.server.scan_wifi())
+        # Set flag for main loop to handle
+        self.server.wifi_scan_requested = True
 
 
 class WiFiNetworksCharacteristic(ServiceInterface):
@@ -505,6 +503,10 @@ class BLEGattServer:
         # WiFi credentials storage
         self.wifi_ssid = ""
         self.wifi_password = ""
+        
+        # WiFi action flags (set by characteristics, handled by main loop)
+        self.wifi_connect_requested = False
+        self.wifi_scan_requested = False
         
     def get_local_ip(self) -> str:
         """Get current local IP address"""
@@ -948,9 +950,22 @@ class BLEGattServer:
             self.running = True
             logger.info("BLE GATT Server started successfully")
             
-            # Update IP periodically
+            # Update IP periodically and handle WiFi actions
             last_ip = ""
             while self.running:
+                # Handle WiFi scan request
+                if self.wifi_scan_requested:
+                    self.wifi_scan_requested = False
+                    logger.info("Processing WiFi scan request...")
+                    await self.scan_wifi()
+                
+                # Handle WiFi connect request
+                if self.wifi_connect_requested:
+                    self.wifi_connect_requested = False
+                    logger.info("Processing WiFi connect request...")
+                    await self.connect_wifi()
+                
+                # Update IP periodically
                 current_ip = self.get_local_ip()
                 
                 if current_ip != last_ip:
@@ -961,7 +976,7 @@ class BLEGattServer:
                     if self.char_ip:
                         self.char_ip.update_ip(current_ip)
                 
-                await asyncio.sleep(10)
+                await asyncio.sleep(1)  # Check more frequently for WiFi actions
                 
         except Exception as e:
             logger.error(f"GATT server error: {e}", exc_info=True)
