@@ -143,12 +143,20 @@ def start_teleoperation(
     print(f"  {' '.join(cmd)}")
     print()
     
-    # Sla configuratie op voor webserver
-    config_file = Path.home() / ".lerobot_teleop_config"
+    # Sla configuratie op voor webserver (JSON formaat)
+    import json
+    config_file = Path.home() / ".lerobot_device_defaults.json"
     try:
+        config_data = {
+            'follower_port': follower_symlink_path,
+            'follower_type': follower_type,
+            'follower_id': follower_id,
+            'leader_port': leader_symlink_path,
+            'leader_type': leader_type,
+            'leader_id': leader_id,
+        }
         with open(config_file, 'w') as f:
-            f.write(f"{follower_symlink_path}\n")
-            f.write(f"{leader_symlink_path}\n")
+            json.dump(config_data, f, indent=2)
         print(f"💾 Configuratie opgeslagen in {config_file}")
         print(f"   Deze keuze wordt bij reboot hergebruikt door webserver\n")
     except Exception as e:
@@ -186,7 +194,7 @@ def main() -> None:
     
     # Check voor --reset argument
     if len(sys.argv) > 1 and sys.argv[1] in ['--reset', '-r']:
-        config_file = Path.home() / ".lerobot_teleop_config"
+        config_file = Path.home() / ".lerobot_device_defaults.json"
         if config_file.exists():
             config_file.unlink()
             print("\n✅ Configuratie gereset!")
