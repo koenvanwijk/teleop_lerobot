@@ -244,6 +244,56 @@ echo "🔁 Udev reload + trigger…"
 sudo udevadm control --reload
 sudo udevadm trigger
 
+# ---- 4.5) Bluetooth configuratie voor headless pairing ----
+echo "📡 Configureer Bluetooth voor automatische pairing (headless mode)…"
+
+BLUETOOTH_CONF="/etc/bluetooth/main.conf"
+if [[ -f "$BLUETOOTH_CONF" ]]; then
+  # Backup bestaande configuratie
+  if [[ ! -f "${BLUETOOTH_CONF}.bak" ]]; then
+    sudo cp "$BLUETOOTH_CONF" "${BLUETOOTH_CONF}.bak"
+    echo "🗂  Backup: ${BLUETOOTH_CONF}.bak"
+  fi
+  
+  # Configureer AlwaysPairable en JustWorksRepairing voor automatische pairing zonder user input
+  # Dit voorkomt "Please confirm code..." prompts op headless systemen
+  
+  # Check en update AlwaysPairable
+  if grep -q "^#\?AlwaysPairable" "$BLUETOOTH_CONF"; then
+    sudo sed -i 's/^#\?AlwaysPairable.*/AlwaysPairable = true/' "$BLUETOOTH_CONF"
+  else
+    # Voeg toe onder [Policy] sectie
+    sudo sed -i '/^\[Policy\]/a AlwaysPairable = true' "$BLUETOOTH_CONF"
+  fi
+  
+  # Check en update JustWorksRepairing
+  if grep -q "^#\?JustWorksRepairing" "$BLUETOOTH_CONF"; then
+    sudo sed -i 's/^#\?JustWorksRepairing.*/JustWorksRepairing = always/' "$BLUETOOTH_CONF"
+  else
+    sudo sed -i '/^\[Policy\]/a JustWorksRepairing = always' "$BLUETOOTH_CONF"
+  fi
+  
+  echo "✅ Bluetooth configuratie bijgewerkt voor headless pairing"
+  
+  # Disable GNOME Bluetooth agents (if running)
+  if command -v systemctl >/dev/null 2>&1; then
+    # Check if running in user session
+    if systemctl --user list-units --type=service 2>/dev/null | grep -q obex; then
+      echo "🔇 Uitschakelen GNOME Bluetooth agents…"
+      systemctl --user mask obex.service 2>/dev/null || true
+      systemctl --user stop obex.service 2>/dev/null || true
+    fi
+  fi
+  
+  # Herstart Bluetooth service om veranderingen toe te passen
+  echo "🔄 Herstarten Bluetooth service…"
+  sudo systemctl restart bluetooth
+  echo "✅ Bluetooth geconfigureerd voor automatische pairing zonder GUI prompts"
+else
+  echo "⚠️  Bluetooth configuratie bestand niet gevonden: $BLUETOOTH_CONF"
+  echo "   Bluetooth agent in bluetooth_gatt_server.py zal nog steeds automatisch pairing doen"
+fi
+
 # ---- 5) Crontab entry voor webserver ----
 WEBSERVER_SCRIPT="$SCRIPT_DIR/webserver.py"
 
@@ -283,6 +333,7 @@ echo "   • lerobot package v$LEROBOT_VERSION met feetech support"
 echo "   • FastAPI webserver met uvicorn (auto-start bij reboot)"
 echo "   • Camera streaming met OpenCV (multi-camera support)"
 echo "   • Network management (AP/WiFi switching)"
+echo "   • Bluetooth GATT server (headless auto-pairing)"
 echo "   • WebSocket real-time updates"
 echo "   • Udev rules voor USB devices"
 echo "   • Calibration files"
@@ -313,8 +364,8 @@ echo "✨ Features:"
 echo "   🎮 Teleoperation: Start/Stop control"
 echo "   📹 Cameras: Live MJPEG streaming"
 echo "   🌐 Network: AP/WiFi management"
-echo "   � Bluetooth: IP address query service"
-echo "   �🔌 WebSocket: Real-time updates"
+echo "   📡 Bluetooth: IP query + headless auto-pairing"
+echo "   🔌 WebSocket: Real-time updates"
 echo "   ⚙️  System: Info & monitoring"
 echo ""
 echo "📖 Zie FEATURES.md voor complete documentatie"
