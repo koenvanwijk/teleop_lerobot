@@ -347,7 +347,8 @@ if [[ -f "$WEBSERVER_SCRIPT" ]]; then
   chmod +x "$WEBSERVER_SCRIPT"
   
   # Run webserver.py directly (includes uvicorn.run in __main__)
-  WEBSERVER_CRON="@reboot cd $SCRIPT_DIR && $CONDA_BIN run -n $CONDA_ENV python webserver.py >> $HOME/webserver.log 2>&1"
+  # Use -u flag for unbuffered output so all logs are written immediately
+  WEBSERVER_CRON="@reboot cd $SCRIPT_DIR && $CONDA_BIN run -n $CONDA_ENV python -u webserver.py >> $HOME/webserver.log 2>&1"
   
   # Verwijder bestaande webserver.py entries en voeg nieuwe toe
   if crontab -l 2>/dev/null | grep -qF "webserver"; then
