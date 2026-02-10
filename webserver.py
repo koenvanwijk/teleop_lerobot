@@ -57,14 +57,32 @@ except ImportError as e:
     logger.warning(f"Bluetooth GATT server not available: {e}")
     BLUETOOTH_AVAILABLE = False
 
-# Configure logging
+# Configure logging with force flush
+log_handler = logging.FileHandler('webserver.log')
+log_handler.setLevel(logging.INFO)
+log_formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+log_handler.setFormatter(log_formatter)
+
+# Force flush after every log
+class FlushingHandler(logging.Handler):
+    def __init__(self, handler):
+        super().__init__()
+        self.handler = handler
+        
+    def emit(self, record):
+        self.handler.emit(record)
+        self.handler.flush()
+
+flushing_handler = FlushingHandler(log_handler)
+
 logging.basicConfig(
     level=logging.INFO,
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
     handlers=[
         logging.StreamHandler(sys.stdout),
-        logging.FileHandler('webserver.log')
-    ]
+        flushing_handler
+    ],
+    force=True  # Override any existing logging config
 )
 logger = logging.getLogger(__name__)
 
@@ -348,6 +366,8 @@ async def start_teleoperation() -> bool:
         return False
     
     logger.info("🎮 Start teleoperation...")
+    sys.stdout.flush()
+    sys.stderr.flush()
     
     if not state.follower_port or not state.leader_port:
         if not state.load_device_config():
@@ -355,16 +375,34 @@ async def start_teleoperation() -> bool:
             return False
     
     # Get or create teleoperation manager
-    from teleoperation_manager import get_teleoperation_manager
-    teleop_manager = get_teleoperation_manager()
+    logger.info("   Importing teleoperation_manager...")
+    sys.stdout.flush()
+    sys.stderr.flush()
+    try:
+        from teleoperation_manager import get_teleoperation_manager
+        teleop_manager = get_teleoperation_manager()
+        logger.info("   ✅ Teleoperation manager imported")
+        sys.stdout.flush()
+        sys.stderr.flush()
+    except Exception as import_error:
+        logger.error(f"❌ Failed to import teleoperation_manager: {import_error}", exc_info=True)
+        sys.stdout.flush()
+        sys.stderr.flush()
+        return False
     
     try:
         logger.info(f"   Follower: {state.follower_port} ({state.follower_type}/{state.follower_id})")
         logger.info(f"   Leader: {state.leader_port} ({state.leader_type}/{state.leader_id})")
+        sys.stdout.flush()
+        sys.stderr.flush()
         
         # Start teleoperation in-process with proper LeRobot types
         robot_type = f"{state.follower_type}_follower"
         teleop_type = f"{state.leader_type}_leader"
+        
+        logger.info(f"   Starting with robot_type={robot_type}, teleop_type={teleop_type}")
+        sys.stdout.flush()
+        sys.stderr.flush()
         
         if teleop_manager.start(
             robot_type=robot_type,
@@ -378,13 +416,19 @@ async def start_teleoperation() -> bool:
             state.teleop_manager = teleop_manager
             state.teleop_mode = "teleoperation"
             logger.info("✅ Teleoperation gestart (in-process)")
+            sys.stdout.flush()
+            sys.stderr.flush()
             return True
         else:
             logger.error("❌ Failed to start teleoperation")
+            sys.stdout.flush()
+            sys.stderr.flush()
             return False
         
     except Exception as e:
         logger.error(f"❌ Fout bij starten teleoperation: {e}", exc_info=True)
+        sys.stdout.flush()
+        sys.stderr.flush()
         state.teleop_manager = None
         state.teleop_mode = "stopped"
         return False
@@ -530,21 +574,38 @@ async def lifespan(app: FastAPI):
         
         # Initial state refresh
         state.refresh_state()
+        logger.info("✅ State refreshed")
+        sys.stdout.flush()
+        sys.stderr.flush()
         
         if state.devices_available:
             logger.info("✅ USB devices beschikbaar")
+            sys.stdout.flush()
+            sys.stderr.flush()
             
             # Auto-start teleoperation als devices beschikbaar zijn
             logger.info("🎮 Auto-start teleoperation...")
+            sys.stdout.flush()
+            sys.stderr.flush()
             await asyncio.sleep(2)  # Extra delay voor device stabiliteit
+            
+            logger.info("   Calling start_teleoperation()...")
+            sys.stdout.flush()
+            sys.stderr.flush()
             
             if await start_teleoperation():
                 logger.info("✅ Teleoperation automatisch gestart")
+                sys.stdout.flush()
+                sys.stderr.flush()
             else:
                 logger.warning("⚠️  Kon teleoperation niet automatisch starten")
+                sys.stdout.flush()
+                sys.stderr.flush()
         else:
             logger.warning("⚠️  Geen USB devices gevonden - teleoperation niet gestart")
             logger.info("   💡 Sluit devices aan en start handmatig via web interface")
+            sys.stdout.flush()
+            sys.stderr.flush()
         
         logger.info("Server initialization complete")
         logger.info("=" * 60)
@@ -1554,9 +1615,16 @@ async def websocket_endpoint(websocket: WebSocket):
 if __name__ == "__main__":
     import uvicorn
     
+    # Add flushing handler to uvicorn loggers so their output also gets flushed
+    for logger_name in ["uvicorn", "uvicorn.access", "uvicorn.error"]:
+        uv_logger = logging.getLogger(logger_name)
+        uv_logger.addHandler(flushing_handler)
+    
+    # Run with standard uvicorn logging
     uvicorn.run(
         app,
         host="0.0.0.0",
         port=5000,
-        log_level="info"
+        log_level="info",
+        access_log=True
     )
