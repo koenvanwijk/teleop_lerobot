@@ -7,6 +7,7 @@ Met camera streaming, WebSocket en network management.
 
 import asyncio
 import logging
+import os
 import sys
 import subprocess
 import signal
@@ -1614,6 +1615,12 @@ async def websocket_endpoint(websocket: WebSocket):
 
 if __name__ == "__main__":
     import uvicorn
+
+    try:
+        port = int(os.getenv("PORT", "5000"))
+    except ValueError:
+        port = 5000
+        logging.getLogger(__name__).warning("Invalid PORT env var, falling back to 5000")
     
     # Add flushing handler to uvicorn loggers so their output also gets flushed
     for logger_name in ["uvicorn", "uvicorn.access", "uvicorn.error"]:
@@ -1624,7 +1631,7 @@ if __name__ == "__main__":
     uvicorn.run(
         app,
         host="0.0.0.0",
-        port=5000,
+        port=port,
         log_level="info",
         access_log=True
     )
