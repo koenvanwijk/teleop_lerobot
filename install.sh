@@ -426,6 +426,56 @@ cat > "$WEBUI_LAUNCHER" <<'WEBUI_LAUNCHER_EOF'
 set -u
 
 URL="http://localhost/"
+STATE_DIR="$HOME/.local/state"
+LOG="$STATE_DIR/lerobot-webui-autostart.log"
+mkdir -p "$STATE_DIR"
+exec >>"$LOG" 2>&1
+
+echo "[$(date -Is)] LeRobot browser autostart launched"
+
+# Wait up to one minute for the local FastAPI listener.
+ready=0
+for _ in $(seq 1 60); do
+  if (echo >/dev/tcp/127.0.0.1/80) >/dev/null 2>&1; then
+    ready=1
+    break
+  fi
+  sleep 1
+done
+
+if [[ "$ready" -ne 1 ]]; then
+  echo "[$(date -Is)] Webserver did not become reachable on port 80"
+  exit 1
+fi
+
+# Prefer launching a real browser directly. This is more reliable during
+# desktop startup than xdg-open on systems without a configured default app.
+if command -v google-chrome >/dev/null 2>&1; then
+  nohup google-chrome --new-window "$URL" >/dev/null 2>&1 &
+elif command -v google-chrome-stable >/dev/null 2>&1; then
+  nohup google-chrome-stable --new-window "$URL" >/dev/null 2>&1 &
+elif command -v chromium >/dev/null 2>&1; then
+  nohup chromium --new-window "$URL" >/dev/null 2>&1 &
+elif command -v chromium-browser >/dev/null 2>&1; then
+  nohup chromium-browser --new-window "$URL" >/dev/null 2>&1 &
+elif command -v firefox >/dev/null 2>&1; then
+  nohup firefox --new-window "$URL" >/dev/null 2>&1 &
+elif command -v xdg-open >/dev/null 2>&1; then
+  nohup xdg-open "$URL" >/dev/null 2>&1 &
+elif command -v gio >/dev/null 2>&1; then
+  nohup gio open "$URL" >/dev/null 2>&1 &
+else
+  echo "[$(date -Is)] No supported browser launcher found"
+  exit 1
+fi
+
+echo "[$(date -Is)] Browser launch requested for $URL"
+exit 0
+WEBUI_LAUNCHER_EOF
+#!/usr/bin/env bash
+set -u
+
+URL="http://localhost/"
 
 # Wait up to one minute for the local FastAPI listener. This keeps the browser
 # from showing a connection error during a cold boot or slow desktop login.
