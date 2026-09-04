@@ -305,51 +305,90 @@ rsn_pairwise=CCMP
             logger.error(f"Error connecting to WiFi: {e}")
             return False
 
+    @staticmethod
+    def _split_nmcli_terse(line: str) -> List[str]:
+        """Split nmcli terse output while honoring escaped ':' and '\\'."""
+        fields: List[str] = []
+        current: List[str] = []
+        escaped = False
+
+        for char in line:
+            if escaped:
+                current.append(char)
+                escaped = False
+            elif char == "\\":
+                escaped = True
+            elif char == ":":
+                fields.append("".join(current))
+                current = []
+            else:
+                current.append(char)
+
+        if escaped:
+            current.append("\\")
+        fields.append("".join(current))
+        return fields
+
     async def scan_wifi(self) -> List[Dict[str, Any]]:
-        """
-        Scan for available WiFi networks
-        
-        Returns:
-            List of WiFi networks with SSID, signal strength, security
-        """
+        """Scan for all visible WiFi SSIDs on the configured interface."""
         try:
-            logger.info("Scanning for WiFi networks...")
+            logger.info(f"Scanning for WiFi networks on {self.interface}...")
 
-            # Trigger scan
-            await self._run_command(['sudo', 'nmcli', 'device', 'wifi', 'rescan'])
-            await asyncio.sleep(2)
-
-            # Get results
-            returncode, stdout, _ = await self._run_command([
-                'nmcli', '-t', '-f', 'SSID,SIGNAL,SECURITY', 'device', 'wifi', 'list'
+            # Ask NetworkManager for a fresh scan on the intended adapter.
+            # The explicit ifname avoids accidentally listing another WiFi
+            # interface, while --rescan yes prevents returning only stale cache.
+            returncode, stdout, stderr = await self._run_command([
+                "nmcli",
+                "-t",
+                "--escape", "yes",
+                "-f", "SSID,SIGNAL,SECURITY",
+                "device", "wifi", "list",
+                "ifname", self.interface,
+                "--rescan", "yes",
             ])
 
             if returncode != 0:
+                logger.warning(f"WiFi scan failed on {self.interface}: {stderr.strip()}")
                 return []
 
-            networks = []
-            for line in stdout.strip().split('\n'):
-                parts = line.split(':')
-                if len(parts) >= 3:
-                    ssid = parts[0]
-                    if ssid:  # Skip empty SSIDs
-                        try:
-                            signal = int(parts[1])
-                        except:
-                            signal = 0
-                        
-                        security = parts[2] if len(parts) > 2 else 'none'
-                        
-                        networks.append({
-                            'ssid': ssid,
-                            'signal': signal,
-                            'security': security
-                        })
+            # One SSID may appear once per access point/BSSID. Present the
+            # strongest instance of each SSID to keep the setup list useful.
+            strongest_by_ssid: Dict[str, Dict[str, Any]] = {}
+            for line in stdout.splitlines():
+                if not line.strip():
+                    continue
 
-            # Sort by signal strength
-            networks.sort(key=lambda x: x['signal'], reverse=True)
+                parts = self._split_nmcli_terse(line)
+                if len(parts) < 3:
+                    continue
 
-            logger.info(f"Found {len(networks)} WiFi networks")
+                ssid = parts[0].strip()
+                if not ssid:
+                    continue
+
+                try:
+                    signal = int(parts[1])
+                except (TypeError, ValueError):
+                    signal = 0
+
+                security = ":".join(parts[2:]).strip() or "none"
+                network = {
+                    "ssid": ssid,
+                    "signal": signal,
+                    "security": security,
+                }
+
+                previous = strongest_by_ssid.get(ssid)
+                if previous is None or signal > previous["signal"]:
+                    strongest_by_ssid[ssid] = network
+
+            networks = sorted(
+                strongest_by_ssid.values(),
+                key=lambda network: network["signal"],
+                reverse=True,
+            )
+
+            logger.info(f"Found {len(networks)} unique WiFi networks")
             return networks
 
         except Exception as e:
