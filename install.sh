@@ -4,7 +4,7 @@ set -euo pipefail
 # ========= Config =========
 CONDA_DIR="$HOME/miniconda3"
 CONDA_ENV="lerobot"
-LEROBOT_VERSION="0.4.3"  # Exacte versie voor consistentie (belangrijke wijzigingen in 0.4.3: so101/so100 → so)
+LEROBOT_VERSION="0.6.1"  # Pinned tested LeRobot release
 UDEV_RULE="/etc/udev/rules.d/99-usb-serial-aliases.rules"
 GITHUB_REPO="koenvanwijk/teleop_lerobot"
 # ==========================
@@ -113,9 +113,14 @@ else
   echo "ℹ️  'conda tos' niet beschikbaar (Miniforge/Mamba): TOS-acceptatie overgeslagen."
 fi
 
-# ---- 2) Env 'lerobot' met Python 3.10 + lerobot ----
+# ---- 2) Env 'lerobot' met Python 3.12 + lerobot ----
 if conda env list | awk '{print $1}' | grep -qx "$CONDA_ENV"; then
   echo "✅ Conda env bestaat: $CONDA_ENV"
+  CURRENT_PY=$(conda run -n "$CONDA_ENV" python -c 'import sys; print(f"{sys.version_info.major}.{sys.version_info.minor}")' 2>/dev/null || true)
+  if [[ "$CURRENT_PY" != "3.12" ]]; then
+    echo "⬆️  LeRobot 0.6.1 vereist Python >=3.12; update env naar Python 3.12…"
+    conda install -y -n "$CONDA_ENV" python=3.12
+  fi
 else
   echo "🧪 Maak env $CONDA_ENV (python=3.12)…"
   conda create -y -n "$CONDA_ENV" python=3.12
@@ -148,7 +153,7 @@ if [[ -n "$LEROBOT_SRC" ]]; then
   if [[ ! -d "$LEROBOT_SRC" ]]; then
     echo "❌ Opgegeven pad bestaat niet: $LEROBOT_SRC"; exit 1
   fi
-  pip install -e "$LEROBOT_SRC"[feetech]
+  pip install -e "$LEROBOT_SRC"[core_scripts,feetech]
 elif [[ -n "$LEROBOT_GIT" ]]; then
   echo "🌿 Clone lerobot uit Git: $LEROBOT_GIT ${LEROBOT_BRANCH:+(branch: $LEROBOT_BRANCH)}"
   if ! command -v git >/dev/null 2>&1; then
@@ -163,10 +168,10 @@ elif [[ -n "$LEROBOT_GIT" ]]; then
     git clone "$LEROBOT_GIT" "$CLONE_DIR"
   fi
   echo "🧪 Editable install: $CLONE_DIR"
-  pip install -e "$CLONE_DIR"[feetech]
+  pip install -e "$CLONE_DIR"[core_scripts,feetech]
 else
-  echo "📦 Installeer lerobot v$LEROBOT_VERSION vanaf PyPI (met feetech)"
-  pip install "lerobot[feetech]==$LEROBOT_VERSION"
+  echo "📦 Installeer lerobot v$LEROBOT_VERSION vanaf PyPI (core_scripts + feetech)"
+  pip install "lerobot[core_scripts,feetech]==$LEROBOT_VERSION"
 fi
 
 # ---- Verificatie van geïnstalleerde versie ----
@@ -464,7 +469,7 @@ echo ""
 echo "═══════════════════════════════════════════════════════════"
 echo "📋 Geïnstalleerde componenten:"
 echo "   • Miniconda met conda env 'lerobot'"
-echo "   • lerobot package v$LEROBOT_VERSION met feetech support"
+echo "   • lerobot package v$LEROBOT_VERSION met core scripts + feetech support"
 echo "   • FastAPI webserver met uvicorn (auto-start bij reboot)"
 echo "   • Web GUI opent automatisch in de standaard browser na grafische login"
 echo "   • Camera streaming met OpenCV (multi-camera support)"
