@@ -146,7 +146,12 @@
     "network_name": "Netwerk naam",
     "password": "Wachtwoord",
     "connect": "Verbinden",
-    "cancel": "Annuleren"
+    "cancel": "Annuleren",
+    "scanning": "WiFi-netwerken zoeken…",
+    "no_networks": "Geen WiFi-netwerken gevonden",
+    "scan_failed": "WiFi-scan mislukt",
+    "networks_found_one": "{{count}} WiFi-netwerk gevonden",
+    "networks_found_other": "{{count}} WiFi-netwerken gevonden"
   },
   "system": {
     "title": "Systeem Informatie",
