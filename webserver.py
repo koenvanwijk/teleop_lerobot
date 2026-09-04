@@ -246,6 +246,7 @@ class RobotState:
         self.blockly_resume_requested: bool = False
         self.blockly_resume_at: Optional[datetime] = None
         self.blockly_resume_task: Optional[asyncio.Task] = None
+        self.blockly_resume_error: Optional[str] = None
         
         # Camera management
         self.camera_manager: Optional[CameraManager] = None
@@ -1589,8 +1590,13 @@ async def _resume_teleoperation_after_blockly(delay_s: float):
             return
 
         logger.info("Blockly handover countdown complete; restarting teleoperation...")
-        await start_teleoperation()
-        logger.info("✅ Teleoperation resumed after Blockly")
+        started = await start_teleoperation()
+        if started:
+            state.blockly_resume_error = None
+            logger.info("✅ Teleoperation resumed after Blockly")
+        else:
+            state.blockly_resume_error = "Teleoperation failed to restart after Blockly"
+            logger.error(state.blockly_resume_error)
     except asyncio.CancelledError:
         logger.info("Blockly teleoperation resume cancelled")
         raise
@@ -1616,6 +1622,7 @@ async def get_blockly_status():
         "resume_pending": state.blockly_resume_requested,
         "resume_in_s": resume_in_s,
         "teleoperation_running": state.is_running(),
+        "resume_error": state.blockly_resume_error,
     }
 
 
@@ -1624,6 +1631,7 @@ async def cancel_blockly_resume():
     """Keep teleoperation stopped instead of automatically resuming it."""
     state.blockly_resume_requested = False
     state.blockly_resume_at = None
+    state.blockly_resume_error = None
 
     if state.blockly_resume_task and not state.blockly_resume_task.done():
         state.blockly_resume_task.cancel()
@@ -1651,6 +1659,7 @@ async def execute_code(execution: BlocklyExecute):
     state.blockly_resume_task = None
     state.blockly_resume_requested = False
     state.blockly_resume_at = None
+    state.blockly_resume_error = None
 
     # Blockly needs exclusive access to the follower serial port.
     if state.is_running():
