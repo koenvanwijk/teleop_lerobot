@@ -730,7 +730,7 @@ async def lifespan(app: FastAPI):
 app = FastAPI(
     title="LeRobot Teleoperation Server",
     description="FastAPI server for remote control of LeRobot teleoperation",
-    version="2.0.0",
+    version="2.1.0",
     lifespan=lifespan
 )
 
@@ -832,7 +832,7 @@ async def api_info():
     """API information"""
     return {
         "name": "LeRobot Teleoperation Server",
-        "version": "2.0.0",
+        "version": "2.1.0",
         "endpoints": {
             "/": "Web Interface",
             "/health": "Health check",
