@@ -42,7 +42,10 @@ jobs:
 
           html = Path("templates/index.html").read_text()
           raw_values = re.findall(r'data-i18n="([^"]+)"', html)
-          used = {re.sub(r'^\\[[^\\]]+\\]', '', value) for value in raw_values}
+          used = {
+              value.split("]", 1)[1] if value.startswith("[") and "]" in value else value
+              for value in raw_values
+          }
           missing = sorted(key for key in used if key not in nl or key not in en)
           if missing:
               raise SystemExit(f"Missing translations for GUI keys: {missing}")
