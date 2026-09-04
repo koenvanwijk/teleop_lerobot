@@ -85,7 +85,7 @@ De service:
 
 ### Via Web Interface
 
-1. Open de web interface: `http://<robot-ip>:5000`
+1. Open de web interface: `http://<robot-ip>`
 2. Ga naar **Advanced** tab → **System** sub-tab  
 3. Scroll naar **📡 Bluetooth IP Service** sectie
 4. Status toont of service actief is
@@ -97,12 +97,12 @@ De makkelijkste manier om robots te vinden is via de Web Bluetooth scanner:
 
 **Optie 1: Vanaf de robot zelf**
 ```
-http://localhost:5000/bluetooth
+http://localhost/bluetooth
 ```
 
 **Optie 2: Vanaf andere computer op netwerk**
 ```
-http://<bekende-ip>:5000/bluetooth
+http://<bekende-ip>/bluetooth
 ```
 
 **Optie 3: Via GitHub Pages (werkt overal)**
@@ -126,7 +126,7 @@ De scanner:
 
 Open Chrome of Edge browser op je telefoon en ga naar:
 ```
-http://<bekende-ip>:5000/bluetooth
+http://<bekende-ip>/bluetooth
 ```
 
 Of gebruik de GitHub Pages versie (werkt zonder lokaal netwerk):
@@ -149,7 +149,7 @@ Download een BLE scanner app (bijvoorbeeld "nRF Connect" of "BLE Scanner"):
 2. Zoek naar "LeRobot-192.168.x.x" in de lijst
 3. Het IP-adres staat in de device naam
 4. Optioneel: connect en lees GATT characteristic `c5f50002-...` voor IP
-5. Open browser en ga naar `http://<IP>:5000`
+5. Open browser en ga naar `http://<IP>`
 
 **Methode 3: Handmatig via Bluetooth Instellingen**
 
@@ -169,7 +169,7 @@ bluetoothctl scan on
 gatttool -b XX:XX:XX:XX:XX:XX --char-read --uuid=c5f50002-1234-5678-89ab-123456789abc
 
 # Gebruik het IP om te verbinden
-curl http://192.168.1.100:5000/api/status
+curl http://192.168.1.100/api/status
 ```
 
 ### Bluetooth Permissies (Optioneel)
@@ -193,7 +193,7 @@ groups | grep bluetooth
 import requests
 
 # Get Bluetooth status
-response = requests.get('http://<robot-ip>:5000/api/bluetooth/status')
+response = requests.get('http://<robot-ip>/api/bluetooth/status')
 data = response.json()
 print(f"Running: {data['running']}")
 print(f"Device: {data['device_name']}")
@@ -204,15 +204,15 @@ print(f"IP: {data['ip_address']}")
 # IP: 192.168.1.100
 
 # Start GATT service (normaal auto-start)
-response = requests.post('http://<robot-ip>:5000/api/bluetooth/start')
+response = requests.post('http://<robot-ip>/api/bluetooth/start')
 print(response.json())
 
 # Stop GATT service
-response = requests.post('http://<robot-ip>:5000/api/bluetooth/stop')
+response = requests.post('http://<robot-ip>/api/bluetooth/stop')
 print(response.json())
 
 # Get only IP address
-response = requests.get('http://<robot-ip>:5000/api/bluetooth/ip')
+response = requests.get('http://<robot-ip>/api/bluetooth/ip')
 print(response.json())
 # Output: {"ip": "192.168.1.100"}
 ```
@@ -256,7 +256,7 @@ async function findRobot() {
 
 // Gebruik
 findRobot().then(ip => {
-    window.location.href = `http://${ip}:5000`;
+    window.location.href = `http://${ip}`;
 });
 ```
 
@@ -538,7 +538,7 @@ sudo apt-get install -y avahi-daemon avahi-utils
   <name>LeRobot Web Interface</name>
   <service>
     <type>_http._tcp</type>
-    <port>5000</port>
+    <port>80</port>
     <txt-record>path=/</txt-record>
   </service>
 </service-group>
