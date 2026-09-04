@@ -1161,7 +1161,8 @@ async def get_teleoperation_current_position():
             "success": True,
             "positions": positions,
             "motor_names": motor_names,
-            "source": "teleoperation"
+            "source": "teleoperation",
+            "unit": "degrees"
         }
     except Exception as e:
         logger.error(f"Error getting teleoperation positions: {e}")
@@ -1222,7 +1223,8 @@ async def save_teleoperation_position(request: Request):
             "success": True,
             "message": f"Position '{name}' saved successfully",
             "angles": positions,
-            "motor_names": motor_names
+            "motor_names": motor_names,
+            "unit": "degrees"
         }
     except Exception as e:
         logger.error(f"Error saving position: {e}")
@@ -1726,10 +1728,10 @@ async def execute_code(execution: BlocklyExecute):
 
 @app.post("/api/teleoperation/leader/command")
 async def teleop_leader_command(request: Request):
-    """Accept leader commands (positions in percentage) and forward to follower when teleop is running.
+    """Accept leader commands in degrees and forward them to the follower.
 
     Payload: { motor_names: [...], positions: [...] }
-    Gripper uses 0..100, other joints use -100..100.
+    All six motors, including the gripper, use degrees.
     """
     if not state.teleop_manager or not state.teleop_manager.is_running:
         return { "success": False, "error": "Teleoperation not running" }
@@ -1823,7 +1825,8 @@ async def get_robot_positions(request: Request):
                         "success": True,
                         "positions": positions,
                         "motor_names": motor_names,
-                        "source": "teleoperation"
+                        "source": "teleoperation",
+                        "unit": "degrees"
                     }
                     state.cache_positions(result)
                     return result
@@ -1847,7 +1850,8 @@ async def get_robot_positions(request: Request):
                     "wrist_roll",
                     "gripper"
                 ],
-                "source": "blockly"
+                "source": "blockly",
+                "unit": "degrees"
             }
             state.cache_positions(result)
             return result
