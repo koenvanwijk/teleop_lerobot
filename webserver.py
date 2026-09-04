@@ -315,8 +315,9 @@ class RobotState:
         if not self.follower_port:
             self.load_device_config()
 
-        # Also ensure persisted defaults are considered
-        self._load_persisted_defaults()
+        # Persisted defaults are loaded once during RobotState initialization
+        # and updated explicitly by the defaults API. Do not re-read the file
+        # on every 1 Hz status poll.
     
     def load_device_config(self) -> bool:
         """Laad device configuratie (fallback defaults only - JSON loading via _load_persisted_defaults)."""
