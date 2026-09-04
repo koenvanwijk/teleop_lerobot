@@ -56,6 +56,14 @@ class TeleoperationManager:
         self.current_action: Optional[Dict[str, Any]] = None
         self.lock = threading.Lock()
         self.fps = 60
+        self.actual_fps = 0.0
+        self.processing_ms = 0.0
+        self.loop_errors = 0
+        self.connection_state = "stopped"
+        self.last_error: Optional[str] = None
+        self.started_at: Optional[float] = None
+        self._fps_window_started = time.perf_counter()
+        self._fps_window_count = 0
         
         # Processors (same as LeRobot)
         self.teleop_action_processor = None
@@ -84,6 +92,8 @@ class TeleoperationManager:
             return False
         
         try:
+            self.connection_state = "connecting"
+            self.last_error = None
             # Use LeRobot's draccus parser to build config (same as command-line tool)
             # This ensures 100% compatibility with LeRobot's config system
             old_argv = sys.argv
@@ -120,7 +130,13 @@ class TeleoperationManager:
             self.robot.connect()
             
             self.fps = fps
+            self.actual_fps = 0.0
+            self.processing_ms = 0.0
+            self._fps_window_started = time.perf_counter()
+            self._fps_window_count = 0
+            self.started_at = time.time()
             self.is_running = True
+            self.connection_state = "running"
             
             # Start teleoperation loop in separate thread
             self.thread = threading.Thread(target=self._teleop_loop, daemon=True)
@@ -130,8 +146,10 @@ class TeleoperationManager:
             return True
             
         except Exception as e:
+            self.connection_state = "error"
+            self.last_error = str(e)
             logging.error(f"Failed to start teleoperation: {e}")
-            self.stop()
+            self.stop(preserve_error=True)
             return False
     
     def _teleop_loop(self):
@@ -173,21 +191,39 @@ class TeleoperationManager:
                             first_key = list(obs.keys())[0]
                             logging.info(f"Sample observation: {first_key} = {obs[first_key]}")
                 
-                # Maintain target FPS (LeRobot's busy_wait)
+                # Maintain target FPS and publish lightweight diagnostics.
                 dt_s = time.perf_counter() - loop_start
-                precise_sleep(1 / self.fps - dt_s)
+                self.processing_ms = dt_s * 1000.0
+                sleep_s = max(0.0, (1 / self.fps) - dt_s)
+                precise_sleep(sleep_s)
+
+                self._fps_window_count += 1
+                now = time.perf_counter()
+                fps_elapsed = now - self._fps_window_started
+                if fps_elapsed >= 1.0:
+                    self.actual_fps = self._fps_window_count / fps_elapsed
+                    self._fps_window_started = now
+                    self._fps_window_count = 0
                 
             except Exception as e:
                 if self.is_running:  # Only log if not stopping
+                    self.loop_errors += 1
+                    self.last_error = str(e)
+                    self.connection_state = "error"
+                    self.is_running = False
                     logging.error(f"Error in teleoperation loop: {e}")
                 break
     
-    def stop(self):
+    def stop(self, preserve_error: bool = False):
         """Stop teleoperation and cleanup."""
-        if not self.is_running:
+        if not self.is_running and self.robot is None and self.teleop is None:
+            if not preserve_error:
+                self.connection_state = "stopped"
             return
         
         logging.info("Stopping teleoperation...")
+        if not preserve_error:
+            self.connection_state = "stopping"
         self.is_running = False
         
         # Wait for thread to finish
@@ -213,6 +249,9 @@ class TeleoperationManager:
         self.current_observation = None
         self.current_action = None
         
+        if not preserve_error:
+            self.connection_state = "stopped"
+            self.last_error = None
         logging.info("Teleoperation stopped")
     
     def get_current_positions(self) -> Optional[Dict[str, float]]:
@@ -270,9 +309,15 @@ class TeleoperationManager:
         """
         return {
             "is_running": self.is_running,
+            "connection_state": self.connection_state,
             "has_robot": self.robot is not None,
             "has_teleop": self.teleop is not None,
-            "fps": self.fps,
+            "target_fps": self.fps,
+            "actual_fps": round(self.actual_fps, 1),
+            "processing_ms": round(self.processing_ms, 2),
+            "loop_errors": self.loop_errors,
+            "last_error": self.last_error,
+            "uptime_s": round(time.time() - self.started_at, 1) if self.started_at else 0.0,
             "has_positions": self.current_observation is not None
         }
 
