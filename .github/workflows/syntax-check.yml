@@ -14,6 +14,23 @@ jobs:
         with:
           python-version: "3.12"
       - name: Python syntax
-        run: python -m py_compile webserver.py teleoperation_manager.py
+        run: python -m py_compile webserver.py teleoperation_manager.py blockly_manager.py
+      - name: Browser JavaScript syntax
+        run: |
+          python - <<'PY'
+          import re
+          from pathlib import Path
+
+          for source in ("templates/index.html", "templates/robot_viewer.html", "templates/ssh_terminal.html"):
+              html = Path(source).read_text()
+              scripts = re.findall(r"<script(?:\s[^>]*)?>(.*?)</script>", html, flags=re.S | re.I)
+              inline = "\n".join(script for script in scripts if script.strip())
+              target = Path("/tmp") / (Path(source).stem + ".js")
+              target.write_text(inline)
+              print(target)
+          PY
+          node --check /tmp/index.js
+          node --check /tmp/robot_viewer.js
+          node --check /tmp/ssh_terminal.js
       - name: Installer syntax
         run: bash -n install.sh
