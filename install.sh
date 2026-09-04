@@ -401,6 +401,63 @@ else
   echo "⚠️  webserver.py niet gevonden, systemd service overgeslagen"
 fi
 
+# ---- 6) Open de lokale Web GUI automatisch na grafische login ----
+# XDG autostart wordt alleen uitgevoerd in een desktop sessie en heeft dus
+# geen effect op headless robots.
+WEBUI_URL="http://localhost:5000/"
+WEBUI_LAUNCHER_DIR="$HOME/.local/bin"
+WEBUI_LAUNCHER="$WEBUI_LAUNCHER_DIR/lerobot-open-webui"
+WEBUI_AUTOSTART_DIR="$HOME/.config/autostart"
+WEBUI_AUTOSTART="$WEBUI_AUTOSTART_DIR/lerobot-webui.desktop"
+
+mkdir -p "$WEBUI_LAUNCHER_DIR" "$WEBUI_AUTOSTART_DIR"
+
+cat > "$WEBUI_LAUNCHER" <<'WEBUI_LAUNCHER_EOF'
+#!/usr/bin/env bash
+set -u
+
+URL="http://localhost:5000/"
+
+# Wait up to one minute for the local FastAPI listener. This keeps the browser
+# from showing a connection error during a cold boot or slow desktop login.
+for _ in $(seq 1 60); do
+  if (echo >/dev/tcp/127.0.0.1/5000) >/dev/null 2>&1; then
+    break
+  fi
+  sleep 1
+done
+
+# Use the configured default browser where possible, with common fallbacks.
+if command -v xdg-open >/dev/null 2>&1; then
+  exec xdg-open "$URL"
+elif command -v gio >/dev/null 2>&1; then
+  exec gio open "$URL"
+elif command -v firefox >/dev/null 2>&1; then
+  exec firefox "$URL"
+elif command -v chromium >/dev/null 2>&1; then
+  exec chromium "$URL"
+elif command -v chromium-browser >/dev/null 2>&1; then
+  exec chromium-browser "$URL"
+fi
+
+exit 0
+WEBUI_LAUNCHER_EOF
+chmod +x "$WEBUI_LAUNCHER"
+
+cat > "$WEBUI_AUTOSTART" <<EOF
+[Desktop Entry]
+Type=Application
+Name=LeRobot Control Center
+Comment=Open the local LeRobot web interface after desktop login
+Exec=$WEBUI_LAUNCHER
+Terminal=false
+Hidden=false
+X-GNOME-Autostart-enabled=true
+StartupNotify=false
+EOF
+
+echo "✅ Desktop autostart geconfigureerd: standaard browser opent $WEBUI_URL na login"
+
 echo ""
 echo "✅ Installatie compleet!"
 echo ""
@@ -409,6 +466,7 @@ echo "📋 Geïnstalleerde componenten:"
 echo "   • Miniconda met conda env 'lerobot'"
 echo "   • lerobot package v$LEROBOT_VERSION met feetech support"
 echo "   • FastAPI webserver met uvicorn (auto-start bij reboot)"
+echo "   • Web GUI opent automatisch in de standaard browser na grafische login"
 echo "   • Camera streaming met OpenCV (multi-camera support)"
 echo "   • Network management (AP/WiFi switching)"
 echo "   • Bluetooth GATT server (headless auto-pairing)"
@@ -421,7 +479,8 @@ echo "   1. Webserver start direct via systemd; hardware initialiseert daarna op
 echo "   2. Devices worden gedetecteerd"
 echo "   3. Camera's worden geïnitialiseerd"
 echo "   4. Teleoperation start automatisch!"
-echo "   5. Web interface: http://localhost:5000"
+echo "   5. Bij grafische login opent de standaard browser automatisch"
+echo "   6. Web interface: http://localhost:5000"
 echo ""
 echo "🔄 Voor toekomstige updates:"
 echo "   cd $SCRIPT_DIR && git pull --ff-only && ./install.sh && sudo reboot"
