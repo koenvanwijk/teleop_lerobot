@@ -579,23 +579,23 @@
                 <p style="color:#666; margin: 10px 0 20px;" data-i18n="commands.description">These commands are auto-filled based on your selected Leader and Follower. Copy them or open them directly in the web SSH terminal.</p>
 
             <div class="status-card">
-                <h3 data-i18n="commands.start_teleoperation">Start Teleoperation (CLI, degrees)</h3>
+                <h3 data-i18n="commands.start_teleoperation">Start Teleoperation (CLI)</h3>
                 <pre id="cmd-teleoperate" style="background:#f8f9fa; padding:12px; border-radius:8px; overflow-x:auto;" data-i18n="commands.select_devices"># Select devices above to populate…</pre>
                 <button class="btn btn-primary" onclick="copyCmd('cmd-teleoperate')" data-i18n="commands.copy">📋 Copy</button>
                 <button class="btn btn-success" onclick="openCmdInSsh('cmd-teleoperate')">💻 SSH</button>
             </div>
 
             <div class="status-card">
-                <h3 data-i18n="commands.record_dataset">Record Dataset (CLI, degrees)</h3>
-                <p style="color:#666; font-size:0.9em;" data-i18n="commands.record_desc">Records teleoperated trajectories locally using LeRobot 0.6.1 with all motor values in degrees.</p>
+                <h3 data-i18n="commands.record_dataset">Record Dataset (CLI)</h3>
+                <p style="color:#666; font-size:0.9em;" data-i18n="commands.record_desc">Records teleoperated trajectories locally using the standard LeRobot 0.6.1 CLI.</p>
                 <pre id="cmd-record" style="background:#f8f9fa; padding:12px; border-radius:8px; overflow-x:auto;" data-i18n="commands.select_devices"># Select devices above to populate…</pre>
                 <button class="btn btn-primary" onclick="copyCmd('cmd-record')" data-i18n="commands.copy">📋 Copy</button>
                 <button class="btn btn-success" onclick="openCmdInSsh('cmd-record')">💻 SSH</button>
             </div>
 
             <div class="status-card">
-                <h3 data-i18n="commands.evaluate_replay">Policy Rollout (CLI, degrees)</h3>
-                <p style="color:#666; font-size:0.9em;" data-i18n="commands.evaluate_desc">Runs a trained policy on the selected robot using the degree-safe LeRobot wrapper.</p>
+                <h3 data-i18n="commands.evaluate_replay">Policy Rollout (CLI)</h3>
+                <p style="color:#666; font-size:0.9em;" data-i18n="commands.evaluate_desc">Runs a trained policy on the selected robot using the standard LeRobot 0.6.1 rollout CLI.</p>
                 <pre id="cmd-eval" style="background:#f8f9fa; padding:12px; border-radius:8px; overflow-x:auto;" data-i18n="commands.select_devices"># Select devices above to populate…</pre>
                 <button class="btn btn-primary" onclick="copyCmd('cmd-eval')" data-i18n="commands.copy">📋 Copy</button>
                 <button class="btn btn-success" onclick="openCmdInSsh('cmd-eval')">💻 SSH</button>
@@ -747,6 +747,7 @@
                 <div class="alert alert-info" style="margin-top: 15px;">
                     <strong data-i18n="system.bt_info_title">ℹ️ Info:</strong>
                     <span data-i18n="system.bt_info_text">Gebruik de Bluetooth service om het IP-adres van de robot op te vragen vanaf een mobiel apparaat.</span>
+                    <a href="https://koenvanwijk.github.io/teleop_lerobot/" target="_blank" rel="noopener" data-i18n="system.bt_scanner_link" style="margin-left:6px;">Open Bluetooth scanner</a>
                 </div>
             </div>
             
@@ -911,9 +912,14 @@
                             Teleoperation is temporarily stopped.
                         </div>
                     </div>
-                    <button class="btn btn-danger" id="blockly-cancel-resume-btn" onclick="cancelBlocklyResume()" style="display:none;" data-i18n="blockly.handover_keep_stopped">
-                        ⏹ Keep teleoperation stopped
-                    </button>
+                    <div style="display:flex; gap:10px; flex-wrap:wrap;">
+                        <button class="btn btn-danger" id="blockly-emergency-stop-btn" onclick="emergencyStopBlockly()" style="display:none; font-size:1.05em; font-weight:800;" data-i18n="blockly.emergency_stop">
+                            🛑 EMERGENCY STOP
+                        </button>
+                        <button class="btn btn-danger" id="blockly-cancel-resume-btn" onclick="cancelBlocklyResume()" style="display:none;" data-i18n="blockly.handover_keep_stopped">
+                            ⏹ Keep teleoperation stopped
+                        </button>
+                    </div>
                 </div>
             </div>
             
@@ -1539,31 +1545,27 @@
             const fId = follower.id || 'default';
             const lId = leader.id || 'default';
 
+            // LeRobot 0.6.1 defaults SO follower/leader use_degrees=True,
+            // so the standard CLI needs no explicit use_degrees flags.
             const teleop = [
-                'python ~/teleop_lerobot/lerobot_degrees.py teleoperate \\',
+                'lerobot-teleoperate \\',
                 `  --robot.type=${fType} \\`,
                 `  --robot.port=${fPort} \\`,
                 `  --robot.id=${fId} \\`,
-                '  --robot.use_degrees=true \\',
                 `  --teleop.type=${lType} \\`,
                 `  --teleop.port=${lPort} \\`,
-                `  --teleop.id=${lId} \\`,
-                '  --teleop.use_degrees=true'
+                `  --teleop.id=${lId}`
             ].join('\n');
 
-            // LeRobot 0.6.1 requires dataset.repo_id and a task description.
-            // Keep the actual data local by default; no Hugging Face upload.
             const record = [
                 'SESSION=$(date +%Y%m%d_%H%M%S)',
-                'python ~/teleop_lerobot/lerobot_degrees.py record \\',
+                'lerobot-record \\',
                 `  --robot.type=${fType} \\`,
                 `  --robot.port=${fPort} \\`,
                 `  --robot.id=${fId} \\`,
-                '  --robot.use_degrees=true \\',
                 `  --teleop.type=${lType} \\`,
                 `  --teleop.port=${lPort} \\`,
                 `  --teleop.id=${lId} \\`,
-                '  --teleop.use_degrees=true \\',
                 '  --dataset.repo_id=local/session_$SESSION \\',
                 '  --dataset.root=$HOME/lerobot_datasets/session_$SESSION \\',
                 '  --dataset.single_task="Teleoperated recording" \\',
@@ -1572,13 +1574,12 @@
             ].join('\n');
 
             const evalCmd = [
-                'python ~/teleop_lerobot/lerobot_degrees.py rollout \\',
+                'lerobot-rollout \\',
                 '  --strategy.type=base \\',
                 '  --policy.path=~/lerobot_models/latest \\',
                 `  --robot.type=${fType} \\`,
                 `  --robot.port=${fPort} \\`,
                 `  --robot.id=${fId} \\`,
-                '  --robot.use_degrees=true \\',
                 '  --task="Teleoperated task" \\',
                 '  --duration=30'
             ].join('\n');
@@ -2935,15 +2936,22 @@ ${pythonCode}`;
             const panel = document.getElementById('blockly-handover');
             const text = document.getElementById('blockly-handover-text');
             const cancelBtn = document.getElementById('blockly-cancel-resume-btn');
-            if (!panel || !text || !cancelBtn) return;
+            const emergencyBtn = document.getElementById('blockly-emergency-stop-btn');
+            if (!panel || !text || !cancelBtn || !emergencyBtn) return;
 
             panel.style.display = options.hide ? 'none' : 'block';
             if (options.hide) return;
 
             text.innerHTML = message;
             cancelBtn.style.display = options.cancellable ? 'inline-block' : 'none';
+            emergencyBtn.style.display = options.emergency ? 'inline-block' : 'none';
 
-            if (options.success) {
+            if (options.danger) {
+                panel.style.borderColor = '#dc2626';
+                panel.style.background = '#fef2f2';
+                panel.querySelector('h3').style.color = '#991b1b';
+                text.style.color = '#991b1b';
+            } else if (options.success) {
                 panel.style.borderColor = '#22c55e';
                 panel.style.background = '#f0fdf4';
                 panel.querySelector('h3').style.color = '#166534';
@@ -3064,6 +3072,28 @@ ${pythonCode}`;
             }
         }
 
+        async function emergencyStopBlockly() {
+            const emergencyBtn = document.getElementById('blockly-emergency-stop-btn');
+            if (emergencyBtn) emergencyBtn.disabled = true;
+
+            try {
+                const response = await fetch('/api/blockly/emergency-stop', { method: 'POST' });
+                const result = await response.json();
+                if (!response.ok || !result.success) {
+                    throw new Error(result.detail || result.message || 'Emergency stop failed');
+                }
+
+                stopBlocklyResumeCountdown();
+                setBlocklyHandover(
+                    i18next.t('blockly.emergency_stopped'),
+                    { danger: true, emergency: false, cancellable: false }
+                );
+            } catch (error) {
+                showStatus(i18next.t('blockly.emergency_stop_failed') + ': ' + error, 'error');
+                if (emergencyBtn) emergencyBtn.disabled = false;
+            }
+        }
+
         async function runBlocklyProgram() {
             let code = pythonGenerator.workspaceToCode(blocklyWorkspace);
 
@@ -3081,14 +3111,16 @@ ${code}`;
                 return;
             }
 
-            if (!confirm('Run this program?')) return;
+            if (!confirm(i18next.t('blockly.run_confirm_warning'))) return;
 
             const runBtn = document.getElementById('blockly-run-btn');
             if (runBtn) runBtn.disabled = true;
             stopBlocklyResumeCountdown();
+            const emergencyBtn = document.getElementById('blockly-emergency-stop-btn');
+            if (emergencyBtn) emergencyBtn.disabled = false;
             setBlocklyHandover(
                 i18next.t('blockly.handover_running'),
-                { cancellable: false }
+                { cancellable: false, emergency: true }
             );
 
             try {
@@ -3105,25 +3137,38 @@ ${code}`;
                 const resultsDiv = document.getElementById('execution-results');
                 const outputDiv = document.getElementById('execution-output');
 
-                if (response.ok && result.success) {
+                if (result.emergency_stopped) {
+                    outputDiv.innerHTML = `
+                        <div class="alert alert-danger">
+                            <strong>${i18next.t('blockly.emergency_stop')}</strong><br>
+                            ${i18next.t('blockly.emergency_stopped_result')}
+                        </div>
+                    `;
+                    setBlocklyHandover(
+                        i18next.t('blockly.emergency_stopped'),
+                        { danger: true, emergency: false, cancellable: false }
+                    );
+                } else if (response.ok && result.success) {
                     outputDiv.innerHTML = `
                         <div class="alert alert-success">
-                            <strong>✅ Success!</strong><br>
-                            ${result.output || 'Program executed successfully'}
+                            <strong>✅ ${i18next.t('blockly.execution_success')}</strong><br>
+                            ${result.output || i18next.t('blockly.execution_completed')}
                         </div>
                     `;
                 } else {
                     outputDiv.innerHTML = `
                         <div class="alert alert-danger">
-                            <strong>❌ Error:</strong> ${result.error_type || 'Execution error'}<br>
-                            ${result.error || result.detail || 'Unknown error'}
+                            <strong>❌ ${i18next.t('blockly.execution_error')}:</strong> ${result.error_type || i18next.t('blockly.execution_error')}<br>
+                            ${result.error || result.detail || i18next.t('blockly.unknown_error')}
                         </div>
                     `;
                 }
 
                 resultsDiv.style.display = 'block';
 
-                if (result.teleop_will_resume) {
+                if (result.emergency_stopped) {
+                    // Safety stop deliberately leaves teleoperation stopped.
+                } else if (result.teleop_will_resume) {
                     startBlocklyResumeCountdown(result.teleop_resume_delay_s || 5);
                 } else {
                     // This also recovers the countdown when an HTTP error
