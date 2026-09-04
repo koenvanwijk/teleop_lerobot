@@ -41,7 +41,8 @@ jobs:
               raise SystemExit(f"Translation key mismatch. Missing NL={missing_nl}; missing EN={missing_en}")
 
           html = Path("templates/index.html").read_text()
-          used = set(re.findall(r'data-i18n="(?:\\[[^]]+\\])?([^"]+)"', html))
+          raw_values = re.findall(r'data-i18n="([^"]+)"', html)
+          used = {re.sub(r'^\\[[^\\]]+\\]', '', value) for value in raw_values}
           missing = sorted(key for key in used if key not in nl or key not in en)
           if missing:
               raise SystemExit(f"Missing translations for GUI keys: {missing}")
