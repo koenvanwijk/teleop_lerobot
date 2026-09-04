@@ -14,6 +14,10 @@ import threading
 import signal
 import time
 import json
+import ipaddress
+import getpass
+import socket
+import shutil
 from datetime import datetime, timedelta
 from pathlib import Path
 from typing import Optional, Dict, Any, List
@@ -234,6 +238,8 @@ class RobotState:
         self.leader_type: Optional[str] = None
         self.follower_id: Optional[str] = None
         self.leader_id: Optional[str] = None
+        self.reconnect_count: int = 0
+        self.last_reconnect_at: Optional[str] = None
         
         # Camera management
         self.camera_manager: Optional[CameraManager] = None
@@ -509,160 +515,174 @@ async def stop_teleoperation() -> bool:
 # FastAPI Lifespan
 # ============================================================================
 
+async def initialize_hardware_background():
+    """Initialize cameras/network/robots after the web UI is already reachable."""
+        try:
+            # The HTTP/WebSocket server is already online. Give USB/network services
+            # a moment to settle without delaying GUI availability.
+            logger.info("⏳ Hardware initialization starts in background...")
+            await asyncio.sleep(1)
+            
+            # Initialize camera manager
+            if CAMERA_AVAILABLE:
+                logger.info("📹 Initializing camera manager...")
+                try:
+                    # Detect available cameras
+                    available_cameras = await detect_cameras(max_index=4)
+                    if available_cameras:
+                        camera_configs = [
+                            {'index': idx, 'name': f'Camera {idx}', 'resolution': [640, 480], 'fps': 30}
+                            for idx in available_cameras
+                        ]
+                        state.camera_manager = CameraManager(camera_configs)
+                        if await state.camera_manager.initialize():
+                            state.cameras_enabled = True
+                            logger.info(f"✅ Camera manager initialized: {len(available_cameras)} cameras")
+                        else:
+                            logger.warning("⚠️  Camera manager failed to initialize")
+                    else:
+                        logger.info("ℹ️  No cameras detected")
+                except Exception as e:
+                    logger.error(f"Error initializing cameras: {e}")
+            
+            # Initialize network manager
+            if NETWORK_AVAILABLE:
+                logger.info("🌐 Initializing network manager...")
+                try:
+                    state.network_manager = NetworkManager(
+                        ap_ssid="LeRobot-AP",
+                        ap_password="robotics123",
+                        interface="wlan0"
+                    )
+                    if await state.network_manager.initialize():
+                        state.network_enabled = True
+                        logger.info("✅ Network manager initialized")
+                        
+                        # Check for network connectivity
+                        logger.info("🔍 Checking network connectivity...")
+                        status = await state.network_manager.get_status()
+                        
+                        # If no network connection, auto-start AP
+                        if status.get('state') != 'connected' and status.get('connectivity') != 'full':
+                            logger.warning("⚠️  No network connection detected")
+                            logger.info("📡 Auto-starting WiFi Access Point for setup...")
+                            
+                            try:
+                                # Start AP mode
+                                ap_started = await state.network_manager.start_ap()
+                                if ap_started:
+                                    logger.info("✅ WiFi Access Point started")
+                                    logger.info(f"   SSID: LeRobot-AP")
+                                    logger.info(f"   Password: robotics123")
+                                    logger.info(f"   Connect and visit: http://192.168.4.1:5000")
+                                else:
+                                    logger.error("❌ Failed to start Access Point")
+                            except Exception as ap_error:
+                                logger.error(f"Error starting AP: {ap_error}")
+                        else:
+                            logger.info(f"✅ Network connected: {status.get('ssid', 'unknown')}")
+                            
+                    else:
+                        logger.warning("⚠️  Network manager failed to initialize")
+                except Exception as e:
+                    logger.error(f"Error initializing network: {e}")
+            
+            # Initial state refresh to get device ports
+            state.refresh_state()
+            
+            # Initialize Blockly manager AFTER state refresh to get correct robot port
+            if BLOCKLY_AVAILABLE:
+                logger.info("🧩 Initializing Blockly manager...")
+                try:
+                    # Pass follower robot port, type and ID to Blockly for direct robot control
+                    robot_port = state.follower_port if state.follower_port else None
+                    robot_type = state.follower_type if state.follower_type else None
+                    robot_id = state.follower_id if state.follower_id else None
+                    logger.info(f"Using robot for Blockly: port={robot_port}, type={robot_type}, id={robot_id}")
+                    state.blockly_manager = BlocklyManager(
+                        robot_port=robot_port,
+                        robot_type=robot_type,
+                        robot_id=robot_id
+                    )
+                    state.blockly_enabled = True
+                    logger.info(f"✅ Blockly manager initialized (port: {robot_port}, type: {robot_type}, id: {robot_id})")
+                except Exception as e:
+                    logger.error(f"Error initializing Blockly: {e}")
+            
+            # Initialize Bluetooth GATT service
+            if BLUETOOTH_AVAILABLE:
+                logger.info("📡 Initializing Bluetooth GATT service...")
+                try:
+                    bluetooth_mgr = BLEGattServer("LeRobot")
+                    bluetooth_mgr.start()
+                    state.bluetooth_manager = bluetooth_mgr
+                    state.bluetooth_enabled = True
+                    logger.info("✅ Bluetooth GATT service started")
+                except Exception as e:
+                    logger.error(f"Error initializing Bluetooth GATT: {e}")
+            
+            # Initial state refresh
+            state.refresh_state()
+            logger.info("✅ State refreshed")
+            sys.stdout.flush()
+            sys.stderr.flush()
+            
+            if state.devices_available:
+                logger.info("✅ USB devices beschikbaar")
+                sys.stdout.flush()
+                sys.stderr.flush()
+                
+                # Auto-start teleoperation als devices beschikbaar zijn
+                logger.info("🎮 Auto-start teleoperation...")
+                sys.stdout.flush()
+                sys.stderr.flush()
+                await asyncio.sleep(2)  # Extra delay voor device stabiliteit
+                
+                logger.info("   Calling start_teleoperation()...")
+                sys.stdout.flush()
+                sys.stderr.flush()
+                
+                if await start_teleoperation():
+                    logger.info("✅ Teleoperation automatisch gestart")
+                    sys.stdout.flush()
+                    sys.stderr.flush()
+                else:
+                    logger.warning("⚠️  Kon teleoperation niet automatisch starten")
+                    sys.stdout.flush()
+                    sys.stderr.flush()
+            else:
+                logger.warning("⚠️  Geen USB devices gevonden - teleoperation niet gestart")
+                logger.info("   💡 Sluit devices aan en start handmatig via web interface")
+                sys.stdout.flush()
+                sys.stderr.flush()
+            
+            logger.info("Server initialization complete")
+            logger.info("=" * 60)
+            
+        except Exception as e:
+            logger.error(f"Error during startup: {e}", exc_info=True)
+        
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    """Startup and shutdown events"""
-    # Startup
+    """Bring HTTP/WebSocket online immediately; initialize hardware in background."""
     logger.info("=" * 60)
     logger.info("🌐 LeRobot Teleoperation Server")
+    logger.info("✅ Web interface is available; hardware initialization continues in background")
     logger.info("=" * 60)
-    
-    try:
-        # Wacht even voor systeem stabiliteit (vooral bij boot)
-        logger.info("⏳ Wacht 5 seconden voor systeem initialisatie...")
-        await asyncio.sleep(5)
-        
-        # Initialize camera manager
-        if CAMERA_AVAILABLE:
-            logger.info("📹 Initializing camera manager...")
-            try:
-                # Detect available cameras
-                available_cameras = await detect_cameras(max_index=4)
-                if available_cameras:
-                    camera_configs = [
-                        {'index': idx, 'name': f'Camera {idx}', 'resolution': [640, 480], 'fps': 30}
-                        for idx in available_cameras
-                    ]
-                    state.camera_manager = CameraManager(camera_configs)
-                    if await state.camera_manager.initialize():
-                        state.cameras_enabled = True
-                        logger.info(f"✅ Camera manager initialized: {len(available_cameras)} cameras")
-                    else:
-                        logger.warning("⚠️  Camera manager failed to initialize")
-                else:
-                    logger.info("ℹ️  No cameras detected")
-            except Exception as e:
-                logger.error(f"Error initializing cameras: {e}")
-        
-        # Initialize network manager
-        if NETWORK_AVAILABLE:
-            logger.info("🌐 Initializing network manager...")
-            try:
-                state.network_manager = NetworkManager(
-                    ap_ssid="LeRobot-AP",
-                    ap_password="robotics123",
-                    interface="wlan0"
-                )
-                if await state.network_manager.initialize():
-                    state.network_enabled = True
-                    logger.info("✅ Network manager initialized")
-                    
-                    # Check for network connectivity
-                    logger.info("🔍 Checking network connectivity...")
-                    status = await state.network_manager.get_status()
-                    
-                    # If no network connection, auto-start AP
-                    if status.get('state') != 'connected' and status.get('connectivity') != 'full':
-                        logger.warning("⚠️  No network connection detected")
-                        logger.info("📡 Auto-starting WiFi Access Point for setup...")
-                        
-                        try:
-                            # Start AP mode
-                            ap_started = await state.network_manager.start_ap()
-                            if ap_started:
-                                logger.info("✅ WiFi Access Point started")
-                                logger.info(f"   SSID: LeRobot-AP")
-                                logger.info(f"   Password: robotics123")
-                                logger.info(f"   Connect and visit: http://192.168.4.1:5000")
-                            else:
-                                logger.error("❌ Failed to start Access Point")
-                        except Exception as ap_error:
-                            logger.error(f"Error starting AP: {ap_error}")
-                    else:
-                        logger.info(f"✅ Network connected: {status.get('ssid', 'unknown')}")
-                        
-                else:
-                    logger.warning("⚠️  Network manager failed to initialize")
-            except Exception as e:
-                logger.error(f"Error initializing network: {e}")
-        
-        # Initial state refresh to get device ports
-        state.refresh_state()
-        
-        # Initialize Blockly manager AFTER state refresh to get correct robot port
-        if BLOCKLY_AVAILABLE:
-            logger.info("🧩 Initializing Blockly manager...")
-            try:
-                # Pass follower robot port, type and ID to Blockly for direct robot control
-                robot_port = state.follower_port if state.follower_port else None
-                robot_type = state.follower_type if state.follower_type else None
-                robot_id = state.follower_id if state.follower_id else None
-                logger.info(f"Using robot for Blockly: port={robot_port}, type={robot_type}, id={robot_id}")
-                state.blockly_manager = BlocklyManager(
-                    robot_port=robot_port,
-                    robot_type=robot_type,
-                    robot_id=robot_id
-                )
-                state.blockly_enabled = True
-                logger.info(f"✅ Blockly manager initialized (port: {robot_port}, type: {robot_type}, id: {robot_id})")
-            except Exception as e:
-                logger.error(f"Error initializing Blockly: {e}")
-        
-        # Initialize Bluetooth GATT service
-        if BLUETOOTH_AVAILABLE:
-            logger.info("📡 Initializing Bluetooth GATT service...")
-            try:
-                bluetooth_mgr = BLEGattServer("LeRobot")
-                bluetooth_mgr.start()
-                state.bluetooth_manager = bluetooth_mgr
-                state.bluetooth_enabled = True
-                logger.info("✅ Bluetooth GATT service started")
-            except Exception as e:
-                logger.error(f"Error initializing Bluetooth GATT: {e}")
-        
-        # Initial state refresh
-        state.refresh_state()
-        logger.info("✅ State refreshed")
-        sys.stdout.flush()
-        sys.stderr.flush()
-        
-        if state.devices_available:
-            logger.info("✅ USB devices beschikbaar")
-            sys.stdout.flush()
-            sys.stderr.flush()
-            
-            # Auto-start teleoperation als devices beschikbaar zijn
-            logger.info("🎮 Auto-start teleoperation...")
-            sys.stdout.flush()
-            sys.stderr.flush()
-            await asyncio.sleep(2)  # Extra delay voor device stabiliteit
-            
-            logger.info("   Calling start_teleoperation()...")
-            sys.stdout.flush()
-            sys.stderr.flush()
-            
-            if await start_teleoperation():
-                logger.info("✅ Teleoperation automatisch gestart")
-                sys.stdout.flush()
-                sys.stderr.flush()
-            else:
-                logger.warning("⚠️  Kon teleoperation niet automatisch starten")
-                sys.stdout.flush()
-                sys.stderr.flush()
-        else:
-            logger.warning("⚠️  Geen USB devices gevonden - teleoperation niet gestart")
-            logger.info("   💡 Sluit devices aan en start handmatig via web interface")
-            sys.stdout.flush()
-            sys.stderr.flush()
-        
-        logger.info("Server initialization complete")
-        logger.info("=" * 60)
-        
-    except Exception as e:
-        logger.error(f"Error during startup: {e}", exc_info=True)
-    
+
+    initialization_task = asyncio.create_task(initialize_hardware_background())
+
     yield
-    
+
+    if not initialization_task.done():
+        initialization_task.cancel()
+        try:
+            await initialization_task
+        except asyncio.CancelledError:
+            pass
+
     # Shutdown
     logger.info("=" * 60)
     logger.info("🛑 Shutdown LeRobot Teleoperation Server")
@@ -700,6 +720,7 @@ async def lifespan(app: FastAPI):
         
     except Exception as e:
         logger.error(f"Error during shutdown: {e}", exc_info=True)
+
 
 
 # ============================================================================
@@ -774,6 +795,36 @@ async def qr_codes():
             return HTMLResponse(content=f.read())
     else:
         return HTMLResponse(content="<h1>QR codes page not found</h1><p>Please ensure static/qr_codes.html exists</p>")
+
+
+@app.get("/ssh")
+async def ssh_terminal_page():
+    """Browser terminal that authenticates through the host's normal SSH daemon."""
+    template_path = Path(__file__).parent / "templates" / "ssh_terminal.html"
+    if template_path.exists():
+        with open(template_path, 'r') as f:
+            return HTMLResponse(content=f.read())
+    return HTMLResponse(content="<h1>SSH terminal template not found</h1>", status_code=404)
+
+
+@app.get("/api/ssh/info")
+async def ssh_info(request: Request):
+    """Return local SSH terminal availability. No credentials are stored by this service."""
+    client_host = request.client.host if request.client else ""
+    try:
+        client_ip = ipaddress.ip_address(client_host)
+        lan_allowed = client_ip.is_private or client_ip.is_loopback
+    except ValueError:
+        lan_allowed = False
+
+    return {
+        "enabled": os.environ.get("LEROBOT_WEB_SSH", "1") != "0",
+        "lan_allowed": lan_allowed,
+        "ssh_client_available": shutil.which("ssh") is not None,
+        "hostname": socket.gethostname(),
+        "default_user": getpass.getuser(),
+        "target": "127.0.0.1",
+    }
 
 
 @app.get("/api")
@@ -890,9 +941,19 @@ async def get_status():
     """Get current teleoperation status"""
     state.refresh_state()
     
+    teleop_status = state.teleop_manager.get_status() if state.teleop_manager else {}
     return {
         "running": state.is_running(),
         "mode": state.teleop_mode,
+        "connection_state": teleop_status.get("connection_state", "stopped"),
+        "target_fps": teleop_status.get("target_fps", 60),
+        "actual_fps": teleop_status.get("actual_fps", 0.0),
+        "processing_ms": teleop_status.get("processing_ms", 0.0),
+        "loop_errors": teleop_status.get("loop_errors", 0),
+        "last_error": teleop_status.get("last_error"),
+        "uptime_s": teleop_status.get("uptime_s", 0.0),
+        "reconnect_count": state.reconnect_count,
+        "last_reconnect_at": state.last_reconnect_at,
         "devices_available": state.devices_available,
         "follower_port": state.follower_port,
         "leader_port": state.leader_port,
@@ -957,6 +1018,31 @@ async def api_stop_teleoperation():
     return {
         "success": success,
         "message": "Teleoperation stopped" if success else "Failed to stop teleoperation"
+    }
+
+
+@app.post("/api/teleoperation/reconnect")
+async def api_reconnect_teleoperation():
+    """Explicit operator-triggered reconnect using the current device selection."""
+    logger.info("🔄 Manual teleoperation reconnect requested")
+    state.reconnect_count += 1
+    state.last_reconnect_at = datetime.now().astimezone().isoformat(timespec="seconds")
+
+    # Always clean up stale objects, including a manager whose loop entered error state.
+    if state.teleop_manager is not None:
+        try:
+            state.teleop_manager.stop()
+        except Exception as e:
+            logger.warning(f"Cleanup before reconnect failed: {e}")
+        state.teleop_manager = None
+        state.teleop_mode = "stopped"
+
+    await asyncio.sleep(0.5)
+    success = await start_teleoperation()
+    return {
+        "success": success,
+        "message": "Teleoperation reconnected" if success else "Reconnect failed",
+        "reconnect_count": state.reconnect_count,
     }
 
 
@@ -1629,6 +1715,100 @@ async def get_robot_positions(request: Request):
 # ============================================================================
 # WebSocket Endpoint
 # ============================================================================
+
+def _web_ssh_client_allowed(websocket: WebSocket) -> bool:
+    if os.environ.get("LEROBOT_WEB_SSH", "1") == "0":
+        return False
+    client_host = websocket.client.host if websocket.client else ""
+    try:
+        client_ip = ipaddress.ip_address(client_host)
+        return client_ip.is_private or client_ip.is_loopback
+    except ValueError:
+        return False
+
+
+@app.websocket("/ws/ssh")
+async def ssh_websocket_endpoint(websocket: WebSocket):
+    """LAN-only browser SSH session to this same host via its normal sshd authentication."""
+    if not _web_ssh_client_allowed(websocket):
+        await websocket.close(code=1008, reason="Web SSH is limited to LAN/localhost clients")
+        return
+    if shutil.which("ssh") is None:
+        await websocket.close(code=1011, reason="ssh client not installed")
+        return
+
+    user = websocket.query_params.get("user", getpass.getuser()).strip()
+    if not user or any(ch not in "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789._-" for ch in user):
+        await websocket.close(code=1008, reason="Invalid SSH username")
+        return
+
+    await websocket.accept()
+    pid = None
+    master_fd = None
+
+    try:
+        pid, master_fd = os.forkpty()
+        if pid == 0:
+            os.execvp("ssh", [
+                "ssh",
+                "-tt",
+                "-o", "StrictHostKeyChecking=accept-new",
+                "-o", "ServerAliveInterval=30",
+                "-o", "ConnectTimeout=10",
+                f"{user}@127.0.0.1",
+            ])
+
+        os.set_blocking(master_fd, False)
+        logger.info(f"💻 Web SSH session opened for {user} from {websocket.client.host}")
+
+        while True:
+            # Forward browser keystrokes to the PTY.
+            try:
+                incoming = await asyncio.wait_for(websocket.receive_text(), timeout=0.03)
+                if incoming:
+                    os.write(master_fd, incoming.encode("utf-8", errors="ignore"))
+            except asyncio.TimeoutError:
+                pass
+
+            # Forward SSH output to the browser terminal.
+            try:
+                output = os.read(master_fd, 8192)
+                if output:
+                    await websocket.send_text(output.decode("utf-8", errors="replace"))
+                else:
+                    break
+            except BlockingIOError:
+                pass
+            except OSError:
+                break
+
+            # Reap child when the SSH session exits.
+            done_pid, _ = os.waitpid(pid, os.WNOHANG)
+            if done_pid == pid:
+                pid = None
+                break
+
+    except WebSocketDisconnect:
+        pass
+    except Exception as e:
+        logger.warning(f"Web SSH session error: {e}")
+    finally:
+        if master_fd is not None:
+            try:
+                os.close(master_fd)
+            except OSError:
+                pass
+        if pid:
+            try:
+                os.kill(pid, signal.SIGHUP)
+            except ProcessLookupError:
+                pass
+            try:
+                os.waitpid(pid, os.WNOHANG)
+            except ChildProcessError:
+                pass
+        logger.info("💻 Web SSH session closed")
+
 
 @app.websocket("/ws")
 async def websocket_endpoint(websocket: WebSocket):
