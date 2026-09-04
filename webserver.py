@@ -570,25 +570,37 @@ async def initialize_hardware_background():
                     logger.info("🔍 Checking network connectivity...")
                     status = await state.network_manager.get_status()
                     
-                    # If no network connection, auto-start AP
-                    if status.get('state') != 'connected' and status.get('connectivity') != 'full':
+                    # Only start setup AP when there is genuinely no usable
+                    # network connection. Ethernet, WiFi, captive portal and
+                    # limited connectivity all count as connected enough to
+                    # avoid stealing wlan0 into AP mode.
+                    connectivity = status.get('connectivity', 'unknown')
+                    network_connected = (
+                        status.get('state') == 'connected'
+                        or status.get('mode') == 'wifi'
+                        or connectivity in {'full', 'limited', 'portal'}
+                    )
+
+                    if not network_connected:
                         logger.warning("⚠️  No network connection detected")
                         logger.info("📡 Auto-starting WiFi Access Point for setup...")
                         
                         try:
-                            # Start AP mode
                             ap_started = await state.network_manager.start_access_point()
                             if ap_started:
                                 logger.info("✅ WiFi Access Point started")
-                                logger.info(f"   SSID: LeRobot-AP")
-                                logger.info(f"   Password: robotics123")
-                                logger.info(f"   Connect and visit: http://192.168.4.1:5000")
+                                logger.info("   SSID: LeRobot-AP")
+                                logger.info("   Password: robotics123")
+                                logger.info("   Connect and visit: http://192.168.4.1:5000")
                             else:
                                 logger.error("❌ Failed to start Access Point")
                         except Exception as ap_error:
                             logger.error(f"Error starting AP: {ap_error}")
                     else:
-                        logger.info(f"✅ Network connected: {status.get('ssid', 'unknown')}")
+                        logger.info(
+                            f"✅ Network connected: mode={status.get('mode', 'unknown')}, "
+                            f"connectivity={connectivity}, ssid={status.get('ssid') or '-'}"
+                        )
                         
                 else:
                     logger.warning("⚠️  Network manager failed to initialize")
