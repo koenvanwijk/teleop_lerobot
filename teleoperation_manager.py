@@ -19,6 +19,8 @@ from pprint import pformat
 
 import draccus
 
+from lerobot.motors import MotorNormMode
+
 from lerobot.processor import (
     RobotAction,
     RobotObservation,
@@ -106,9 +108,11 @@ class TeleoperationManager:
                     f'--robot.type={robot_type}',
                     f'--robot.port={robot_port}',
                     f'--robot.id={robot_id}',
+                    '--robot.use_degrees=true',
                     f'--teleop.type={teleop_type}',
                     f'--teleop.port={teleop_port}',
                     f'--teleop.id={teleop_id}',
+                    '--teleop.use_degrees=true',
                     f'--fps={fps}'
                 ]
                 
@@ -124,6 +128,14 @@ class TeleoperationManager:
             # Create robot and teleoperator (LeRobot's factory functions)
             self.robot = make_robot_from_config(cfg.robot)
             self.teleop = make_teleoperator_from_config(cfg.teleop)
+
+            # LeRobot 0.6.x uses degrees for SO arm joints but keeps the
+            # gripper normalized to 0..100. This application deliberately
+            # exposes one unit only: degrees for every motor, including gripper.
+            for device in (self.robot, self.teleop):
+                bus = getattr(device, "bus", None)
+                if bus and "gripper" in bus.motors:
+                    bus.motors["gripper"].norm_mode = MotorNormMode.DEGREES
             
             # Create processors (LeRobot's default processors)
             self.teleop_action_processor, self.robot_action_processor, self.robot_observation_processor = make_default_processors()
@@ -262,7 +274,7 @@ class TeleoperationManager:
         Get current robot joint positions.
         
         Returns:
-            Dictionary mapping motor names to positions (radians), or None if not available
+            Dictionary mapping motor names to positions in degrees, or None if not available
         """
         with self.lock:
             if self.current_observation is None:
@@ -327,7 +339,7 @@ class TeleoperationManager:
     def apply_leader_positions(self, positions: Dict[str, float]) -> bool:
         """
         Apply leader-provided target positions directly to the robot.
-        Expects percentage values: joints in -100..100, gripper in 0..100.
+        Expects joint targets in degrees for every motor, including the gripper.
         """
         if not self.is_running or self.robot is None:
             logging.warning("Cannot apply leader positions: teleoperation not running or robot missing")
