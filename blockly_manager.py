@@ -190,6 +190,8 @@ class RobotAPI:
                 self.positions[joint] = angle
                 print(f"[SIM] Moving joint {joint} to {angle}°")
                 
+        except BlocklyEmergencyStop:
+            raise
         except Exception as e:
             logger.error(f"Error moving joint {joint}: {e}")
     
