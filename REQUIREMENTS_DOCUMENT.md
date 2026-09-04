@@ -201,7 +201,7 @@ GET /api/network/status - Current mode & IP
 **Acceptatiecriteria:**
 - AP start binnen 10 seconden
 - Clients kunnen verbinden en IP krijgen
-- Web interface bereikbaar op 192.168.4.1:5000
+- Web interface bereikbaar op 192.168.4.1
 - Netwerk hersteld na stop
 
 ### 1.4 Bluetooth Discovery
@@ -365,7 +365,7 @@ class RobotAPI:
 **Beschrijving:** WebSocket-based live data streaming.
 
 **Requirements:**
-- WebSocket endpoint: `ws://host:5000/ws`
+- WebSocket endpoint: `ws://host/ws`
 - Automatische reconnect (5 seconden delay)
 - Keepalive ping/pong (30 seconden)
 - Broadcast naar meerdere clients
@@ -475,7 +475,7 @@ GET /static/URDFs/assets/*.stl - 3D meshes
 - Input validatie met Pydantic
 
 #### NFR-2.3.2: Network Security
-- Firewall configuratie (poort 5000 local only)
+- Firewall configuratie (poort 80 local only)
 - AP mode WPA2 encryption
 - Geen credentials in plaintext logs
 - Secure credential storage (WiFi passwords)
@@ -699,7 +699,7 @@ ls -la /dev/tty_*
 python webserver.py  # Should start zonder errors
 
 # Check web interface
-curl http://localhost:5000/health
+curl http://localhost/health
 ```
 
 #### Configuration:
@@ -988,7 +988,7 @@ POST /api/blockly/execute
 
 #### Connection:
 ```
-ws://host:5000/ws
+ws://host/ws
 ```
 
 #### Message format (JSON):
@@ -1153,7 +1153,7 @@ sudo udevadm control --reload
 sudo systemctl restart lerobot-webserver
 
 # 6. Verify
-curl http://localhost:5000/health
+curl http://localhost/health
 ```
 
 ---
