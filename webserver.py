@@ -521,7 +521,7 @@ async def initialize_hardware_background():
         # The HTTP/WebSocket server is already online. Give USB/network services
         # a moment to settle without delaying GUI availability.
         logger.info("⏳ Hardware initialization starts in background...")
-        await asyncio.sleep(1)
+        await asyncio.sleep(3)
         
         # Initialize camera manager
         if CAMERA_AVAILABLE:
