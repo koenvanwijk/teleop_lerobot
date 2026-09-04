@@ -591,7 +591,7 @@ async def initialize_hardware_background():
                                 logger.info("✅ WiFi Access Point started")
                                 logger.info("   SSID: LeRobot-AP")
                                 logger.info("   Password: robotics123")
-                                logger.info("   Connect and visit: http://192.168.4.1:5000")
+                                logger.info("   Connect and visit: http://192.168.4.1/")
                             else:
                                 logger.error("❌ Failed to start Access Point")
                         except Exception as ap_error:
@@ -2145,10 +2145,10 @@ if __name__ == "__main__":
     import uvicorn
 
     try:
-        port = int(os.getenv("PORT", "5000"))
+        port = int(os.getenv("PORT", "80"))
     except ValueError:
-        port = 5000
-        logging.getLogger(__name__).warning("Invalid PORT env var, falling back to 5000")
+        port = 80
+        logging.getLogger(__name__).warning("Invalid PORT env var, falling back to 80")
     
     # Add flushing handler to uvicorn loggers so their output also gets flushed
     for logger_name in ["uvicorn", "uvicorn.access", "uvicorn.error"]:
