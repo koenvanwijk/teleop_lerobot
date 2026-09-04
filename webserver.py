@@ -1654,23 +1654,33 @@ async def websocket_endpoint(websocket: WebSocket):
         if initial_logs:
             await websocket.send_json({"type": "logs", "data": initial_logs})
 
-        last_keepalive = time.time()
-
-        # Keep connection alive, handle incoming messages and stream logs.
-        while True:
-            try:
-                data = await asyncio.wait_for(websocket.receive_text(), timeout=0.25)
-                # Echo back for ping/pong
-                await websocket.send_json({"type": "pong", "timestamp": time.time()})
-            except asyncio.TimeoutError:
+        async def stream_logs():
+            """Push newly captured log records without blocking WebSocket input."""
+            nonlocal last_log_seq
+            while True:
                 new_logs = get_gui_logs_since(after_seq=last_log_seq, limit=100)
                 if new_logs:
                     await websocket.send_json({"type": "logs", "data": new_logs})
                     last_log_seq = new_logs[-1]["seq"]
+                await asyncio.sleep(0.25)
 
-                if time.time() - last_keepalive >= 30.0:
+        log_stream_task = asyncio.create_task(stream_logs())
+
+        # Keep connection alive and handle incoming messages.
+        try:
+            while True:
+                try:
+                    data = await asyncio.wait_for(websocket.receive_text(), timeout=30.0)
+                    # Echo back for ping/pong
+                    await websocket.send_json({"type": "pong", "timestamp": time.time()})
+                except asyncio.TimeoutError:
                     await websocket.send_json({"type": "keepalive", "timestamp": time.time()})
-                    last_keepalive = time.time()
+        finally:
+            log_stream_task.cancel()
+            try:
+                await log_stream_task
+            except asyncio.CancelledError:
+                pass
                 
     except WebSocketDisconnect:
         logger.info("WebSocket client disconnected")
