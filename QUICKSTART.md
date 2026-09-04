@@ -14,8 +14,6 @@ Selecteer de robot en lees het huidige IP-adres uit. Open daarna:
 http://<IP-adres>/
 ```
 
-De webinterface gebruikt standaard **poort 80**, dus er is geen `:5000` meer nodig.
-
 > iPhone/iPad: Safari ondersteunt Web Bluetooth niet. Gebruik daar het Setup Access Point of een reeds bekend IP-adres.
 
 ## 2. Geen netwerk? Gebruik het Setup Access Point
@@ -33,7 +31,7 @@ Verbind met `LeRobot-AP`, open `http://192.168.4.1/` en ga naar **Advanced -> Ne
 
 ## 3. Robot login / SSH
 
-Het Linux/SSH-loginwachtwoord is:
+Wanneer Linux of SSH om het loginwachtwoord vraagt, gebruik:
 
 ```text
 lerobot
@@ -45,7 +43,7 @@ Browser-SSH:
 http://<IP-adres>/ssh
 ```
 
-Het **Setup WiFi-wachtwoord** en het **Linux/SSH-loginwachtwoord** zijn twee onafhankelijke wachtwoorden. Het wijzigen van het ene wijzigt het andere niet.
+Het **Setup WiFi-wachtwoord** (`robotics123`) en het **Linux/SSH-loginwachtwoord** (`lerobot`) zijn twee onafhankelijke wachtwoorden.
 
 ## Begrippen niet door elkaar halen
 
@@ -54,12 +52,11 @@ Het **Setup WiFi-wachtwoord** en het **Linux/SSH-loginwachtwoord** zijn twee ona
 | Bluetooth-naam | `LeRobot-F686` | Robot herkennen en IP-adres opvragen |
 | Setup WiFi | `LeRobot-AP` | Tijdelijk netwerk als normaal netwerk ontbreekt |
 | Setup WiFi-wachtwoord | `robotics123` | Verbinden met `LeRobot-AP` |
-| Robot login-wachtwoord | `lerobot` | Linux / SSH login |
-| Webpoort | `80` | Web GUI, API en browser-SSH |
+| Linux / SSH loginwachtwoord | `lerobot` | Inloggen op de robot |
 
-## Update van een bestaande robot naar poort 80
+## Update van een bestaande robot
 
-Na het ophalen van de laatste `main` moet `install.sh` opnieuw worden uitgevoerd. De installer configureert systemd met `CAP_NET_BIND_SERVICE`, zodat de webserver als gewone gebruiker veilig op poort 80 kan luisteren.
+Voor een update haal je de laatste versie van `main` op, voer je de installer opnieuw uit en reboot je de robot:
 
 ```bash
 cd ~/teleop_lerobot
@@ -69,13 +66,7 @@ git pull --ff-only
 sudo reboot
 ```
 
-Na reboot:
-
-```text
-http://localhost/
-```
-
-De desktopbrowser wordt na een grafische login automatisch geopend. Als dat niet gebeurt, controleer:
+Na de reboot wordt de lokale webinterface automatisch gestart. Als de desktopbrowser niet automatisch opent, controleer:
 
 ```bash
 cat ~/.local/state/lerobot-webui-autostart.log
