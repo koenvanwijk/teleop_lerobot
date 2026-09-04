@@ -1,0 +1,168 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>LeRobot SSH Terminal</title>
+<style>
+  :root { color-scheme: dark; }
+  body { margin:0; font-family:system-ui,sans-serif; background:#0b1020; color:#e5e7eb; }
+  .wrap { max-width:1200px; margin:0 auto; padding:18px; }
+  .bar { display:flex; gap:10px; align-items:end; flex-wrap:wrap; margin-bottom:12px; }
+  label { display:flex; flex-direction:column; gap:5px; font-size:13px; color:#aeb7c6; }
+  input { background:#111827; color:#fff; border:1px solid #374151; border-radius:6px; padding:9px 10px; }
+  button { border:0; border-radius:6px; padding:10px 14px; cursor:pointer; font-weight:600; }
+  #connect { background:#2563eb; color:white; }
+  #disconnect { background:#991b1b; color:white; }
+  #terminal {
+    min-height:68vh; max-height:78vh; overflow:auto; outline:none;
+    background:#030712; border:1px solid #374151; border-radius:8px;
+    padding:14px; margin:0; white-space:pre-wrap; word-break:break-word;
+    font:14px/1.45 ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,monospace;
+  }
+  .status { margin-left:auto; font-size:13px; color:#93c5fd; }
+  .hint { font-size:13px; color:#9ca3af; margin:10px 0; }
+  .warn { color:#fbbf24; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h2>💻 LeRobot SSH Terminal</h2>
+  <div class="bar">
+    <label>User
+      <input id="user" autocomplete="username" spellcheck="false">
+    </label>
+    <label>Target
+      <input id="target" value="127.0.0.1" disabled>
+    </label>
+    <button id="connect">Connect</button>
+    <button id="disconnect" disabled>Disconnect</button>
+    <div id="status" class="status">Loading…</div>
+  </div>
+  <div class="hint">
+    This page opens the host's normal SSH client to <code>127.0.0.1</code>.
+    Password/key authentication is handled by <code>sshd</code>; the web GUI does not store your password.
+    <span class="warn">LAN/localhost access only.</span>
+  </div>
+  <pre id="terminal" tabindex="0">Loading SSH availability…&#10;</pre>
+</div>
+<script>
+let ws = null;
+let terminalText = '';
+const terminal = document.getElementById('terminal');
+const statusEl = document.getElementById('status');
+const connectBtn = document.getElementById('connect');
+const disconnectBtn = document.getElementById('disconnect');
+
+function stripAnsi(s) {
+  return s
+    .replace(/\x1B\][^\x07]*(?:\x07|\x1B\\)/g, '')
+    .replace(/\x1B(?:[@-_][0-?]*[ -\/]*[@-~]|\[[0-?]*[ -\/]*[@-~])/g, '');
+}
+
+function appendOutput(chunk) {
+  chunk = stripAnsi(chunk);
+  for (const ch of chunk) {
+    if (ch === '\r') continue;
+    if (ch === '\b' || ch === '\x7f') {
+      terminalText = terminalText.slice(0, -1);
+    } else {
+      terminalText += ch;
+    }
+  }
+  if (terminalText.length > 120000) terminalText = terminalText.slice(-100000);
+  terminal.textContent = terminalText;
+  terminal.scrollTop = terminal.scrollHeight;
+}
+
+async function loadInfo() {
+  try {
+    const r = await fetch('/api/ssh/info');
+    const d = await r.json();
+    document.getElementById('user').value = d.default_user || '';
+    document.getElementById('target').value = d.target || '127.0.0.1';
+    if (!d.enabled) {
+      statusEl.textContent = 'Disabled by LEROBOT_WEB_SSH=0';
+      connectBtn.disabled = true;
+    } else if (!d.lan_allowed) {
+      statusEl.textContent = 'Blocked: LAN/localhost clients only';
+      connectBtn.disabled = true;
+    } else if (!d.ssh_client_available) {
+      statusEl.textContent = 'ssh client not installed';
+      connectBtn.disabled = true;
+    } else {
+      statusEl.textContent = 'Ready on ' + (d.hostname || 'robot');
+      terminalText = 'Ready. Press Connect, then authenticate with SSH.\n';
+      terminal.textContent = terminalText;
+    }
+  } catch (e) {
+    statusEl.textContent = 'Failed to load SSH status';
+    appendOutput('\n' + e + '\n');
+  }
+}
+
+function connect() {
+  if (ws) return;
+  const user = document.getElementById('user').value.trim();
+  if (!user) return;
+  const proto = location.protocol === 'https:' ? 'wss:' : 'ws:';
+  ws = new WebSocket(`${proto}//${location.host}/ws/ssh?user=${encodeURIComponent(user)}`);
+  statusEl.textContent = 'Connecting…';
+  connectBtn.disabled = true;
+  disconnectBtn.disabled = false;
+  terminal.focus();
+
+  ws.onopen = () => {
+    statusEl.textContent = 'SSH connected';
+    appendOutput('\n--- SSH session opened ---\n');
+  };
+  ws.onmessage = ev => appendOutput(ev.data);
+  ws.onerror = () => appendOutput('\n[SSH websocket error]\n');
+  ws.onclose = ev => {
+    appendOutput(`\n--- SSH session closed (${ev.code}) ---\n`);
+    statusEl.textContent = 'Disconnected';
+    ws = null;
+    connectBtn.disabled = false;
+    disconnectBtn.disabled = true;
+  };
+}
+
+function disconnect() {
+  if (ws) ws.close(1000, 'User disconnected');
+}
+
+terminal.addEventListener('keydown', e => {
+  if (!ws || ws.readyState !== WebSocket.OPEN) return;
+  let data = null;
+  if (e.ctrlKey && !e.altKey && !e.metaKey && e.key.length === 1) {
+    const c = e.key.toUpperCase().charCodeAt(0);
+    if (c >= 64 && c <= 95) data = String.fromCharCode(c - 64);
+  } else {
+    const keys = {
+      Enter: '\r', Backspace: '\x7f', Tab: '\t', Escape: '\x1b',
+      ArrowUp: '\x1b[A', ArrowDown: '\x1b[B', ArrowRight: '\x1b[C', ArrowLeft: '\x1b[D',
+      Home: '\x1b[H', End: '\x1b[F', Delete: '\x1b[3~'
+    };
+    data = keys[e.key] ?? (e.key.length === 1 ? e.key : null);
+  }
+  if (data !== null) {
+    e.preventDefault();
+    ws.send(data);
+  }
+});
+
+terminal.addEventListener('paste', e => {
+  if (!ws || ws.readyState !== WebSocket.OPEN) return;
+  const text = e.clipboardData.getData('text');
+  if (text) {
+    e.preventDefault();
+    ws.send(text);
+  }
+});
+
+connectBtn.onclick = connect;
+disconnectBtn.onclick = disconnect;
+loadInfo();
+</script>
+</body>
+</html>
