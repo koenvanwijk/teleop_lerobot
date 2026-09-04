@@ -449,6 +449,26 @@
                     <span class="status-label" data-i18n="teleoperation.follower">Follower:</span>
                     <span class="status-value" id="follower-value">-</span>
                 </div>
+                <div class="status-row">
+                    <span class="status-label">Connection state:</span>
+                    <span class="status-value" id="connection-state-value">-</span>
+                </div>
+                <div class="status-row">
+                    <span class="status-label">FPS:</span>
+                    <span class="status-value" id="fps-value">-</span>
+                </div>
+                <div class="status-row">
+                    <span class="status-label">Processing:</span>
+                    <span class="status-value" id="processing-value">-</span>
+                </div>
+                <div class="status-row">
+                    <span class="status-label">Reconnects:</span>
+                    <span class="status-value" id="reconnect-value">0</span>
+                </div>
+                <div class="status-row">
+                    <span class="status-label">Loop errors:</span>
+                    <span class="status-value" id="loop-errors-value">0</span>
+                </div>
             </div>
             
             <div class="button-group">
@@ -457,6 +477,9 @@
                 </button>
                 <button class="btn btn-danger" onclick="stopTeleoperation()" id="stop-btn" disabled data-i18n="teleoperation.stop">
                     ⏹️ Stop Teleoperation
+                </button>
+                <button class="btn btn-secondary" onclick="reconnectTeleoperation()" id="reconnect-btn">
+                    🔄 Reconnect
                 </button>
             </div>
 
@@ -642,7 +665,7 @@
                 <h3 data-i18n="system.status">Server Status</h3>
                 <div class="status-row">
                     <span class="status-label">Server Version:</span>
-                    <span class="status-value">2.0.0</span>
+                    <span class="status-value">2.1.0</span>
                 </div>
                 <div class="status-row">
                     <span class="status-label" data-i18n="system.cameras">Cameras Enabled:</span>
@@ -693,6 +716,15 @@
                 </div>
             </div>
             
+            <div class="status-card">
+                <h3>💻 SSH Terminal</h3>
+                <p style="color:#666; margin-bottom:12px;">
+                    Open an SSH session to this robot/computer in the browser. Authentication is still handled by the host SSH daemon.
+                </p>
+                <a class="btn btn-primary" href="/ssh" target="_blank" rel="noopener">Open SSH Terminal</a>
+                <div style="margin-top:10px; font-size:0.85em; color:#666;">LAN/localhost only; no SSH password is stored by the web GUI.</div>
+            </div>
+
             <div class="status-card">
                 <h3 data-i18n="system.api_endpoints">API Endpoints</h3>
                 <div class="status-row">
@@ -1234,7 +1266,24 @@
                 document.getElementById('follower-value').textContent = 
                     `${data.follower_type} (${data.follower_id})`;
                 document.getElementById('leader-value').textContent = 
-                    `${data.leader_type} (${data.leader_id})`;
+                    `${data.leader_type || '-'} (${data.leader_id || '-'})`;
+
+                const connectionState = data.connection_state || (data.running ? 'running' : 'stopped');
+                document.getElementById('connection-state-value').textContent = connectionState;
+                document.getElementById('fps-value').textContent =
+                    `${Number(data.actual_fps || 0).toFixed(1)} / ${data.target_fps || 60} Hz`;
+                document.getElementById('processing-value').textContent =
+                    `${Number(data.processing_ms || 0).toFixed(2)} ms`;
+                document.getElementById('reconnect-value').textContent = data.reconnect_count || 0;
+                document.getElementById('loop-errors-value').textContent = data.loop_errors || 0;
+
+                if (connectionState === 'error' && data.last_error) {
+                    modeValue.textContent = 'Error';
+                    modeValue.title = data.last_error;
+                    indicator.className = 'status-indicator status-stopped';
+                } else {
+                    modeValue.title = '';
+                }
                     
             } catch (error) {
                 console.error('Error updating status:', error);
@@ -1635,6 +1684,28 @@
                 showStatus('Error stopping teleoperation: ' + error, 'error');
                 btn.disabled = false;
             } finally {
+                btn.classList.remove('loading');
+            }
+        }
+        
+        async function reconnectTeleoperation() {
+            const btn = document.getElementById('reconnect-btn');
+            btn.disabled = true;
+            btn.classList.add('loading');
+            showStatus('Reconnecting teleoperation…', 'info', 0);
+            try {
+                const response = await fetch('/api/teleoperation/reconnect', { method: 'POST' });
+                const data = await response.json();
+                if (data.success) {
+                    showStatus('Teleoperation reconnected', 'success');
+                } else {
+                    showStatus('Reconnect failed: ' + (data.message || 'Unknown error'), 'error');
+                }
+                await updateTeleopStatus();
+            } catch (error) {
+                showStatus('Reconnect error: ' + error, 'error');
+            } finally {
+                btn.disabled = false;
                 btn.classList.remove('loading');
             }
         }
@@ -2778,7 +2849,7 @@ ${code}`;
         }
         
         // Initialize
-        setInterval(updateTeleopStatus, 5000);
+        setInterval(updateTeleopStatus, 1000);
         updateTeleopStatus();
     // Load available devices for selector on page load
     loadDevices();
