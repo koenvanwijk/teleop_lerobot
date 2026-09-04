@@ -860,13 +860,27 @@
                 <button class="btn btn-danger" onclick="clearBlockly()" data-i18n="blockly.clear_workspace">
                     🗑️ Clear Workspace
                 </button>
-                <button class="btn btn-primary" onclick="runBlocklyProgram()" data-i18n="blockly.run_program">
+                <button class="btn btn-primary" onclick="runBlocklyProgram()" id="blockly-run-btn" data-i18n="blockly.run_program">
                     ▶️ Run Program
                 </button>
             </div>
             
             <div class="alert alert-info" style="margin-top: 20px;">
                 <strong data-i18n="blockly.editor_info">ℹ️ Blockly Editor:</strong> <span data-i18n="blockly.editor_desc">Drag and drop blocks to create programs. Custom robot blocks available!</span>
+            </div>
+            
+            <div id="blockly-handover" class="status-card" style="display:none; margin-top:20px; border:2px solid #f59e0b; background:#fffbeb;">
+                <div style="display:flex; align-items:center; justify-content:space-between; gap:16px; flex-wrap:wrap;">
+                    <div>
+                        <h3 style="margin:0 0 6px; color:#92400e;">⚠️ Robot control handover</h3>
+                        <div id="blockly-handover-text" style="font-size:1.05em; color:#78350f;">
+                            Teleoperation is temporarily stopped.
+                        </div>
+                    </div>
+                    <button class="btn btn-danger" id="blockly-cancel-resume-btn" onclick="cancelBlocklyResume()" style="display:none;">
+                        ⏹ Keep teleoperation stopped
+                    </button>
+                </div>
             </div>
             
             <!-- Blockly Workspace -->
@@ -2818,9 +2832,142 @@ ${pythonCode}`;
             }
         }
         
+        let blocklyResumeTimer = null;
+        let blocklyResumeDeadline = 0;
+
+        function setBlocklyHandover(message, options = {}) {
+            const panel = document.getElementById('blockly-handover');
+            const text = document.getElementById('blockly-handover-text');
+            const cancelBtn = document.getElementById('blockly-cancel-resume-btn');
+            if (!panel || !text || !cancelBtn) return;
+
+            panel.style.display = options.hide ? 'none' : 'block';
+            if (options.hide) return;
+
+            text.innerHTML = message;
+            cancelBtn.style.display = options.cancellable ? 'inline-block' : 'none';
+
+            if (options.success) {
+                panel.style.borderColor = '#22c55e';
+                panel.style.background = '#f0fdf4';
+                panel.querySelector('h3').style.color = '#166534';
+                text.style.color = '#166534';
+            } else {
+                panel.style.borderColor = '#f59e0b';
+                panel.style.background = '#fffbeb';
+                panel.querySelector('h3').style.color = '#92400e';
+                text.style.color = '#78350f';
+            }
+        }
+
+        function stopBlocklyResumeCountdown() {
+            if (blocklyResumeTimer) {
+                clearInterval(blocklyResumeTimer);
+                blocklyResumeTimer = null;
+            }
+        }
+
+        function startBlocklyResumeCountdown(seconds) {
+            stopBlocklyResumeCountdown();
+            blocklyResumeDeadline = Date.now() + Math.max(0, Number(seconds) || 0) * 1000;
+
+            const render = () => {
+                const remainingMs = blocklyResumeDeadline - Date.now();
+                const remaining = Math.max(0, Math.ceil(remainingMs / 1000));
+
+                if (remaining > 0) {
+                    setBlocklyHandover(
+                        `Blockly finished. <strong>Teleoperation resumes in <span style="font-size:1.35em;">${remaining}</span> s</strong> — the leader will regain control.`,
+                        { cancellable: true }
+                    );
+                    return;
+                }
+
+                stopBlocklyResumeCountdown();
+                setBlocklyHandover(
+                    '<strong>Reconnecting teleoperation…</strong> Waiting for the leader/follower connection.',
+                    { cancellable: false }
+                );
+                waitForTeleoperationResume();
+            };
+
+            render();
+            blocklyResumeTimer = setInterval(render, 250);
+        }
+
+        async function waitForTeleoperationResume() {
+            for (let attempt = 0; attempt < 20; attempt++) {
+                try {
+                    const response = await fetch('/api/blockly/status');
+                    const status = await response.json();
+
+                    if (status.teleoperation_running) {
+                        setBlocklyHandover(
+                            '<strong>✅ Teleoperation active.</strong> The leader has control again.',
+                            { success: true, cancellable: false }
+                        );
+                        setTimeout(() => setBlocklyHandover('', { hide: true }), 4000);
+                        return;
+                    }
+
+                    if (status.resume_pending && status.resume_in_s > 0.2) {
+                        startBlocklyResumeCountdown(status.resume_in_s);
+                        return;
+                    }
+
+                    if (!status.resume_pending && !status.teleoperation_running) {
+                        setBlocklyHandover(
+                            '<strong>Teleoperation is stopped.</strong> It did not resume automatically.',
+                            { cancellable: false }
+                        );
+                        return;
+                    }
+                } catch (error) {
+                    console.warn('Could not read Blockly handover status:', error);
+                }
+                await new Promise(resolve => setTimeout(resolve, 500));
+            }
+
+            setBlocklyHandover(
+                '<strong>Teleoperation reconnect is taking longer than expected.</strong> Check Teleoperation status or the system log.',
+                { cancellable: false }
+            );
+        }
+
+        async function syncBlocklyHandoverStatus() {
+            try {
+                const response = await fetch('/api/blockly/status');
+                if (!response.ok) return;
+                const status = await response.json();
+                if (status.resume_pending) {
+                    startBlocklyResumeCountdown(status.resume_in_s);
+                }
+            } catch (error) {
+                console.debug('Blockly handover status unavailable:', error);
+            }
+        }
+
+        async function cancelBlocklyResume() {
+            try {
+                const response = await fetch('/api/blockly/cancel-resume', { method: 'POST' });
+                const result = await response.json();
+                if (!response.ok || !result.success) {
+                    throw new Error(result.detail || result.message || 'Cancel failed');
+                }
+
+                stopBlocklyResumeCountdown();
+                setBlocklyHandover(
+                    '<strong>⏹ Teleoperation will remain stopped.</strong> Start it manually when you are ready.',
+                    { cancellable: false }
+                );
+            } catch (error) {
+                showStatus('Could not cancel teleoperation resume: ' + error, 'error');
+            }
+        }
+
         async function runBlocklyProgram() {
             let code = pythonGenerator.workspaceToCode(blocklyWorkspace);
-            
+
             // Add header comment (robot provided by backend)
             if (code.trim()) {
                 code = `# LeRobot Blockly Program
@@ -2829,14 +2976,22 @@ import time
 
 ${code}`;
             }
-            
+
             if (!code.trim()) {
                 showStatus('No code to execute', 'info');
                 return;
             }
-            
+
             if (!confirm('Run this program?')) return;
-            
+
+            const runBtn = document.getElementById('blockly-run-btn');
+            if (runBtn) runBtn.disabled = true;
+            stopBlocklyResumeCountdown();
+            setBlocklyHandover(
+                '<strong>🧩 Blockly is taking control of the follower.</strong> Teleoperation is temporarily unavailable while the program runs.',
+                { cancellable: false }
+            );
+
             try {
                 const response = await fetch('/api/blockly/execute', {
                     method: 'POST',
@@ -2847,11 +3002,11 @@ ${code}`;
                     })
                 });
                 const result = await response.json();
-                
+
                 const resultsDiv = document.getElementById('execution-results');
                 const outputDiv = document.getElementById('execution-output');
-                
-                if (result.success) {
+
+                if (response.ok && result.success) {
                     outputDiv.innerHTML = `
                         <div class="alert alert-success">
                             <strong>✅ Success!</strong><br>
@@ -2861,18 +3016,36 @@ ${code}`;
                 } else {
                     outputDiv.innerHTML = `
                         <div class="alert alert-danger">
-                            <strong>❌ Error:</strong> ${result.error_type || 'Error'}<br>
-                            ${result.error}
+                            <strong>❌ Error:</strong> ${result.error_type || 'Execution error'}<br>
+                            ${result.error || result.detail || 'Unknown error'}
                         </div>
                     `;
                 }
-                
+
                 resultsDiv.style.display = 'block';
+
+                if (result.teleop_will_resume) {
+                    startBlocklyResumeCountdown(result.teleop_resume_delay_s || 5);
+                } else {
+                    // This also recovers the countdown when an HTTP error
+                    // occurred after teleoperation had already been stopped.
+                    await syncBlocklyHandoverStatus();
+                    const statusResponse = await fetch('/api/blockly/status');
+                    if (statusResponse.ok) {
+                        const status = await statusResponse.json();
+                        if (!status.resume_pending) {
+                            setBlocklyHandover('', { hide: true });
+                        }
+                    }
+                }
             } catch (error) {
                 showStatus('Execution error: ' + error, 'error');
+                await syncBlocklyHandoverStatus();
+            } finally {
+                if (runBtn) runBtn.disabled = false;
             }
         }
-        
+
         async function loadSavedPrograms() {
             try {
                 const response = await fetch('/api/blockly/programs');
@@ -2968,6 +3141,7 @@ ${code}`;
     loadDevices();
         loadSavedPositionsList();
         connectWebSocket();
+        syncBlocklyHandoverStatus();
     </script>
 </body>
 </html>
