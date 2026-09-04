@@ -551,14 +551,14 @@
                 <p style="color:#666; margin: 10px 0 20px;" data-i18n="commands.description">These commands are auto-filled based on your selected Leader and Follower. Copy them or open them directly in the web SSH terminal.</p>
 
             <div class="status-card">
-                <h3 data-i18n="commands.start_teleoperation">Start Teleoperation (CLI)</h3>
+                <h3 data-i18n="commands.start_teleoperation">Start Teleoperation (CLI, degrees)</h3>
                 <pre id="cmd-teleoperate" style="background:#f8f9fa; padding:12px; border-radius:8px; overflow-x:auto;" data-i18n="commands.select_devices"># Select devices above to populate…</pre>
                 <button class="btn btn-primary" onclick="copyCmd('cmd-teleoperate')" data-i18n="commands.copy">📋 Copy</button>
                 <button class="btn btn-success" onclick="openCmdInSsh('cmd-teleoperate')">💻 SSH</button>
             </div>
 
             <div class="status-card">
-                <h3 data-i18n="commands.record_dataset">Record Dataset (CLI)</h3>
+                <h3 data-i18n="commands.record_dataset">Record Dataset (CLI, degrees)</h3>
                 <p style="color:#666; font-size:0.9em;" data-i18n="commands.record_desc">Records teleoperated trajectories locally using the LeRobot 0.4.3 dataset configuration.</p>
                 <pre id="cmd-record" style="background:#f8f9fa; padding:12px; border-radius:8px; overflow-x:auto;" data-i18n="commands.select_devices"># Select devices above to populate…</pre>
                 <button class="btn btn-primary" onclick="copyCmd('cmd-record')" data-i18n="commands.copy">📋 Copy</button>
@@ -566,8 +566,8 @@
             </div>
 
             <div class="status-card">
-                <h3 data-i18n="commands.evaluate_replay">Evaluate / Replay (CLI)</h3>
-                <p style="color:#666; font-size:0.9em;" data-i18n="commands.evaluate_desc">Replays a recorded trajectory or evaluates a policy.</p>
+                <h3 data-i18n="commands.evaluate_replay">Policy Rollout (CLI, degrees)</h3>
+                <p style="color:#666; font-size:0.9em;" data-i18n="commands.evaluate_desc">Runs a trained policy on the selected robot using the degree-safe LeRobot wrapper.</p>
                 <pre id="cmd-eval" style="background:#f8f9fa; padding:12px; border-radius:8px; overflow-x:auto;" data-i18n="commands.select_devices"># Select devices above to populate…</pre>
                 <button class="btn btn-primary" onclick="copyCmd('cmd-eval')" data-i18n="commands.copy">📋 Copy</button>
                 <button class="btn btn-success" onclick="openCmdInSsh('cmd-eval')">💻 SSH</button>
@@ -1509,7 +1509,7 @@
             const lId = leader.id || 'default';
 
             const teleop = [
-                'lerobot-teleoperate \\',
+                'python ~/teleop_lerobot/lerobot_degrees.py teleoperate \\',
                 `  --robot.type=${fType} \\`,
                 `  --robot.port=${fPort} \\`,
                 `  --robot.id=${fId} \\`,
@@ -1520,11 +1520,11 @@
                 '  --teleop.use_degrees=true'
             ].join('\n');
 
-            // LeRobot 0.4.3 requires dataset.repo_id and dataset.single_task.
+            // LeRobot 0.6.1 requires dataset.repo_id and a task description.
             // Keep the actual data local by default; no Hugging Face upload.
             const record = [
                 'SESSION=$(date +%Y%m%d_%H%M%S)',
-                'lerobot-record \\',
+                'python ~/teleop_lerobot/lerobot_degrees.py record \\',
                 `  --robot.type=${fType} \\`,
                 `  --robot.port=${fPort} \\`,
                 `  --robot.id=${fId} \\`,
@@ -1541,12 +1541,15 @@
             ].join('\n');
 
             const evalCmd = [
-                'lerobot-eval \\',
+                'python ~/teleop_lerobot/lerobot_degrees.py rollout \\',
+                '  --strategy.type=base \\',
+                '  --policy.path=~/lerobot_models/latest \\',
                 `  --robot.type=${fType} \\`,
                 `  --robot.port=${fPort} \\`,
                 `  --robot.id=${fId} \\`,
                 '  --robot.use_degrees=true \\',
-                '  --policy_path=~/lerobot_models/latest.pt'
+                '  --task="Teleoperated task" \\',
+                '  --duration=30'
             ].join('\n');
 
             return { teleop, record, evalCmd };
