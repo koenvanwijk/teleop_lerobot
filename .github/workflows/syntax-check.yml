@@ -14,7 +14,17 @@ jobs:
         with:
           python-version: "3.12"
       - name: Python syntax
-        run: python -m py_compile webserver.py teleoperation_manager.py blockly_manager.py lerobot_degrees.py
+        run: python -m py_compile webserver.py teleoperation_manager.py blockly_manager.py network_manager.py lerobot_degrees.py
+      - name: WiFi parser smoke test
+        run: |
+          python - <<'PY'
+          from network_manager import NetworkManager
+
+          assert NetworkManager._split_nmcli_terse(r'My\:WiFi:87:WPA2') == ['My:WiFi', '87', 'WPA2']
+          assert NetworkManager._split_nmcli_terse(r'Office:65:WPA2 WPA3') == ['Office', '65', 'WPA2 WPA3']
+          print("WiFi parser OK")
+          PY
+
       - name: Translation completeness
         run: |
           python - <<'PY'
