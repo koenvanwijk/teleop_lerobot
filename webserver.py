@@ -577,7 +577,7 @@ async def initialize_hardware_background():
                         
                         try:
                             # Start AP mode
-                            ap_started = await state.network_manager.start_ap()
+                            ap_started = await state.network_manager.start_access_point()
                             if ap_started:
                                 logger.info("✅ WiFi Access Point started")
                                 logger.info(f"   SSID: LeRobot-AP")
@@ -1833,16 +1833,25 @@ async def get_robot_positions(request: Request):
             except Exception as e:
                 logger.debug(f"Could not get positions from teleoperation: {e}")
         
-        # Fallback to Blockly robot API
+        # Fallback to Blockly robot API. During startup or the brief
+        # Blockly -> teleoperation handover, no direct robot connection is a
+        # normal transient state and should not create ERROR log spam.
         if not state.blockly_enabled or not state.blockly_manager:
-            raise HTTPException(status_code=503, detail="Robot not available")
+            return {
+                "success": False,
+                "available": False,
+                "reason": "robot_not_ready",
+                "positions": [],
+                "unit": "degrees",
+            }
         
         try:
             positions = state.blockly_manager.robot_api.read_all_positions()
             result = {
                 "success": True,
+                "available": True,
                 "positions": positions,
-                "joint_names": [
+                "motor_names": [
                     "shoulder_pan",
                     "shoulder_lift", 
                     "elbow_flex",
@@ -1856,18 +1865,24 @@ async def get_robot_positions(request: Request):
             state.cache_positions(result)
             return result
         except Exception as e:
-            logger.error(f"Error reading robot positions: {e}")
+            logger.warning(f"Robot positions temporarily unavailable: {e}")
             return {
                 "success": False,
-                "error": str(e),
-                "positions": [0.0] * 6
+                "available": False,
+                "reason": "positions_temporarily_unavailable",
+                "positions": [],
+                "unit": "degrees",
             }
+    except HTTPException:
+        raise
     except Exception as e:
-        logger.error(f"Unexpected error in get_robot_positions: {e}")
+        logger.warning(f"Robot positions temporarily unavailable: {e}")
         return {
             "success": False,
-            "error": "Internal server error",
-            "positions": [0.0] * 6
+            "available": False,
+            "reason": "positions_temporarily_unavailable",
+            "positions": [],
+            "unit": "degrees",
         }
 
 
