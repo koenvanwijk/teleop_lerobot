@@ -384,6 +384,10 @@ User=$USER
 WorkingDirectory=$SCRIPT_DIR
 Environment=PYTHONUNBUFFERED=1
 Environment=LEROBOT_WEB_SSH=1
+Environment=PORT=80
+AmbientCapabilities=CAP_NET_BIND_SERVICE
+CapabilityBoundingSet=CAP_NET_BIND_SERVICE
+NoNewPrivileges=true
 ExecStart=$CONDA_BIN run --no-capture-output -n $CONDA_ENV python -u $WEBSERVER_SCRIPT
 Restart=always
 RestartSec=2
@@ -400,8 +404,8 @@ EOF
   echo "✅ systemd service actief: lerobot-webserver.service"
   echo "   Status: sudo systemctl status lerobot-webserver.service"
   echo "   Logs:   journalctl -u lerobot-webserver.service -f"
-  echo "   Web:    http://localhost:5000"
-  echo "   SSH UI: http://localhost:5000/ssh"
+  echo "   Web:    http://localhost"
+  echo "   SSH UI: http://localhost/ssh"
 else
   echo "⚠️  webserver.py niet gevonden, systemd service overgeslagen"
 fi
@@ -409,7 +413,7 @@ fi
 # ---- 6) Open de lokale Web GUI automatisch na grafische login ----
 # XDG autostart wordt alleen uitgevoerd in een desktop sessie en heeft dus
 # geen effect op headless robots.
-WEBUI_URL="http://localhost:5000/"
+WEBUI_URL="http://localhost/"
 WEBUI_LAUNCHER_DIR="$HOME/.local/bin"
 WEBUI_LAUNCHER="$WEBUI_LAUNCHER_DIR/lerobot-open-webui"
 WEBUI_AUTOSTART_DIR="$HOME/.config/autostart"
@@ -421,12 +425,12 @@ cat > "$WEBUI_LAUNCHER" <<'WEBUI_LAUNCHER_EOF'
 #!/usr/bin/env bash
 set -u
 
-URL="http://localhost:5000/"
+URL="http://localhost/"
 
 # Wait up to one minute for the local FastAPI listener. This keeps the browser
 # from showing a connection error during a cold boot or slow desktop login.
 for _ in $(seq 1 60); do
-  if (echo >/dev/tcp/127.0.0.1/5000) >/dev/null 2>&1; then
+  if (echo >/dev/tcp/127.0.0.1/80) >/dev/null 2>&1; then
     break
   fi
   sleep 1
@@ -485,7 +489,7 @@ echo "   2. Devices worden gedetecteerd"
 echo "   3. Camera's worden geïnitialiseerd"
 echo "   4. Teleoperation start automatisch!"
 echo "   5. Bij grafische login opent de standaard browser automatisch"
-echo "   6. Web interface: http://localhost:5000"
+echo "   6. Web interface: http://localhost"
 echo ""
 echo "🔄 Voor toekomstige updates:"
 echo "   cd $SCRIPT_DIR && git pull --ff-only && ./install.sh && sudo reboot"
@@ -495,15 +499,15 @@ echo "   Sluit USB devices + cameras aan → Reboot → Klaar!"
 echo ""
 echo "🛠️  Handmatig gebruik:"
 echo "   • Webserver: python webserver.py"
-echo "   • Of met uvicorn: uvicorn webserver:app --host 0.0.0.0 --port 5000"
+echo "   • Of met uvicorn: uvicorn webserver:app --host 0.0.0.0 --port 80"
 echo "   • Interactieve selectie: ./select_teleop.py"
 echo "   • Direct: lerobot-teleoperate --robot.type=... --robot.port=..."
 echo ""
 echo "🌐 Web Control Interface (NIEUWE FEATURES!):"
-echo "   • Lokaal: http://localhost:5000"
-echo "   • Netwerk: http://[IP]:5000"
-echo "   • API docs: http://localhost:5000/docs"
-echo "   • Health check: http://localhost:5000/health"
+echo "   • Lokaal: http://localhost"
+echo "   • Netwerk: http://[IP]"
+echo "   • API docs: http://localhost/docs"
+echo "   • Health check: http://localhost/health"
 echo ""
 echo "✨ Features:"
 echo "   🎮 Teleoperation: Start/Stop control"
