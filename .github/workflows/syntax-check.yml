@@ -25,6 +25,54 @@ jobs:
           print("WiFi parser OK")
           PY
 
+      - name: Hardware mapping uniqueness
+        run: |
+          python - <<'PY'
+          import csv
+          from collections import defaultdict
+          from pathlib import Path
+
+          path = Path("mapping.csv")
+          with path.open(newline="", encoding="utf-8") as handle:
+              rows = list(csv.DictReader(handle))
+
+          required = {"SERIAL_SHORT", "NICE_NAME", "ROLE", "TYPE"}
+          if not rows:
+              raise SystemExit("mapping.csv contains no device mappings")
+
+          missing_columns = required - set(rows[0])
+          if missing_columns:
+              raise SystemExit(f"mapping.csv missing columns: {sorted(missing_columns)}")
+
+          by_serial = defaultdict(list)
+          for line_no, row in enumerate(rows, start=2):
+              serial = (row.get("SERIAL_SHORT") or "").strip()
+              if not serial:
+                  raise SystemExit(f"mapping.csv line {line_no}: empty SERIAL_SHORT")
+              by_serial[serial].append((line_no, row))
+
+          duplicates = {
+              serial: entries
+              for serial, entries in by_serial.items()
+              if len(entries) > 1
+          }
+
+          if duplicates:
+              details = []
+              for serial, entries in sorted(duplicates.items()):
+                  rendered = ", ".join(
+                      f"line {line_no} ({row['NICE_NAME']}/{row['ROLE']}/{row['TYPE']})"
+                      for line_no, row in entries
+                  )
+                  details.append(f"{serial}: {rendered}")
+              raise SystemExit(
+                  "Duplicate SERIAL_SHORT values in mapping.csv:\n"
+                  + "\n".join(details)
+              )
+
+          print(f"mapping.csv OK: {len(rows)} unique hardware IDs")
+          PY
+
       - name: Translation completeness
         run: |
           python - <<'PY'
