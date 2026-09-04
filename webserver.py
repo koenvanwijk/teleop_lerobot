@@ -1637,6 +1637,10 @@ async def get_blockly_status():
         "resume_in_s": resume_in_s,
         "teleoperation_running": state.is_running(),
         "resume_error": state.blockly_resume_error,
+        "executing": bool(state.blockly_manager and state.blockly_manager.is_executing),
+        "emergency_stop_requested": bool(
+            state.blockly_manager and state.blockly_manager.emergency_stop_requested
+        ),
     }
 
 
@@ -1658,11 +1662,45 @@ async def cancel_blockly_resume():
     }
 
 
+@app.post("/api/blockly/emergency-stop")
+async def emergency_stop_blockly():
+    """Interrupt Blockly execution and keep teleoperation stopped."""
+    if not state.blockly_enabled or not state.blockly_manager:
+        raise HTTPException(status_code=503, detail="Blockly not available")
+
+    # A safety stop must also cancel any pending automatic handover.
+    state.blockly_resume_requested = False
+    state.blockly_resume_at = None
+    state.blockly_resume_error = None
+    if state.blockly_resume_task and not state.blockly_resume_task.done():
+        state.blockly_resume_task.cancel()
+    state.blockly_resume_task = None
+
+    result = await state.blockly_manager.emergency_stop()
+
+    # Defensive: if teleoperation somehow resumed concurrently, stop it too.
+    if state.is_running():
+        await stop_teleoperation()
+
+    logger.warning("🛑 Blockly software emergency stop activated")
+    return {
+        "success": True,
+        "message": "Blockly stopped; teleoperation remains stopped",
+        **result,
+    }
+
+
 @app.post("/api/blockly/execute")
 async def execute_code(execution: BlocklyExecute):
     """Execute Blockly-generated Python code."""
     if not state.blockly_enabled or not state.blockly_manager:
         raise HTTPException(status_code=503, detail="Blockly not available")
+
+    manager = state.blockly_manager
+    try:
+        manager.prepare_execution()
+    except RuntimeError as e:
+        raise HTTPException(status_code=409, detail=str(e))
 
     # Preserve an already pending handover if a second Blockly program is
     # started during the countdown.
@@ -1674,6 +1712,8 @@ async def execute_code(execution: BlocklyExecute):
     state.blockly_resume_requested = False
     state.blockly_resume_at = None
     state.blockly_resume_error = None
+
+    result = None
 
     # Blockly needs exclusive access to the follower serial port.
     if state.is_running():
@@ -1687,14 +1727,29 @@ async def execute_code(execution: BlocklyExecute):
     resume_delay_s = 5.0 if resume_teleop_afterwards else 0.0
 
     try:
+        if manager.emergency_stop_requested:
+            result = {
+                "success": False,
+                "emergency_stopped": True,
+                "error_type": "EmergencyStop",
+                "error": "Emergency stop activated",
+            }
+            return result
+
         logger.info("Initializing robot for Blockly...")
         max_retries = 3
         retry_delay = 2.0
 
         for attempt in range(max_retries):
-            state.blockly_manager.robot_api._initialize_robot()
+            if manager.emergency_stop_requested:
+                break
 
-            if state.blockly_manager.robot_api.robot:
+            manager.robot_api._initialize_robot()
+
+            if manager.emergency_stop_requested:
+                break
+
+            if manager.robot_api.robot:
                 logger.info(f"✅ Robot connected successfully on attempt {attempt + 1}")
                 break
 
@@ -1706,26 +1761,46 @@ async def execute_code(execution: BlocklyExecute):
                 await asyncio.sleep(retry_delay)
                 retry_delay += 1.0
 
-        if not state.blockly_manager.robot_api.robot:
+        if manager.emergency_stop_requested:
+            result = {
+                "success": False,
+                "emergency_stopped": True,
+                "error_type": "EmergencyStop",
+                "error": "Emergency stop activated",
+            }
+            return result
+
+        if not manager.robot_api.robot:
             raise HTTPException(
                 status_code=503,
                 detail="Could not connect to robot after 3 attempts. Hardware may need more time to reset.",
             )
 
-        result = await state.blockly_manager.execute_python_code(
+        result = await manager.execute_python_code(
             execution.code,
             execution.timeout,
         )
-        result["teleop_will_resume"] = resume_teleop_afterwards
+
+        safety_stop = bool(
+            result.get("emergency_stopped")
+            or result.get("timed_out")
+            or manager.emergency_stop_requested
+        )
+        result["teleop_will_resume"] = resume_teleop_afterwards and not safety_stop
         result["teleop_resume_delay_s"] = resume_delay_s
         return result
 
     finally:
         logger.info("Disconnecting robot after Blockly execution...")
-        state.blockly_manager.robot_api.disconnect()
+        manager.robot_api.disconnect()
 
-        if resume_teleop_afterwards:
-            # Return control to the browser immediately and perform the old
+        safety_stop = bool(
+            manager.emergency_stop_requested
+            or (result and (result.get("emergency_stopped") or result.get("timed_out")))
+        )
+
+        if resume_teleop_afterwards and not safety_stop:
+            # Return control to the browser immediately and perform the
             # automatic handover after a visible, cancellable countdown.
             state.blockly_resume_requested = True
             state.blockly_resume_at = datetime.now() + timedelta(seconds=resume_delay_s)
@@ -1735,6 +1810,10 @@ async def execute_code(execution: BlocklyExecute):
             logger.info(
                 f"Teleoperation will resume in {int(resume_delay_s)} seconds "
                 "unless cancelled by the operator"
+            )
+        elif safety_stop:
+            logger.warning(
+                "Blockly safety stop active; automatic teleoperation resume suppressed"
             )
 
 
