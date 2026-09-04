@@ -10,12 +10,35 @@ import json
 import time
 import io
 import sys
+import threading
 from pathlib import Path
 from datetime import datetime
 
 from lerobot.motors import MotorNormMode
 
 logger = logging.getLogger(__name__)
+
+class BlocklyEmergencyStop(Exception):
+    """Raised inside a Blockly worker when the operator requests a software stop."""
+
+
+class _InterruptibleTime:
+    """Proxy for the time module with an emergency-stop aware sleep()."""
+
+    def __init__(self, stop_event: threading.Event):
+        self._stop_event = stop_event
+
+    def sleep(self, seconds):
+        try:
+            delay = max(0.0, float(seconds))
+        except (TypeError, ValueError):
+            delay = 0.0
+        if self._stop_event.wait(delay):
+            raise BlocklyEmergencyStop("Emergency stop activated")
+
+    def __getattr__(self, name):
+        return getattr(time, name)
+
 
 
 class RobotAPI:
@@ -38,9 +61,17 @@ class RobotAPI:
         self.robot_type = robot_type or "so101"  # Default to so101
         self.robot_id = robot_id or "default"  # Default to 'default'
         self.positions = [0.0] * 6  # Cache for 5 DOF + gripper
+        self.stop_event: Optional[threading.Event] = None
         # Don't initialize robot here - do it lazily when needed
 
     
+
+    def set_stop_event(self, stop_event: threading.Event):
+        self.stop_event = stop_event
+
+    def _check_emergency_stop(self):
+        if self.stop_event is not None and self.stop_event.is_set():
+            raise BlocklyEmergencyStop("Emergency stop activated")
 
     def _robot_is_connected(self) -> bool:
         """Return True only when the current LeRobot instance is connected."""
@@ -125,6 +156,8 @@ class RobotAPI:
             joint: Joint index (0-5: joints 1-5 + gripper)
             angle: Target angle in degrees
         """
+        self._check_emergency_stop()
+
         if joint < 0 or joint >= 6:
             logger.error(f"Invalid joint index: {joint}")
             return
@@ -170,6 +203,8 @@ class RobotAPI:
         Returns:
             Current angle in degrees
         """
+        self._check_emergency_stop()
+
         if joint < 0 or joint >= 6:
             logger.error(f"Invalid joint index: {joint}")
             return 0.0
@@ -264,7 +299,10 @@ class BlocklyManager:
         self.programs_file = Path.home() / ".lerobot_blockly_programs.json"
         self.saved_positions: Dict[str, Dict[str, Any]] = {}
         self.positions_file = Path.home() / ".lerobot_saved_positions.json"
+        self._execution_stop_event = threading.Event()
+        self._execution_active = False
         self.robot_api = RobotAPI(robot_port, robot_type, robot_id)
+        self.robot_api.set_stop_event(self._execution_stop_event)
         self.load_programs()
         self.load_saved_positions()
         logger.info(f"BlocklyManager initialized (port: {robot_port}, type: {robot_type}, id: {robot_id})")
@@ -419,80 +457,154 @@ class BlocklyManager:
         """
         return self.saved_programs
 
+    @property
+    def is_executing(self) -> bool:
+        return self._execution_active
+
+    @property
+    def emergency_stop_requested(self) -> bool:
+        return self._execution_stop_event.is_set()
+
+    def prepare_execution(self):
+        """Clear a previous stop latch before a new operator-confirmed run."""
+        if self._execution_active:
+            raise RuntimeError("A Blockly program is already running")
+        self._execution_stop_event.clear()
+
+    async def emergency_stop(self) -> Dict[str, Any]:
+        """Request an immediate software stop and disconnect the Blockly robot."""
+        was_executing = self._execution_active
+        self._execution_stop_event.set()
+        await asyncio.to_thread(self.robot_api.disconnect)
+        logger.warning("🛑 Blockly emergency stop requested by operator")
+        return {
+            "success": True,
+            "was_executing": was_executing,
+        }
+
+    def _execute_python_code_sync(self, code: str) -> Dict[str, Any]:
+        """Run generated Blockly code in a worker thread with cooperative interruption."""
+        logger.info("Executing Blockly-generated Python code")
+
+        old_stdout = sys.stdout
+        captured_output = io.StringIO()
+        safe_time = _InterruptibleTime(self._execution_stop_event)
+        real_import = __import__
+
+        def checked_import(name, globals=None, locals=None, fromlist=(), level=0):
+            if name == "time":
+                return safe_time
+            return real_import(name, globals, locals, fromlist, level)
+
+        def stop_trace(frame, event, arg):
+            if self._execution_stop_event.is_set():
+                raise BlocklyEmergencyStop("Emergency stop activated")
+            return stop_trace
+
+        try:
+            sys.stdout = captured_output
+            sys.settrace(stop_trace)
+
+            local_vars = {}
+            global_vars = {
+                "__builtins__": {
+                    "__import__": checked_import,
+                    "print": print,
+                    "range": range,
+                    "len": len,
+                    "enumerate": enumerate,
+                    "str": str,
+                    "int": int,
+                    "float": float,
+                    "list": list,
+                    "dict": dict,
+                    "abs": abs,
+                    "min": min,
+                    "max": max,
+                    "round": round,
+                },
+                "time": safe_time,
+                "robot": self.robot_api,
+                "positions": self.saved_positions,
+            }
+
+            exec(code, global_vars, local_vars)
+            output = captured_output.getvalue()
+            return {
+                "success": True,
+                "output": output or "Execution completed successfully",
+                "variables": {
+                    k: str(v)
+                    for k, v in local_vars.items()
+                    if not k.startswith("_")
+                },
+            }
+
+        except BlocklyEmergencyStop:
+            logger.warning("🛑 Blockly program interrupted by emergency stop")
+            return {
+                "success": False,
+                "emergency_stopped": True,
+                "error_type": "EmergencyStop",
+                "error": "Emergency stop activated",
+                "output": captured_output.getvalue(),
+            }
+        except Exception as e:
+            logger.error(f"Error executing code: {e}", exc_info=True)
+            return {
+                "success": False,
+                "error": str(e),
+                "error_type": type(e).__name__,
+                "output": captured_output.getvalue(),
+            }
+        finally:
+            sys.settrace(None)
+            sys.stdout = old_stdout
+
     async def execute_python_code(self, code: str, timeout: int = 30) -> Dict[str, Any]:
         """
-        Execute Python code safely with real robot access
-        
-        Args:
-            code: Python code to execute
-            timeout: Execution timeout in seconds
-            
-        Returns:
-            Execution result dict
+        Execute Blockly code off the FastAPI event loop so a software
+        emergency-stop request can still be handled while the program runs.
         """
-        try:
-            logger.info("Executing Blockly-generated Python code")
-            
-            # Capture stdout
-            old_stdout = sys.stdout
-            sys.stdout = captured_output = io.StringIO()
-            
-            try:
-                # Create execution environment with real robot API
-                local_vars = {}
-                global_vars = {
-                    '__builtins__': {
-                        '__import__': __import__,  # Allow imports
-                        'print': print,
-                        'range': range,
-                        'len': len,
-                        'enumerate': enumerate,
-                        'str': str,
-                        'int': int,
-                        'float': float,
-                        'list': list,
-                        'dict': dict,
-                        'abs': abs,
-                        'min': min,
-                        'max': max,
-                        'round': round,
-                    },
-                    'time': time,
-                    'robot': self.robot_api,  # Real robot access!
-                    'positions': self.saved_positions,  # Saved positions access!
-                }
-                
-                # Execute code
-                exec(code, global_vars, local_vars)
-                
-                # Get captured output
-                output = captured_output.getvalue()
-                
-                return {
-                    'success': True,
-                    'output': output or 'Execution completed successfully',
-                    'variables': {k: str(v) for k, v in local_vars.items() if not k.startswith('_')}
-                }
-                
-            except Exception as e:
-                logger.error(f"Error executing code: {e}", exc_info=True)
-                output = captured_output.getvalue()
-                return {
-                    'success': False,
-                    'error': str(e),
-                    'error_type': type(e).__name__,
-                    'output': output
-                }
-            finally:
-                sys.stdout = old_stdout
-                
-        except Exception as e:
-            logger.error(f"Unexpected error in execute_python_code: {e}")
+        if self._execution_active:
             return {
-                'success': False,
-                'error': f"Unexpected error: {str(e)}"
+                "success": False,
+                "error_type": "AlreadyRunning",
+                "error": "A Blockly program is already running",
             }
-    
+
+        self._execution_active = True
+        worker = asyncio.create_task(
+            asyncio.to_thread(self._execute_python_code_sync, code)
+        )
+
+        try:
+            done, _ = await asyncio.wait(
+                {worker},
+                timeout=max(1, int(timeout)),
+            )
+
+            if worker in done:
+                return worker.result()
+
+            logger.warning("Blockly execution timeout; requesting stop")
+            self._execution_stop_event.set()
+            await asyncio.to_thread(self.robot_api.disconnect)
+
+            try:
+                await asyncio.wait_for(asyncio.shield(worker), timeout=2.0)
+            except asyncio.TimeoutError:
+                logger.error("Blockly worker did not stop within 2 seconds after timeout")
+
+            return {
+                "success": False,
+                "timed_out": True,
+                "error_type": "Timeout",
+                "error": f"Execution exceeded {timeout} seconds and was stopped",
+            }
+        finally:
+            self._execution_active = False
+
     def shutdown(self):
         """Shutdown and cleanup"""
         logger.info("Shutting down BlocklyManager")
