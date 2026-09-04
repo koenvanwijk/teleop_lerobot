@@ -44,6 +44,15 @@
     Password/key authentication is handled by <code>sshd</code>; the web GUI does not store your password.
     <span class="warn">LAN/localhost access only.</span>
   </div>
+  <div id="suggested-command-wrap" style="display:none; margin:10px 0 12px;">
+    <label style="display:block;">
+      Suggested command
+      <div style="display:flex; gap:8px; margin-top:6px; align-items:stretch;">
+        <input id="suggested-command" readonly style="flex:1; font-family:ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,monospace;">
+        <button id="copy-suggested-command" style="background:#374151; color:white;">Copy</button>
+      </div>
+    </label>
+  </div>
   <pre id="terminal" tabindex="0">Loading SSH availability…&#10;</pre>
 </div>
 <script>
@@ -159,6 +168,20 @@ terminal.addEventListener('paste', e => {
     ws.send(text);
   }
 });
+
+const suggested = new URLSearchParams(location.search).get('command') || '';
+if (suggested) {
+  document.getElementById('suggested-command-wrap').style.display = 'block';
+  document.getElementById('suggested-command').value = suggested;
+  document.getElementById('copy-suggested-command').onclick = async () => {
+    try {
+      await navigator.clipboard.writeText(suggested);
+      statusEl.textContent = 'Suggested command copied';
+    } catch (_) {
+      document.getElementById('suggested-command').select();
+    }
+  };
+}
 
 connectBtn.onclick = connect;
 disconnectBtn.onclick = disconnect;
