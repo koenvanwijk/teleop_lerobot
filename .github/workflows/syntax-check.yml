@@ -73,6 +73,43 @@ jobs:
           print(f"mapping.csv OK: {len(rows)} unique hardware IDs")
           PY
 
+      - name: Port 80 consistency
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+
+          files = [
+              "webserver.py",
+              "install.sh",
+              "static/bluetooth_scan.html",
+              "INSTALL.md",
+              "FEATURES.md",
+              "README_TELEOP.md",
+              "BLUETOOTH_README.md",
+          ]
+
+          stale = []
+          for filename in files:
+              text = Path(filename).read_text(encoding="utf-8")
+              if ":5000" in text:
+                  stale.append(filename)
+
+          if stale:
+              raise SystemExit(f"Stale :5000 URLs remain in: {stale}")
+
+          webserver = Path("webserver.py").read_text(encoding="utf-8")
+          installer = Path("install.sh").read_text(encoding="utf-8")
+          scanner = Path("static/bluetooth_scan.html").read_text(encoding="utf-8")
+
+          assert 'os.getenv("PORT", "80")' in webserver
+          assert "Environment=PORT=80" in installer
+          assert "AmbientCapabilities=CAP_NET_BIND_SERVICE" in installer
+          assert "/dev/tcp/127.0.0.1/80" in installer
+          assert 'connectLink.href = `http://${ip}`' in scanner
+
+          print("Port 80 configuration OK")
+          PY
+
       - name: Translation completeness
         run: |
           python - <<'PY'
