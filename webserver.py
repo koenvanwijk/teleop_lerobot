@@ -241,6 +241,11 @@ class RobotState:
         self.leader_id: Optional[str] = None
         self.reconnect_count: int = 0
         self.last_reconnect_at: Optional[str] = None
+
+        # Blockly -> teleoperation handover state
+        self.blockly_resume_requested: bool = False
+        self.blockly_resume_at: Optional[datetime] = None
+        self.blockly_resume_task: Optional[asyncio.Task] = None
         
         # Camera management
         self.camera_manager: Optional[CameraManager] = None
@@ -1575,67 +1580,139 @@ async def delete_program(name: str):
     }
 
 
+async def _resume_teleoperation_after_blockly(delay_s: float):
+    """Resume teleoperation after a visible Blockly handover delay."""
+    try:
+        await asyncio.sleep(delay_s)
+
+        if not state.blockly_resume_requested:
+            return
+
+        logger.info("Blockly handover countdown complete; restarting teleoperation...")
+        await start_teleoperation()
+        logger.info("✅ Teleoperation resumed after Blockly")
+    except asyncio.CancelledError:
+        logger.info("Blockly teleoperation resume cancelled")
+        raise
+    except Exception as e:
+        logger.error(f"Failed to resume teleoperation after Blockly: {e}", exc_info=True)
+    finally:
+        state.blockly_resume_requested = False
+        state.blockly_resume_at = None
+        state.blockly_resume_task = None
+
+
+@app.get("/api/blockly/status")
+async def get_blockly_status():
+    """Return Blockly handover status so the GUI can show/recover the countdown."""
+    resume_in_s = 0.0
+    if state.blockly_resume_requested and state.blockly_resume_at:
+        resume_in_s = max(
+            0.0,
+            (state.blockly_resume_at - datetime.now()).total_seconds(),
+        )
+
+    return {
+        "resume_pending": state.blockly_resume_requested,
+        "resume_in_s": resume_in_s,
+        "teleoperation_running": state.is_running(),
+    }
+
+
+@app.post("/api/blockly/cancel-resume")
+async def cancel_blockly_resume():
+    """Keep teleoperation stopped instead of automatically resuming it."""
+    state.blockly_resume_requested = False
+    state.blockly_resume_at = None
+
+    if state.blockly_resume_task and not state.blockly_resume_task.done():
+        state.blockly_resume_task.cancel()
+    state.blockly_resume_task = None
+
+    logger.info("Blockly automatic teleoperation resume cancelled by operator")
+    return {
+        "success": True,
+        "message": "Teleoperation will remain stopped",
+    }
+
+
 @app.post("/api/blockly/execute")
 async def execute_code(execution: BlocklyExecute):
-    """Execute Blockly-generated Python code"""
+    """Execute Blockly-generated Python code."""
     if not state.blockly_enabled or not state.blockly_manager:
         raise HTTPException(status_code=503, detail="Blockly not available")
-    
-    # Stop teleoperation if running (need exclusive access to robot)
-    was_teleop_running = state.is_running()
-    if was_teleop_running:
+
+    # Preserve an already pending handover if a second Blockly program is
+    # started during the countdown.
+    resume_teleop_afterwards = state.is_running() or state.blockly_resume_requested
+
+    if state.blockly_resume_task and not state.blockly_resume_task.done():
+        state.blockly_resume_task.cancel()
+    state.blockly_resume_task = None
+    state.blockly_resume_requested = False
+    state.blockly_resume_at = None
+
+    # Blockly needs exclusive access to the follower serial port.
+    if state.is_running():
         logger.info("Stopping teleoperation for Blockly execution...")
         await stop_teleoperation()
-        
-        # SIGINT should handle cleanup better, but still wait a bit for hardware
+
         logger.info("Waiting for serial port to be released...")
-        await asyncio.sleep(5.0)  # Reduced from 8s - SIGINT should cleanup faster
+        await asyncio.sleep(5.0)
         logger.info("Port should now be available")
-    
+
+    resume_delay_s = 5.0 if resume_teleop_afterwards else 0.0
+
     try:
-        # Initialize robot connection with retry logic
         logger.info("Initializing robot for Blockly...")
         max_retries = 3
         retry_delay = 2.0
-        
+
         for attempt in range(max_retries):
             state.blockly_manager.robot_api._initialize_robot()
-            
+
             if state.blockly_manager.robot_api.robot:
                 logger.info(f"✅ Robot connected successfully on attempt {attempt + 1}")
                 break
-            
+
             if attempt < max_retries - 1:
-                logger.warning(f"⚠️ Connection attempt {attempt + 1} failed, waiting {retry_delay}s before retry...")
+                logger.warning(
+                    f"⚠️ Connection attempt {attempt + 1} failed, "
+                    f"waiting {retry_delay}s before retry..."
+                )
                 await asyncio.sleep(retry_delay)
-                retry_delay += 1.0  # Increase delay: 2s, 3s, 4s
-        
+                retry_delay += 1.0
+
         if not state.blockly_manager.robot_api.robot:
             raise HTTPException(
                 status_code=503,
-                detail="Could not connect to robot after 3 attempts. Hardware may need more time to reset."
+                detail="Could not connect to robot after 3 attempts. Hardware may need more time to reset.",
             )
-        
-        # Execute code
+
         result = await state.blockly_manager.execute_python_code(
             execution.code,
-            execution.timeout
+            execution.timeout,
         )
-        
+        result["teleop_will_resume"] = resume_teleop_afterwards
+        result["teleop_resume_delay_s"] = resume_delay_s
         return result
-        
+
     finally:
-        # Disconnect robot
         logger.info("Disconnecting robot after Blockly execution...")
         state.blockly_manager.robot_api.disconnect()
-        
-        # Wait longer for hardware to fully reset after disconnect
-        await asyncio.sleep(3.0)  # Increased to 3 seconds
-        
-        # Restart teleoperation if it was running
-        if was_teleop_running:
-            logger.info("Restarting teleoperation...")
-            await start_teleoperation()
+
+        if resume_teleop_afterwards:
+            # Return control to the browser immediately and perform the old
+            # automatic handover after a visible, cancellable countdown.
+            state.blockly_resume_requested = True
+            state.blockly_resume_at = datetime.now() + timedelta(seconds=resume_delay_s)
+            state.blockly_resume_task = asyncio.create_task(
+                _resume_teleoperation_after_blockly(resume_delay_s)
+            )
+            logger.info(
+                f"Teleoperation will resume in {int(resume_delay_s)} seconds "
+                "unless cancelled by the operator"
+            )
 
 
 @app.post("/api/teleoperation/leader/command")
