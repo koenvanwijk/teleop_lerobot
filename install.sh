@@ -183,6 +183,16 @@ echo ""
 pip install fastapi uvicorn[standard] pydantic websockets python-multipart
 pip install opencv-python numpy draccus
 
+# SSH client/server for the LAN-only browser SSH terminal.
+if command -v apt-get >/dev/null 2>&1; then
+  echo "💻 Controleer OpenSSH voor webterminal…"
+  if ! command -v ssh >/dev/null 2>&1 || ! command -v sshd >/dev/null 2>&1; then
+    sudo apt-get update -y
+    sudo apt-get install -y openssh-client openssh-server
+  fi
+  sudo systemctl enable --now ssh 2>/dev/null || sudo systemctl enable --now sshd 2>/dev/null || true
+fi
+
 # Bluetooth dependencies (optioneel) - Using Bleak (modern BLE library)
 echo "📡 Installeer Bluetooth dependencies…"
 if [[ "$ARCH" == "aarch64" ]] || [[ "$ARCH" == "x86_64" ]]; then
@@ -335,34 +345,53 @@ else
   echo "   Bluetooth agent in bluetooth_gatt_server.py zal nog steeds automatisch pairing doen"
 fi
 
-# ---- 5) Crontab entry voor webserver ----
+# ---- 5) Vroege systemd auto-start voor webserver ----
 WEBSERVER_SCRIPT="$SCRIPT_DIR/webserver.py"
-
-# Gebruik conda uit condabin voor crontab
 CONDA_BIN="$CONDA_DIR/condabin/conda"
+WEBSERVER_SERVICE="/etc/systemd/system/lerobot-webserver.service"
 
 if [[ -f "$WEBSERVER_SCRIPT" ]]; then
-  echo "🔧 Configureer crontab voor webserver.py (FastAPI met uvicorn)…"
-  
+  echo "🔧 Configureer vroege systemd start voor webserver.py…"
   chmod +x "$WEBSERVER_SCRIPT"
-  
-  # Run webserver.py directly (includes uvicorn.run in __main__)
-  # Use -u flag for unbuffered output so all logs are written immediately
-  WEBSERVER_CRON="@reboot cd $SCRIPT_DIR && $CONDA_BIN run -n $CONDA_ENV python -u webserver.py >> $HOME/webserver.log 2>&1"
-  
-  # Verwijder bestaande webserver.py entries en voeg nieuwe toe
+
+  # Remove the old @reboot cron entry to prevent two webservers after upgrades.
   if crontab -l 2>/dev/null | grep -qF "webserver"; then
-    echo "🗑️  Verwijder oude webserver entry uit crontab…"
-    (crontab -l 2>/dev/null | grep -vF "webserver" || true; echo "$WEBSERVER_CRON") | crontab -
-  else
-    (crontab -l 2>/dev/null || true; echo "$WEBSERVER_CRON") | crontab -
+    echo "🗑️  Verwijder oude @reboot webserver entry uit crontab…"
+    (crontab -l 2>/dev/null | grep -vF "webserver" || true) | crontab -
   fi
-  
-  echo "✅ Crontab entry toegevoegd: FastAPI webserver draait bij reboot (uvicorn)"
-  echo "   Log: $HOME/webserver.log"
-  echo "   Web interface: http://localhost:5000"
+
+  sudo tee "$WEBSERVER_SERVICE" >/dev/null <<EOF
+[Unit]
+Description=LeRobot Teleoperation Web Server
+After=local-fs.target
+Before=network-online.target
+
+[Service]
+Type=simple
+User=$USER
+WorkingDirectory=$SCRIPT_DIR
+Environment=PYTHONUNBUFFERED=1
+Environment=LEROBOT_WEB_SSH=1
+ExecStart=$CONDA_BIN run --no-capture-output -n $CONDA_ENV python -u $WEBSERVER_SCRIPT
+Restart=always
+RestartSec=2
+TimeoutStopSec=10
+
+[Install]
+WantedBy=multi-user.target
+EOF
+
+  sudo systemctl daemon-reload
+  sudo systemctl enable lerobot-webserver.service
+  sudo systemctl restart lerobot-webserver.service
+
+  echo "✅ systemd service actief: lerobot-webserver.service"
+  echo "   Status: sudo systemctl status lerobot-webserver.service"
+  echo "   Logs:   journalctl -u lerobot-webserver.service -f"
+  echo "   Web:    http://localhost:5000"
+  echo "   SSH UI: http://localhost:5000/ssh"
 else
-  echo "⚠️  webserver.py niet gevonden, crontab entry overgeslagen"
+  echo "⚠️  webserver.py niet gevonden, systemd service overgeslagen"
 fi
 
 echo ""
@@ -381,7 +410,7 @@ echo "   • Udev rules voor USB devices"
 echo "   • Calibration files"
 echo ""
 echo "🚀 Bij reboot (AUTOMATISCH):"
-echo "   1. Webserver start (na 5 sec)"
+echo "   1. Webserver start direct via systemd; hardware initialiseert daarna op de achtergrond"
 echo "   2. Devices worden gedetecteerd"
 echo "   3. Camera's worden geïnitialiseerd"
 echo "   4. Teleoperation start automatisch!"
