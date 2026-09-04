@@ -305,6 +305,44 @@
             .button-group { flex-direction: column; }
             .btn { width: 100%; }
         }
+        .robot-log-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 12px;
+            flex-wrap: wrap;
+        }
+
+        .robot-log-controls {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            flex-wrap: wrap;
+            font-size: 0.9em;
+        }
+
+        .robot-log-console {
+            margin-top: 12px;
+            height: 300px;
+            overflow-y: auto;
+            background: #111827;
+            color: #d1d5db;
+            border-radius: 6px;
+            padding: 10px 12px;
+            font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
+            font-size: 12px;
+            line-height: 1.45;
+            white-space: pre-wrap;
+            word-break: break-word;
+        }
+
+        .robot-log-line { margin: 0 0 2px; }
+        .robot-log-debug { opacity: 0.7; }
+        .robot-log-warning { color: #fbbf24; }
+        .robot-log-error, .robot-log-critical { color: #fca5a5; }
+        .robot-log-meta { color: #93c5fd; }
+        .robot-log-empty { color: #9ca3af; font-style: italic; }
+
     </style>
 </head>
 <body>
@@ -420,6 +458,29 @@
                 <button class="btn btn-danger" onclick="stopTeleoperation()" id="stop-btn" disabled data-i18n="teleoperation.stop">
                     ⏹️ Stop Teleoperation
                 </button>
+            </div>
+
+            <!-- Live robot/server logging -->
+            <div class="status-card" style="margin-top: 20px;">
+                <div class="robot-log-header">
+                    <h3 style="margin: 0;">📋 Robot &amp; System Log</h3>
+                    <div class="robot-log-controls">
+                        <select id="robot-log-level" onchange="renderRobotLog()">
+                            <option value="ALL">All levels</option>
+                            <option value="INFO">Info+</option>
+                            <option value="WARNING">Warning+</option>
+                            <option value="ERROR">Error+</option>
+                        </select>
+                        <label>
+                            <input type="checkbox" id="robot-log-autoscroll" checked>
+                            Auto-scroll
+                        </label>
+                        <button class="btn" style="padding: 6px 10px;" onclick="clearRobotLogView()">Clear view</button>
+                    </div>
+                </div>
+                <div id="robot-log-console" class="robot-log-console">
+                    <div class="robot-log-empty">Waiting for log stream…</div>
+                </div>
             </div>
             
             <!-- Position Saving Section -->
@@ -1031,6 +1092,81 @@
             }
         }
         
+        // Live robot/server log console
+        let robotLogs = [];
+        const MAX_ROBOT_LOGS = 500;
+
+        function appendRobotLogs(entries) {
+            if (!Array.isArray(entries) || entries.length === 0) return;
+            robotLogs.push(...entries);
+            if (robotLogs.length > MAX_ROBOT_LOGS) {
+                robotLogs = robotLogs.slice(robotLogs.length - MAX_ROBOT_LOGS);
+            }
+            renderRobotLog();
+        }
+
+        function clearRobotLogView() {
+            robotLogs = [];
+            renderRobotLog();
+        }
+
+        function robotLogLevelValue(level) {
+            const values = { DEBUG: 10, INFO: 20, WARNING: 30, ERROR: 40, CRITICAL: 50 };
+            return values[level] || 20;
+        }
+
+        function renderRobotLog() {
+            const consoleEl = document.getElementById('robot-log-console');
+            if (!consoleEl) return;
+
+            const selected = document.getElementById('robot-log-level')?.value || 'ALL';
+            const threshold = selected === 'ALL' ? 0 : robotLogLevelValue(selected);
+            const visibleLogs = robotLogs.filter(entry => robotLogLevelValue(entry.level) >= threshold);
+
+            consoleEl.replaceChildren();
+
+            if (visibleLogs.length === 0) {
+                const empty = document.createElement('div');
+                empty.className = 'robot-log-empty';
+                empty.textContent = robotLogs.length === 0 ? 'Waiting for log stream…' : 'No log entries match this filter.';
+                consoleEl.appendChild(empty);
+                return;
+            }
+
+            for (const entry of visibleLogs) {
+                const line = document.createElement('div');
+                const levelClass = String(entry.level || 'INFO').toLowerCase();
+                line.className = 'robot-log-line robot-log-' + levelClass;
+
+                let displayTime = entry.timestamp || '';
+                try {
+                    displayTime = new Date(entry.timestamp).toLocaleTimeString([], {
+                        hour12: false,
+                        hour: '2-digit',
+                        minute: '2-digit',
+                        second: '2-digit',
+                        fractionalSecondDigits: 3
+                    });
+                } catch (_) {}
+
+                const loggerName = entry.logger || 'root';
+                const level = entry.level || 'INFO';
+
+                const meta = document.createElement('span');
+                meta.className = 'robot-log-meta';
+                meta.textContent = `[${displayTime}] [${level}] [${loggerName}] `;
+                line.appendChild(meta);
+
+                const message = document.createTextNode(entry.message || '');
+                line.appendChild(message);
+                consoleEl.appendChild(line);
+            }
+
+            if (document.getElementById('robot-log-autoscroll')?.checked) {
+                consoleEl.scrollTop = consoleEl.scrollHeight;
+            }
+        }
+
         // WebSocket connection
         function connectWebSocket() {
             const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
@@ -1047,6 +1183,8 @@
                 
                 if (data.type === 'status') {
                     updateStatusFromWebSocket(data.data);
+                } else if (data.type === 'logs') {
+                    appendRobotLogs(data.data || []);
                 }
             };
             

@@ -10,6 +10,7 @@ import logging
 import os
 import sys
 import subprocess
+import threading
 import signal
 import time
 import json
@@ -76,12 +77,58 @@ class FlushingHandler(logging.Handler):
 
 flushing_handler = FlushingHandler(log_handler)
 
+# In-memory log buffer for the web GUI. This keeps startup messages available
+# for clients that connect after the server or robot initialization has begun.
+GUI_LOG_BUFFER_MAX = 1000
+gui_log_buffer = deque(maxlen=GUI_LOG_BUFFER_MAX)
+gui_log_lock = threading.Lock()
+gui_log_sequence = 0
+
+
+class GuiLogHandler(logging.Handler):
+    """Capture normal Python logging records for display in the web GUI."""
+
+    def emit(self, record):
+        global gui_log_sequence
+        try:
+            message = record.getMessage()
+            if record.exc_info:
+                message += "\n" + log_formatter.formatException(record.exc_info)
+
+            entry = {
+                "timestamp": datetime.fromtimestamp(record.created).astimezone().isoformat(timespec="milliseconds"),
+                "level": record.levelname,
+                "logger": record.name,
+                "message": message,
+            }
+
+            with gui_log_lock:
+                gui_log_sequence += 1
+                entry["seq"] = gui_log_sequence
+                gui_log_buffer.append(entry)
+        except Exception:
+            # Logging must never interfere with robot control.
+            pass
+
+
+def get_gui_logs_since(after_seq: int = 0, limit: int = 200):
+    """Return buffered GUI logs newer than after_seq, oldest first."""
+    safe_limit = max(1, min(int(limit), 500))
+    with gui_log_lock:
+        entries = [dict(item) for item in gui_log_buffer if item["seq"] > after_seq]
+    return entries[:safe_limit]
+
+
+gui_log_handler = GuiLogHandler()
+gui_log_handler.setLevel(logging.INFO)
+
 logging.basicConfig(
     level=logging.INFO,
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
     handlers=[
         logging.StreamHandler(sys.stdout),
-        flushing_handler
+        flushing_handler,
+        gui_log_handler
     ],
     force=True  # Override any existing logging config
 )
@@ -856,6 +903,17 @@ async def get_status():
     }
 
 
+@app.get("/api/logs")
+async def get_logs(after: int = 0, limit: int = 200):
+    """Return recent server/robot logs for GUI backlog or fallback polling."""
+    logs = get_gui_logs_since(after_seq=max(0, after), limit=limit)
+    latest_seq = logs[-1]["seq"] if logs else max(0, after)
+    return {
+        "logs": logs,
+        "latest_seq": latest_seq,
+    }
+
+
 @app.post("/api/teleoperation/start")
 async def api_start_teleoperation(request: Request):
     """Start teleoperation with optional device selection"""
@@ -1588,16 +1646,41 @@ async def websocket_endpoint(websocket: WebSocket):
                 "network_enabled": state.network_enabled
             }
         })
-        
-        # Keep connection alive and handle incoming messages
-        while True:
+
+        # Send buffered startup/runtime logs so a newly opened GUI still shows
+        # what happened before the browser connected.
+        initial_logs = get_gui_logs_since(after_seq=0, limit=200)
+        last_log_seq = initial_logs[-1]["seq"] if initial_logs else 0
+        if initial_logs:
+            await websocket.send_json({"type": "logs", "data": initial_logs})
+
+        async def stream_logs():
+            """Push newly captured log records without blocking WebSocket input."""
+            nonlocal last_log_seq
+            while True:
+                new_logs = get_gui_logs_since(after_seq=last_log_seq, limit=100)
+                if new_logs:
+                    await websocket.send_json({"type": "logs", "data": new_logs})
+                    last_log_seq = new_logs[-1]["seq"]
+                await asyncio.sleep(0.25)
+
+        log_stream_task = asyncio.create_task(stream_logs())
+
+        # Keep connection alive and handle incoming messages.
+        try:
+            while True:
+                try:
+                    data = await asyncio.wait_for(websocket.receive_text(), timeout=30.0)
+                    # Echo back for ping/pong
+                    await websocket.send_json({"type": "pong", "timestamp": time.time()})
+                except asyncio.TimeoutError:
+                    await websocket.send_json({"type": "keepalive", "timestamp": time.time()})
+        finally:
+            log_stream_task.cancel()
             try:
-                data = await asyncio.wait_for(websocket.receive_text(), timeout=30.0)
-                # Echo back for ping/pong
-                await websocket.send_json({"type": "pong", "timestamp": time.time()})
-            except asyncio.TimeoutError:
-                # Send keepalive
-                await websocket.send_json({"type": "keepalive", "timestamp": time.time()})
+                await log_stream_task
+            except asyncio.CancelledError:
+                pass
                 
     except WebSocketDisconnect:
         logger.info("WebSocket client disconnected")
