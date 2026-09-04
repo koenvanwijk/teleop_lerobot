@@ -13,6 +13,8 @@ import sys
 from pathlib import Path
 from datetime import datetime
 
+from lerobot.motors import MotorNormMode
+
 logger = logging.getLogger(__name__)
 
 
@@ -63,9 +65,11 @@ class RobotAPI:
                         config = SOFollowerRobotConfig(
                             port=self.robot_port,
                             id=self.robot_id,
-                            use_degrees=False,
+                            use_degrees=True,
                         )
                         self.robot = SOFollower(config=config)
+                        if "gripper" in self.robot.bus.motors:
+                            self.robot.bus.motors["gripper"].norm_mode = MotorNormMode.DEGREES
                     except ImportError:
                         # Compatibility fallback for older LeRobot layouts.
                         robot_module_name = f"{robot_type}_follower"
@@ -188,7 +192,7 @@ class RobotAPI:
         Read all joint positions from robot
         
         Returns:
-            List of 6 joint angles in percentage (-100 to 100)
+            List of 6 motor angles in degrees
         """
         # Try to get positions from teleoperation manager first (if running)
         try:
@@ -309,7 +313,7 @@ class BlocklyManager:
         
         Args:
             name: Position name
-            angles: List of joint angles (percentage -100 to 100)
+            angles: List of motor angles in degrees
             description: Optional description
             
         Returns:
@@ -319,7 +323,8 @@ class BlocklyManager:
             self.saved_positions[name] = {
                 'angles': angles,
                 'description': description,
-                'timestamp': datetime.now().isoformat()
+                'timestamp': datetime.now().isoformat(),
+                'unit': 'degrees'
             }
             self.save_positions_to_disk()
             logger.info(f"Saved position: {name} with angles: {angles}")
