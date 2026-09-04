@@ -32,15 +32,15 @@ Dit systeem gebruikt een **webserver** voor teleoperation control:
 1. Webserver start (na 5 seconden delay)
 2. Devices worden gedetecteerd
 3. **Teleoperation start automatisch** als devices beschikbaar zijn
-4. Web interface is beschikbaar op poort 5000
+4. Web interface is beschikbaar op poort 80
 
 ⚡ **Plug & Play**: Sluit USB devices aan en reboot → teleoperation draait automatisch!
 
 ### Toegang
 
 Na reboot is de webserver automatisch beschikbaar op:
-- **Lokaal**: http://localhost:5000
-- **Netwerk**: http://[RASPBERRY_PI_IP]:5000
+- **Lokaal**: http://localhost
+- **Netwerk**: http://[RASPBERRY_PI_IP]
 
 ### Features
 - 🚀 Auto-start teleoperation bij boot
