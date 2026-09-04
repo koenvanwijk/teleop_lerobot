@@ -55,35 +55,17 @@ class RobotAPI:
                 
                 logger.info(f"Initializing {robot_type} robot arm on port: {self.robot_port}, id: {self.robot_id}")
                 
-                # LeRobot >= 0.4.3 uses the shared so_follower module for
-                # both SO-100 and SO-101. "so101_follower" / "so100_follower"
-                # are RobotConfig registration names, not Python module names.
                 if robot_type in ("so100", "so101"):
-                    try:
-                        from lerobot.robots.so_follower import SOFollower, SOFollowerRobotConfig
+                    from lerobot.robots.so_follower import SOFollower, SOFollowerRobotConfig
 
-                        config = SOFollowerRobotConfig(
-                            port=self.robot_port,
-                            id=self.robot_id,
-                            use_degrees=True,
-                        )
-                        self.robot = SOFollower(config=config)
-                        if "gripper" in self.robot.bus.motors:
-                            self.robot.bus.motors["gripper"].norm_mode = MotorNormMode.DEGREES
-                    except ImportError:
-                        # Compatibility fallback for older LeRobot layouts.
-                        robot_module_name = f"{robot_type}_follower"
-                        robot_module = __import__(
-                            f"lerobot.robots.{robot_module_name}",
-                            fromlist=[
-                                f"{robot_type.upper()}Follower",
-                                f"{robot_type.upper()}FollowerConfig",
-                            ],
-                        )
-                        robot_class = getattr(robot_module, f"{robot_type.upper()}Follower")
-                        config_class = getattr(robot_module, f"{robot_type.upper()}FollowerConfig")
-                        config = config_class(port=self.robot_port, id=self.robot_id)
-                        self.robot = robot_class(config=config)
+                    config = SOFollowerRobotConfig(
+                        port=self.robot_port,
+                        id=self.robot_id,
+                        use_degrees=True,
+                    )
+                    self.robot = SOFollower(config=config)
+                    if "gripper" in self.robot.bus.motors:
+                        self.robot.bus.motors["gripper"].norm_mode = MotorNormMode.DEGREES
                 else:
                     # Keep dynamic loading for other robot families.
                     robot_module_name = f"{robot_type}_follower"
