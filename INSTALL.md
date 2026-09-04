@@ -29,7 +29,7 @@ cd teleop_lerobot
 # 3. Reboot
 sudo reboot
 
-# 4. Klaar! Web interface beschikbaar op http://[PI_IP]:5000
+# 4. Klaar! Web interface beschikbaar op http://[PI_IP]
 ```
 
 ---
@@ -285,17 +285,17 @@ ssh pi@[IP_ADRES]
 # Check webserver log
 tail -f ~/webserver.log
 
-# Check of poort 5000 open is
-sudo netstat -tulpn | grep 5000
+# Check of poort 80 open is
+sudo netstat -tulpn | grep ':80 '
 # Of:
-sudo ss -tulpn | grep 5000
+sudo ss -tulpn | grep ':80 '
 ```
 
 **Test web interface:**
 
 Open browser op je computer/telefoon:
 ```
-http://[PI_IP]:5000
+http://[PI_IP]
 ```
 
 Je zou de web interface moeten zien met:
@@ -345,7 +345,7 @@ Camera's zijn beschikbaar in web interface onder **Cameras** tab.
 
 De webserver ondersteunt het creëren van een WiFi hotspot:
 
-1. Open web interface: http://[PI_IP]:5000
+1. Open web interface: http://[PI_IP]
 2. Ga naar **Network** tab
 3. Klik **Create AP**
 4. Verbind met "LeRobot-AP" (wachtwoord: lerobot123)
@@ -386,7 +386,7 @@ conda activate lerobot
 python webserver.py
 
 # Optie 2: Met uvicorn
-uvicorn webserver:app --host 0.0.0.0 --port 5000 --reload
+uvicorn webserver:app --host 0.0.0.0 --port 80 --reload
 ```
 
 ### Interactieve Device Selectie
@@ -420,7 +420,7 @@ lerobot-teleoperate \
 
 ### Probleem: Webserver start niet
 
-**Symptomen**: Geen web interface beschikbaar op poort 5000
+**Symptomen**: Geen web interface beschikbaar op poort 80
 
 **Oplossing**:
 ```bash
@@ -603,8 +603,8 @@ Nu kun je verbinden via het Tailscale IP (ook buiten je lokale netwerk).
 
 1. Log in op je router
 2. Zoek "Port Forwarding" of "Virtual Server"
-3. Forward externe poort 5000 → Pi IP poort 5000
-4. Toegang via: http://[EXTERNE_IP]:5000
+3. Forward externe poort 80 → Pi IP poort 80
+4. Toegang via: http://[EXTERNE_IP]
 
 ⚠️ **Beveiligingsrisico**: Overweeg VPN of Tailscale voor productie gebruik.
 
@@ -669,7 +669,7 @@ sudo reboot
 - [ ] `install.sh` succesvol uitgevoerd
 - [ ] Conda environment `lerobot` actief
 - [ ] USB devices aangesloten en symlinks aanwezig
-- [ ] Webserver bereikbaar op poort 5000
+- [ ] Webserver bereikbaar op poort 80
 - [ ] Camera's (optioneel) gedetecteerd
 - [ ] Teleoperation test succesvol
 - [ ] Auto-start bij reboot geverifieerd
