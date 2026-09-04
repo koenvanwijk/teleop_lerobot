@@ -48,12 +48,12 @@
   },
   "commands": {
     "title": "Command-line examples",
-    "description": "These commands are auto-filled based on your selected Leader and Follower. Use the copy buttons to paste in a terminal.",
-    "start_teleoperation": "Start Teleoperation (CLI)",
-    "record_dataset": "Record Dataset (CLI)",
-    "record_desc": "Records teleoperated trajectories to a local folder.",
-    "evaluate_replay": "Evaluate / Replay (CLI)",
-    "evaluate_desc": "Replays a recorded trajectory or evaluates a policy.",
+    "description": "These commands are auto-filled based on your selected Leader and Follower. Copy them or open them directly in the web SSH terminal.",
+    "start_teleoperation": "Start Teleoperation (CLI, degrees)",
+    "record_dataset": "Record Dataset (CLI, degrees)",
+    "record_desc": "Records teleoperated trajectories locally with LeRobot 0.6.1; all motor values are stored as degrees.",
+    "evaluate_replay": "Policy Rollout (CLI, degrees)",
+    "evaluate_desc": "Runs a trained policy on the selected robot through the degree-safe LeRobot wrapper.",
     "copy": "Copy",
     "select_devices": "Select devices above to populate..."
   },
