@@ -146,7 +146,12 @@
     "network_name": "Network name",
     "password": "Password",
     "connect": "Connect",
-    "cancel": "Cancel"
+    "cancel": "Cancel",
+    "scanning": "Scanning for WiFi networks…",
+    "no_networks": "No WiFi networks found",
+    "scan_failed": "WiFi scan failed",
+    "networks_found_one": "{{count}} WiFi network found",
+    "networks_found_other": "{{count}} WiFi networks found"
   },
   "system": {
     "title": "System Information",
