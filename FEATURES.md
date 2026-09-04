@@ -58,7 +58,7 @@ AP IP: 192.168.4.1
 
 **Gebruik:**
 ```javascript
-const ws = new WebSocket('ws://localhost:5000/ws');
+const ws = new WebSocket('ws://localhost/ws');
 ws.onmessage = (event) => {
     const data = JSON.parse(event.data);
     console.log('Status update:', data);
@@ -113,13 +113,13 @@ teleop_lerobot/
 ```bash
 # Auto-start bij boot via crontab
 # OF handmatig:
-uvicorn webserver:app --host 0.0.0.0 --port 5000
+uvicorn webserver:app --host 0.0.0.0 --port 80
 ```
 
 #### Camera Streaming
 ```bash
 # Cameras worden automatisch gedetecteerd bij startup
-# Bekijk streams op: http://localhost:5000
+# Bekijk streams op: http://localhost
 # Tab: Cameras → Live camera feeds
 ```
 
@@ -132,14 +132,14 @@ uvicorn webserver:app --host 0.0.0.0 --port 5000
 #### API Documentatie
 ```bash
 # Interactive API docs:
-http://localhost:5000/docs
-http://localhost:5000/redoc
+http://localhost/docs
+http://localhost/redoc
 
 # API info:
-http://localhost:5000/api
+http://localhost/api
 
 # Health check:
-http://localhost:5000/health
+http://localhost/health
 ```
 
 ### 🔧 Configuratie
@@ -201,7 +201,7 @@ ip addr show wlan0
 #### WebSocket disconnect
 - WebSocket reconnect automatisch na 5 seconden
 - Check firewall settings
-- Verify port 5000 is not blocked
+- Verify port 80 is not blocked
 
 ### 🔮 Toekomstige Features (Ready to Add)
 
@@ -237,10 +237,10 @@ De huidige architectuur is klaar voor:
 
 ### 📚 Documentation Links
 
-- **Web Interface**: http://localhost:5000
-- **API Docs (Swagger)**: http://localhost:5000/docs
-- **API Docs (ReDoc)**: http://localhost:5000/redoc
-- **Health Check**: http://localhost:5000/health
+- **Web Interface**: http://localhost
+- **API Docs (Swagger)**: http://localhost/docs
+- **API Docs (ReDoc)**: http://localhost/redoc
+- **Health Check**: http://localhost/health
 - **GitHub**: https://github.com/koenvanwijk/raspberry5_lerobot
 
 ### 🤝 Contributing
