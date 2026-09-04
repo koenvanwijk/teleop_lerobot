@@ -41,6 +41,16 @@ class RobotAPI:
         # Don't initialize robot here - do it lazily when needed
 
     
+
+    def _robot_is_connected(self) -> bool:
+        """Return True only when the current LeRobot instance is connected."""
+        if self.robot is None:
+            return False
+        try:
+            return bool(self.robot.is_connected)
+        except Exception:
+            return False
+
     def _initialize_robot(self):
         """Initialize the real LeRobot connection"""
         try:
@@ -97,7 +107,7 @@ class RobotAPI:
     
     def _update_positions(self):
         """Read current positions from robot"""
-        if self.robot:
+        if self._robot_is_connected():
             try:
                 # Get current observation from robot arm
                 obs = self.robot.get_observation()
@@ -120,7 +130,7 @@ class RobotAPI:
             return
         
         try:
-            if self.robot:
+            if self._robot_is_connected():
                 # Get motor names from robot bus
                 motor_names = list(self.robot.bus.motors.keys())
                 
@@ -164,7 +174,7 @@ class RobotAPI:
             logger.error(f"Invalid joint index: {joint}")
             return 0.0
         
-        if self.robot:
+        if self._robot_is_connected():
             self._update_positions()
         
         return self.positions[joint]
@@ -204,8 +214,10 @@ class RobotAPI:
         except Exception as e:
             logger.debug(f"Could not get positions from teleoperation: {e}")
         
-        # Fallback: read directly from robot if available
-        if self.robot:
+        # Fallback: read directly only while the Blockly robot is connected.
+        # After a Blockly run the object may already have been disconnected;
+        # in that state return the last known positions instead of raising.
+        if self._robot_is_connected():
             try:
                 # Read observation from robot arm
                 obs = self.robot.get_observation()
@@ -219,21 +231,29 @@ class RobotAPI:
                 return angles
                 
             except Exception as e:
-                logger.error(f"Error reading all positions: {e}", exc_info=True)
-                return [0.0] * 6
+                logger.warning(f"Could not refresh robot positions; using cached values: {e}")
+                return list(self.positions)
         else:
-            # Simulation mode - return cached values
-            logger.info(f"[SIM] Positions: {self.positions}")
-            return self.positions
+            # No active Blockly connection: the last known position is the
+            # correct fallback while teleoperation reconnects.
+            return list(self.positions)
     
     def disconnect(self):
-        """Disconnect from robot"""
-        if self.robot:
-            try:
-                self.robot.disconnect()
+        """Disconnect from robot and discard the stale device instance."""
+        robot = self.robot
+        if robot is None:
+            return
+
+        try:
+            if getattr(robot, "is_connected", False):
+                robot.disconnect()
                 logger.info("Robot disconnected")
-            except Exception as e:
-                logger.error(f"Error disconnecting robot: {e}")
+        except Exception as e:
+            logger.warning(f"Error disconnecting robot: {e}")
+        finally:
+            # A disconnected LeRobot object must not be treated as readable.
+            # _initialize_robot() creates a fresh instance for the next run.
+            self.robot = None
 
 
 class BlocklyManager:
