@@ -35,7 +35,7 @@
         .canvas-container {
             flex: 1;
             position: relative;
-            background: linear-gradient(135deg, #0a0a0a 0%, #1a1a1a 100%);
+            background: linear-gradient(135deg, #f8fafc 0%, #e5e7eb 100%);
         }
         
         #robot-canvas {
@@ -396,8 +396,8 @@
             
             // Scene
             scene = new THREE.Scene();
-            scene.background = new THREE.Color(0x0a0a0a);
-            scene.fog = new THREE.Fog(0x0a0a0a, 10, 50);
+            scene.background = new THREE.Color(0xf1f5f9);
+            scene.fog = new THREE.Fog(0xf1f5f9, 35, 90);
 
             // Camera
             camera = new THREE.PerspectiveCamera(
@@ -406,7 +406,8 @@
                 0.1,
                 1000
             );
-            camera.position.set(-30, 10, 30);
+            // Start about one zoom step closer than the previous default.
+            camera.position.set(-23, 8, 23);
 
             // Renderer
             renderer = new THREE.WebGLRenderer({ 
@@ -429,26 +430,26 @@
             controls.update();
 
             // Lighting
-            const ambientLight = new THREE.AmbientLight(0xffffff, 0.4);
+            const ambientLight = new THREE.AmbientLight(0xffffff, 0.85);
             scene.add(ambientLight);
 
-            const directionalLight1 = new THREE.DirectionalLight(0xffffff, 1);
+            const directionalLight1 = new THREE.DirectionalLight(0xffffff, 1.15);
             directionalLight1.position.set(2, 20, 5);
             directionalLight1.castShadow = true;
             directionalLight1.shadow.mapSize.width = 1024;
             directionalLight1.shadow.mapSize.height = 1024;
             scene.add(directionalLight1);
 
-            const directionalLight2 = new THREE.DirectionalLight(0xffffff, 1);
+            const directionalLight2 = new THREE.DirectionalLight(0xffffff, 0.75);
             directionalLight2.position.set(-2, 20, -5);
             scene.add(directionalLight2);
 
             // Ground plane
             const groundGeometry = new THREE.PlaneGeometry(50, 50);
             const groundMaterial = new THREE.MeshStandardMaterial({ 
-                color: 0x0f0f0f,
-                roughness: 0.8,
-                metalness: 0.2
+                color: 0xe2e8f0,
+                roughness: 0.9,
+                metalness: 0.05
             });
             const ground = new THREE.Mesh(groundGeometry, groundMaterial);
             ground.rotation.x = -Math.PI / 2;
@@ -456,8 +457,8 @@
             scene.add(ground);
 
             // Grid
-            const gridHelper = new THREE.GridHelper(50, 50, 0x27272a, 0x18181b);
-            gridHelper.material.opacity = 0.5;
+            const gridHelper = new THREE.GridHelper(50, 50, 0x94a3b8, 0xcbd5e1);
+            gridHelper.material.opacity = 0.7;
             gridHelper.material.transparent = true;
             scene.add(gridHelper);
 
@@ -505,11 +506,29 @@
                     const scale = 15;
                     robot.scale.set(scale, scale, scale);
                     
-                    // Enable shadows
+                    // Enable shadows and tint the robot pink while preserving
+                    // the original URDF material properties/textures.
+                    const robotPink = new THREE.Color(0xf472b6);
                     robot.traverse(function(child) {
                         if (child.isMesh) {
                             child.castShadow = true;
                             child.receiveShadow = true;
+
+                            const tintMaterial = function(material) {
+                                if (!material) return material;
+                                const cloned = material.clone();
+                                if (cloned.color) {
+                                    cloned.color.copy(robotPink);
+                                }
+                                cloned.needsUpdate = true;
+                                return cloned;
+                            };
+
+                            if (Array.isArray(child.material)) {
+                                child.material = child.material.map(tintMaterial);
+                            } else {
+                                child.material = tintMaterial(child.material);
+                            }
                         }
                     });
                     
