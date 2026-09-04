@@ -640,7 +640,10 @@
             </div>
             
             <div id="wifi-scan-results" style="display:none;">
-                <h3 data-i18n="network.available_networks">Available Networks</h3>
+                <h3>
+                    <span data-i18n="network.available_networks">Available Networks</span>
+                    <span id="wifi-network-count" style="font-weight:400; color:#666;"></span>
+                </h3>
                 <div id="wifi-list" class="wifi-list">
                     <!-- WiFi networks will be added here -->
                 </div>
@@ -2079,39 +2082,68 @@
         }
         
         async function scanWiFi() {
+            const wifiList = document.getElementById('wifi-list');
+            const scanResults = document.getElementById('wifi-scan-results');
+            const countEl = document.getElementById('wifi-network-count');
+            const scanButton = document.querySelector('button[onclick="scanWiFi()"]');
+
+            if (scanButton) scanButton.disabled = true;
+            scanResults.style.display = 'block';
+            wifiList.innerHTML = '<div class="wifi-item" style="cursor:default;" data-i18n="network.scanning">Scanning…</div>';
+            countEl.textContent = '';
+
             try {
                 const response = await fetch('/api/network/wifi/scan');
                 const data = await response.json();
-                
-                const wifiList = document.getElementById('wifi-list');
-                const scanResults = document.getElementById('wifi-scan-results');
-                
-                if (data.networks.length > 0) {
-                    wifiList.innerHTML = '';
-                    data.networks.forEach(network => {
+                const networks = Array.isArray(data.networks) ? data.networks : [];
+
+                wifiList.innerHTML = '';
+                countEl.textContent = `(${networks.length})`;
+
+                if (!response.ok) {
+                    throw new Error(data.detail || data.error || `HTTP ${response.status}`);
+                }
+
+                if (networks.length > 0) {
+                    networks.forEach(network => {
                         const item = document.createElement('div');
                         item.className = 'wifi-item';
                         item.onclick = () => selectWiFi(network.ssid);
-                        
-                        const signal = network.signal > 75 ? '📶' : 
-                                     network.signal > 50 ? '📶' : 
-                                     network.signal > 25 ? '📶' : '📶';
-                        
+
+                        const signal = '📶';
                         item.innerHTML = `
                             <div>
-                                <strong>${network.ssid}</strong><br>
-                                <small>${network.security}</small>
+                                <strong></strong><br>
+                                <small></small>
                             </div>
                             <div class="wifi-signal">${signal} ${network.signal}%</div>
                         `;
+                        item.querySelector('strong').textContent = network.ssid;
+                        item.querySelector('small').textContent = network.security || 'none';
                         wifiList.appendChild(item);
                     });
-                    scanResults.style.display = 'block';
                 } else {
-                    showStatus('No WiFi networks found', 'info');
+                    const empty = document.createElement('div');
+                    empty.className = 'wifi-item';
+                    empty.style.cursor = 'default';
+                    empty.textContent = i18next.t('network.no_networks');
+                    wifiList.appendChild(empty);
                 }
+
+                showStatus(
+                    i18next.t('network.networks_found', { count: networks.length }),
+                    networks.length ? 'success' : 'info'
+                );
             } catch (error) {
-                showStatus('Error scanning WiFi: ' + error, 'error');
+                wifiList.innerHTML = '';
+                const failed = document.createElement('div');
+                failed.className = 'wifi-item';
+                failed.style.cursor = 'default';
+                failed.textContent = i18next.t('network.scan_failed');
+                wifiList.appendChild(failed);
+                showStatus(i18next.t('network.scan_failed') + ': ' + error, 'error');
+            } finally {
+                if (scanButton) scanButton.disabled = false;
             }
         }
         
