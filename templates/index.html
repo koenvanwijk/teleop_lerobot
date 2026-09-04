@@ -869,11 +869,11 @@
                 <strong data-i18n="blockly.editor_info">ℹ️ Blockly Editor:</strong> <span data-i18n="blockly.editor_desc">Drag and drop blocks to create programs. Custom robot blocks available!</span>
             </div>
             
-            <div id="blockly-handover" class="status-card" style="display:none; margin-top:20px; border:2px solid #f59e0b; background:#fffbeb;">
+            <div id="blockly-handover" class="status-card" style="display:none; margin-top:20px; border:2px solid #3b82f6; background:#eff6ff;">
                 <div style="display:flex; align-items:center; justify-content:space-between; gap:16px; flex-wrap:wrap;">
                     <div>
-                        <h3 style="margin:0 0 6px; color:#92400e;">⚠️ Robot control handover</h3>
-                        <div id="blockly-handover-text" style="font-size:1.05em; color:#78350f;">
+                        <h3 style="margin:0 0 6px; color:#1d4ed8;">🔄 Robot control handover</h3>
+                        <div id="blockly-handover-text" style="font-size:1.05em; color:#1e40af;">
                             Teleoperation is temporarily stopped.
                         </div>
                     </div>
@@ -2853,10 +2853,10 @@ ${pythonCode}`;
                 panel.querySelector('h3').style.color = '#166534';
                 text.style.color = '#166534';
             } else {
-                panel.style.borderColor = '#f59e0b';
-                panel.style.background = '#fffbeb';
-                panel.querySelector('h3').style.color = '#92400e';
-                text.style.color = '#78350f';
+                panel.style.borderColor = '#3b82f6';
+                panel.style.background = '#eff6ff';
+                panel.querySelector('h3').style.color = '#1d4ed8';
+                text.style.color = '#1e40af';
             }
         }
 
@@ -2877,7 +2877,7 @@ ${pythonCode}`;
 
                 if (remaining > 0) {
                     setBlocklyHandover(
-                        `Blockly finished. <strong>Teleoperation resumes in <span style="font-size:1.35em;">${remaining}</span> s</strong> — the leader will regain control.`,
+                        `Blockly finished. <strong>Returning to teleoperation in <span style="font-size:1.35em;">${remaining}</span> s</strong>.`,
                         { cancellable: true }
                     );
                     return;
@@ -2991,7 +2991,7 @@ ${code}`;
             if (runBtn) runBtn.disabled = true;
             stopBlocklyResumeCountdown();
             setBlocklyHandover(
-                '<strong>🧩 Blockly is taking control of the follower.</strong> Teleoperation is temporarily unavailable while the program runs.',
+                '<strong>🧩 Blockly is taking control of the follower.</strong> Teleoperation is temporarily unavailable while the program runs and will return automatically a few seconds after it finishes.',
                 { cancellable: false }
             );
 
