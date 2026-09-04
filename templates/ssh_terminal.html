@@ -63,6 +63,31 @@ const statusEl = document.getElementById('status');
 const connectBtn = document.getElementById('connect');
 const disconnectBtn = document.getElementById('disconnect');
 
+async function copyTextFallback(text) {
+  if (navigator.clipboard && typeof navigator.clipboard.writeText === 'function') {
+    try {
+      await navigator.clipboard.writeText(text);
+      return true;
+    } catch (_) {}
+  }
+
+  const textarea = document.createElement('textarea');
+  textarea.value = text;
+  textarea.setAttribute('readonly', '');
+  textarea.style.position = 'fixed';
+  textarea.style.left = '-9999px';
+  document.body.appendChild(textarea);
+  textarea.focus();
+  textarea.select();
+
+  let copied = false;
+  try {
+    copied = document.execCommand('copy');
+  } catch (_) {}
+  document.body.removeChild(textarea);
+  return copied;
+}
+
 function stripAnsi(s) {
   return s
     .replace(/\x1B\][^\x07]*(?:\x07|\x1B\\)/g, '')
@@ -174,11 +199,12 @@ if (suggested) {
   document.getElementById('suggested-command-wrap').style.display = 'block';
   document.getElementById('suggested-command').value = suggested;
   document.getElementById('copy-suggested-command').onclick = async () => {
-    try {
-      await navigator.clipboard.writeText(suggested);
-      statusEl.textContent = 'Suggested command copied';
-    } catch (_) {
-      document.getElementById('suggested-command').select();
+    const copied = await copyTextFallback(suggested);
+    statusEl.textContent = copied ? 'Suggested command copied' : 'Select the command and press Ctrl+C';
+    if (!copied) {
+      const input = document.getElementById('suggested-command');
+      input.focus();
+      input.select();
     }
   };
 }
