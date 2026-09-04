@@ -13,6 +13,13 @@ usage() {
   cat <<'EOF'
 Gebruik: ./install.sh
 
+Deze installer is idempotent en is ook de upgrade-entrypoint.
+Aanbevolen upgrade:
+  cd ~/teleop_lerobot
+  git pull --ff-only
+  ./install.sh
+  sudo reboot
+
 Installeert:
 - Miniconda met Python 3.10
 - lerobot package met feetech support
@@ -415,6 +422,9 @@ echo "   2. Devices worden gedetecteerd"
 echo "   3. Camera's worden geïnitialiseerd"
 echo "   4. Teleoperation start automatisch!"
 echo "   5. Web interface: http://localhost:5000"
+echo ""
+echo "🔄 Voor toekomstige updates:"
+echo "   cd $SCRIPT_DIR && git pull --ff-only && ./install.sh && sudo reboot"
 echo ""
 echo "⚡ Plug & Play:"
 echo "   Sluit USB devices + cameras aan → Reboot → Klaar!"
