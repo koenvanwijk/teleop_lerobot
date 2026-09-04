@@ -1078,7 +1078,11 @@
                 updateBlocklyTranslations();
             }
             
-            // Refresh dynamic content that may contain text
+            // Refresh dynamic content that may contain text.
+            // Command <pre> elements have translated placeholders, so always
+            // regenerate their actual CLI text after changing language.
+            updateCommandsFromSelection();
+
             if (document.querySelector('#teleoperation.active')) {
                 loadDevices();
             }
@@ -1522,6 +1526,7 @@
                 // Update info panels
                 updateDeviceInfo('follower');
                 updateDeviceInfo('leader');
+                updateCommandsFromSelection();
                 
                 // Add change listeners
                 followerSelect.onchange = () => { updateDeviceInfo('follower'); updateCommandsFromSelection(); };
