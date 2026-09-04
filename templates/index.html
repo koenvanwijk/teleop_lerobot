@@ -717,6 +717,34 @@
             </div>
             
             <div class="status-card">
+                <h3>⬆️ Software Update</h3>
+                <p style="color:#666; margin-bottom:12px;">
+                    Recommended update flow: pull the latest <code>main</code>, rerun the idempotent <code>install.sh</code>, then reboot.
+                </p>
+                <div class="status-row">
+                    <span class="status-label">Current version:</span>
+                    <span class="status-value" id="software-update-version">Loading…</span>
+                </div>
+                <div class="status-row">
+                    <span class="status-label">Repository:</span>
+                    <span class="status-value" id="software-update-repo">-</span>
+                </div>
+                <div class="status-row">
+                    <span class="status-label">Update:</span>
+                    <span class="status-value" id="software-update-state">Not checked</span>
+                </div>
+                <pre id="software-update-command" style="background:#f8f9fa; padding:12px; border-radius:8px; overflow-x:auto; margin-top:12px;">Loading update command…</pre>
+                <div class="button-group" style="margin-top:12px;">
+                    <button class="btn btn-secondary" onclick="loadSoftwareUpdateStatus(true)">🔍 Check for update</button>
+                    <button class="btn btn-primary" onclick="copySoftwareUpdateCommand()">📋 Copy update command</button>
+                    <button class="btn btn-success" onclick="openSoftwareUpdateSsh()">💻 Open in SSH terminal</button>
+                </div>
+                <div class="alert alert-info" style="margin-top:12px;">
+                    The web GUI does not execute <code>install.sh</code> itself because the installer can require interactive <code>sudo</code> authentication. The SSH terminal keeps that visible and interactive.
+                </div>
+            </div>
+
+            <div class="status-card">
                 <h3>💻 SSH Terminal</h3>
                 <p style="color:#666; margin-bottom:12px;">
                     Open an SSH session to this robot/computer in the browser. Authentication is still handled by the host SSH daemon.
@@ -2044,9 +2072,72 @@
                 
                 // Load Bluetooth status
                 await refreshBluetoothStatus();
+
+                // Load local software/update status without network fetch.
+                await loadSoftwareUpdateStatus(false);
             } catch (error) {
                 console.error('Error loading system info:', error);
             }
+        }
+        
+        let softwareUpdateCommand = '';
+
+        async function loadSoftwareUpdateStatus(checkRemote = false) {
+            const stateEl = document.getElementById('software-update-state');
+            if (!stateEl) return;
+
+            stateEl.textContent = checkRemote ? 'Checking origin…' : 'Reading local checkout…';
+            try {
+                const response = await fetch('/api/system/update-status?check_remote=' + (checkRemote ? 'true' : 'false'));
+                const data = await response.json();
+
+                if (!data.success) {
+                    stateEl.textContent = '❌ ' + (data.error || 'Update check failed');
+                    return;
+                }
+
+                document.getElementById('software-update-version').textContent =
+                    `${data.branch || '-'} @ ${data.commit || '-'}`;
+                document.getElementById('software-update-repo').textContent = data.repo_dir || '-';
+                softwareUpdateCommand = data.update_command || '';
+                document.getElementById('software-update-command').textContent =
+                    softwareUpdateCommand || 'Update command unavailable';
+
+                if (data.dirty) {
+                    stateEl.textContent = '⚠️ Local changes present — commit/stash before updating';
+                } else if (!data.upstream) {
+                    stateEl.textContent = 'ℹ️ No upstream configured';
+                } else if (data.behind > 0) {
+                    stateEl.textContent = `⬆️ ${data.behind} commit(s) available`;
+                } else if (data.ahead > 0) {
+                    stateEl.textContent = `ℹ️ Local branch is ${data.ahead} commit(s) ahead`;
+                } else {
+                    stateEl.textContent = checkRemote ? '✅ Up to date' : 'Ready — click Check for update';
+                }
+            } catch (error) {
+                stateEl.textContent = '❌ ' + error;
+            }
+        }
+
+        async function copySoftwareUpdateCommand() {
+            if (!softwareUpdateCommand) {
+                await loadSoftwareUpdateStatus(false);
+            }
+            if (!softwareUpdateCommand) return;
+            try {
+                await navigator.clipboard.writeText(softwareUpdateCommand);
+                showStatus('Update command copied', 'success');
+            } catch (error) {
+                showStatus('Could not copy update command: ' + error, 'error');
+            }
+        }
+
+        async function openSoftwareUpdateSsh() {
+            if (!softwareUpdateCommand) {
+                await loadSoftwareUpdateStatus(false);
+            }
+            const url = '/ssh' + (softwareUpdateCommand ? '?command=' + encodeURIComponent(softwareUpdateCommand) : '');
+            window.open(url, '_blank', 'noopener');
         }
         
         // Bluetooth Functions
