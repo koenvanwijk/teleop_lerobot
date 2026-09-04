@@ -45,12 +45,12 @@ Two high-quality 3D visualization options for the SO-101 robot arm.
 
 2. **Open the URDF viewer:**
 ```
-http://localhost:5000/viewer
+http://localhost/viewer
 ```
 
 Or from another device:
 ```
-http://<raspberry-pi-ip>:5000/viewer
+http://<raspberry-pi-ip>/viewer
 ```
 
 ## 🎮 Controls
@@ -119,7 +119,7 @@ Returns current joint angles from physical robot.
 
 **WebSocket updates:**
 ```
-ws://localhost:5000/ws
+ws://localhost/ws
 ```
 Real-time position updates when robot moves.
 
