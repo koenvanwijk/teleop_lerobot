@@ -18,6 +18,7 @@ import ipaddress
 import getpass
 import socket
 import shutil
+import shlex
 from datetime import datetime, timedelta
 from pathlib import Path
 from typing import Optional, Dict, Any, List
@@ -805,6 +806,73 @@ async def ssh_terminal_page():
         with open(template_path, 'r') as f:
             return HTMLResponse(content=f.read())
     return HTMLResponse(content="<h1>SSH terminal template not found</h1>", status_code=404)
+
+
+@app.get("/api/system/update-status")
+async def system_update_status(check_remote: bool = False):
+    """Inspect this checkout and optionally fetch origin to report update availability."""
+    repo_dir = Path(__file__).resolve().parent
+
+    def run_git(*args: str) -> str:
+        result = subprocess.run(
+            ["git", "-C", str(repo_dir), *args],
+            capture_output=True,
+            text=True,
+            timeout=30,
+            check=True,
+        )
+        return result.stdout.strip()
+
+    try:
+        if check_remote:
+            subprocess.run(
+                ["git", "-C", str(repo_dir), "fetch", "--quiet", "--prune", "origin"],
+                capture_output=True,
+                text=True,
+                timeout=45,
+                check=True,
+            )
+
+        branch = run_git("rev-parse", "--abbrev-ref", "HEAD")
+        commit = run_git("rev-parse", "--short", "HEAD")
+        dirty = bool(run_git("status", "--porcelain"))
+        upstream = ""
+        behind = 0
+        ahead = 0
+
+        try:
+            upstream = run_git("rev-parse", "--abbrev-ref", "--symbolic-full-name", "@{u}")
+            counts = run_git("rev-list", "--left-right", "--count", "HEAD...@{u}").split()
+            if len(counts) == 2:
+                ahead = int(counts[0])
+                behind = int(counts[1])
+        except Exception:
+            upstream = ""
+
+        update_command = (
+            f"cd {shlex.quote(str(repo_dir))} && "
+            "git pull --ff-only && "
+            "./install.sh && "
+            "sudo reboot"
+        )
+
+        return {
+            "success": True,
+            "repo_dir": str(repo_dir),
+            "branch": branch,
+            "commit": commit,
+            "dirty": dirty,
+            "upstream": upstream,
+            "ahead": ahead,
+            "behind": behind,
+            "update_available": behind > 0,
+            "update_command": update_command,
+        }
+    except subprocess.TimeoutExpired:
+        return {"success": False, "error": "Git update check timed out"}
+    except subprocess.CalledProcessError as e:
+        detail = (e.stderr or e.stdout or str(e)).strip()
+        return {"success": False, "error": detail}
 
 
 @app.get("/api/ssh/info")
