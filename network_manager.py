@@ -101,8 +101,25 @@ class NetworkManager:
                 'interface': self.interface,
                 'ip_address': None,
                 'ssid': None,
-                'signal_strength': None
+                'signal_strength': None,
+                'state': 'unknown',
+                'connectivity': 'unknown',
             }
+
+            # Global NetworkManager state is important: the robot may be
+            # online via Ethernet even when wlan0 itself is disconnected.
+            returncode, stdout, _ = await self._run_command(
+                ['nmcli', '-t', '-f', 'STATE', 'general']
+            )
+            if returncode == 0 and stdout.strip():
+                raw_state = stdout.strip().lower()
+                status['state'] = 'connected' if raw_state.startswith('connected') else raw_state
+
+            returncode, stdout, _ = await self._run_command(
+                ['nmcli', 'networking', 'connectivity', 'check']
+            )
+            if returncode == 0 and stdout.strip():
+                status['connectivity'] = stdout.strip().lower()
 
             # Get IP address
             returncode, stdout, _ = await self._run_command(['ip', 'addr', 'show', self.interface])
