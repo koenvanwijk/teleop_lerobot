@@ -483,29 +483,6 @@
                 </button>
             </div>
 
-            <!-- Live robot/server logging -->
-            <div class="status-card" style="margin-top: 20px;">
-                <div class="robot-log-header">
-                    <h3 style="margin: 0;">📋 Robot &amp; System Log</h3>
-                    <div class="robot-log-controls">
-                        <select id="robot-log-level" onchange="renderRobotLog()">
-                            <option value="ALL">All levels</option>
-                            <option value="INFO">Info+</option>
-                            <option value="WARNING">Warning+</option>
-                            <option value="ERROR">Error+</option>
-                        </select>
-                        <label>
-                            <input type="checkbox" id="robot-log-autoscroll" checked>
-                            Auto-scroll
-                        </label>
-                        <button class="btn" style="padding: 6px 10px;" onclick="clearRobotLogView()">Clear view</button>
-                    </div>
-                </div>
-                <div id="robot-log-console" class="robot-log-console">
-                    <div class="robot-log-empty">Waiting for log stream…</div>
-                </div>
-            </div>
-            
             <!-- Position Saving Section -->
             <div class="status-card" style="margin-top: 20px;">
                 <h3 data-i18n="teleoperation.save_position">💾 Save Current Position</h3>
@@ -682,6 +659,29 @@
                 <div class="status-row">
                     <span class="status-label" data-i18n="system.bluetooth">Bluetooth:</span>
                     <span class="status-value" id="sys-bluetooth">-</span>
+                </div>
+            </div>
+
+            <!-- Live robot/server logging -->
+            <div class="status-card">
+                <div class="robot-log-header">
+                    <h3 style="margin: 0;">📋 Robot &amp; System Log</h3>
+                    <div class="robot-log-controls">
+                        <select id="robot-log-level" onchange="renderRobotLog()">
+                            <option value="ALL">All levels</option>
+                            <option value="INFO">Info+</option>
+                            <option value="WARNING">Warning+</option>
+                            <option value="ERROR">Error+</option>
+                        </select>
+                        <label>
+                            <input type="checkbox" id="robot-log-autoscroll" checked>
+                            Auto-scroll
+                        </label>
+                        <button class="btn" style="padding: 6px 10px;" onclick="clearRobotLogView()">Clear view</button>
+                    </div>
+                </div>
+                <div id="robot-log-console" class="robot-log-console">
+                    <div class="robot-log-empty">Waiting for log stream…</div>
                 </div>
             </div>
             
