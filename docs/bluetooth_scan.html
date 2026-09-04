@@ -571,7 +571,7 @@
                     // Success! Show the IP address
                     ipAddress.textContent = ip;
                     deviceName.textContent = device.name;
-                    connectLink.href = `http://${ip}:5000`;
+                    connectLink.href = `http://${ip}`;
                     resultCard.classList.add('show');
                     
                     const methodText = method === 'GATT' ? 'GATT characteristic' : 'apparaatnaam';
@@ -810,7 +810,7 @@
                                     
                                     if (ip && ip !== 'No IP') {
                                         ipAddress.textContent = ip;
-                                        connectLink.href = `http://${ip}:5000`;
+                                        connectLink.href = `http://${ip}`;
                                         resultCard.classList.add('show');
                                         showStatus(`✅ Nieuw IP: ${ip}`, 'success');
                                     }
