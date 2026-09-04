@@ -16,4 +16,4 @@ jobs:
       - name: Python syntax
         run: python -m py_compile webserver.py teleoperation_manager.py
       - name: Installer syntax
-        run: bash -n install.sh install_webserver_service.sh
+        run: bash -n install.sh
