@@ -129,9 +129,8 @@ class TeleoperationManager:
             self.robot = make_robot_from_config(cfg.robot)
             self.teleop = make_teleoperator_from_config(cfg.teleop)
 
-            # LeRobot 0.6.x uses degrees for SO arm joints but keeps the
-            # gripper normalized to 0..100. This application deliberately
-            # exposes one unit only: degrees for every motor, including gripper.
+            # This application deliberately exposes one unit only:
+            # degrees for every motor, including the gripper.
             for device in (self.robot, self.teleop):
                 bus = getattr(device, "bus", None)
                 if bus and "gripper" in bus.motors:
