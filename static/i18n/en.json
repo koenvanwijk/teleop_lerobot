@@ -49,11 +49,11 @@
   "commands": {
     "title": "Command-line examples",
     "description": "These commands are auto-filled based on your selected Leader and Follower. Copy them or open them directly in the web SSH terminal.",
-    "start_teleoperation": "Start Teleoperation (CLI, degrees)",
-    "record_dataset": "Record Dataset (CLI, degrees)",
-    "record_desc": "Records teleoperated trajectories locally with LeRobot 0.6.1; all motor values are stored as degrees.",
-    "evaluate_replay": "Policy Rollout (CLI, degrees)",
-    "evaluate_desc": "Runs a trained policy on the selected robot through the degree-safe LeRobot wrapper.",
+    "start_teleoperation": "Start Teleoperation (CLI)",
+    "record_dataset": "Record Dataset (CLI)",
+    "record_desc": "Records teleoperated trajectories locally using the standard LeRobot 0.6.1 CLI.",
+    "evaluate_replay": "Policy Rollout (CLI)",
+    "evaluate_desc": "Runs a trained policy on the selected robot using the standard LeRobot 0.6.1 rollout CLI.",
     "copy": "Copy",
     "select_devices": "Select devices above to populate..."
   },
@@ -129,7 +129,16 @@
     "handover_failed": "<strong>❌ Teleoperation is still stopped.</strong>{{reason}} Open the Teleoperation tab or System Log for details.",
     "handover_cancelled": "<strong>⏹ Teleoperation will remain stopped.</strong> Start it manually when you are ready.",
     "handover_running": "<strong>🧩 Blockly is taking control of the follower.</strong> Teleoperation is temporarily unavailable while the program runs and will return automatically a few seconds after it finishes.",
-    "handover_slow": "<strong>Teleoperation reconnect is taking longer than expected.</strong> Check Teleoperation status or the system log."
+    "handover_slow": "<strong>Teleoperation reconnect is taking longer than expected.</strong> Check Teleoperation status or the system log.",
+    "run_confirm_warning": "Run this program?\\n\\n⚠️ WARNING: the robot may start moving immediately. Keep the workspace clear and stay within reach of the emergency stop.",
+    "emergency_stop": "🛑 EMERGENCY STOP",
+    "emergency_stopped": "<strong>🛑 Emergency stop activated.</strong> The Blockly program is being interrupted, the robot connection is disconnected, and teleoperation will remain stopped.",
+    "emergency_stop_failed": "Emergency stop could not be activated",
+    "emergency_stopped_result": "The program was interrupted by the emergency stop. Teleoperation will not resume automatically.",
+    "execution_success": "Success",
+    "execution_completed": "Program executed successfully",
+    "execution_error": "Execution error",
+    "unknown_error": "Unknown error"
   },
   "network": {
     "title": "Network Management",
@@ -211,7 +220,8 @@
     "ssh_title": "💻 SSH Terminal",
     "ssh_description": "Open an SSH session to this robot/computer in the browser. Authentication is handled by the host SSH daemon.",
     "ssh_open": "Open SSH Terminal",
-    "ssh_note": "LAN/localhost only; no SSH password is stored by the web GUI."
+    "ssh_note": "LAN/localhost only; no SSH password is stored by the web GUI.",
+    "bt_scanner_link": "Open Bluetooth scanner"
   },
   "common": {
     "close": "Close",
