@@ -1513,9 +1513,11 @@
                 `  --robot.type=${fType} \\`,
                 `  --robot.port=${fPort} \\`,
                 `  --robot.id=${fId} \\`,
+                '  --robot.use_degrees=true \\',
                 `  --teleop.type=${lType} \\`,
                 `  --teleop.port=${lPort} \\`,
-                `  --teleop.id=${lId}`
+                `  --teleop.id=${lId} \\`,
+                '  --teleop.use_degrees=true'
             ].join('\n');
 
             // LeRobot 0.4.3 requires dataset.repo_id and dataset.single_task.
@@ -1526,9 +1528,11 @@
                 `  --robot.type=${fType} \\`,
                 `  --robot.port=${fPort} \\`,
                 `  --robot.id=${fId} \\`,
+                '  --robot.use_degrees=true \\',
                 `  --teleop.type=${lType} \\`,
                 `  --teleop.port=${lPort} \\`,
                 `  --teleop.id=${lId} \\`,
+                '  --teleop.use_degrees=true \\',
                 '  --dataset.repo_id=local/session_$SESSION \\',
                 '  --dataset.root=$HOME/lerobot_datasets/session_$SESSION \\',
                 '  --dataset.single_task="Teleoperated recording" \\',
@@ -1541,6 +1545,7 @@
                 `  --robot.type=${fType} \\`,
                 `  --robot.port=${fPort} \\`,
                 `  --robot.id=${fId} \\`,
+                '  --robot.use_degrees=true \\',
                 '  --policy_path=~/lerobot_models/latest.pt'
             ].join('\n');
 
@@ -1813,7 +1818,7 @@
                     
                     let posText = '';
                     data.motor_names.forEach((name, i) => {
-                        posText += `${name}: ${data.positions[i].toFixed(2)}%\n`;
+                        posText += `${name}: ${data.positions[i].toFixed(2)}°\n`;
                     });
                     
                     text.textContent = posText;
@@ -1878,7 +1883,7 @@
                 
                 let html = '<div style="max-height: 200px; overflow-y: auto;">';
                 for (const [name, pos] of Object.entries(data.positions)) {
-                    const angles = pos.angles.map(a => a.toFixed(1)).join(', ');
+                    const angles = pos.angles.map(a => a.toFixed(1) + '°').join(', ');
                     html += `
                         <div style="padding: 8px; border: 1px solid #ddd; border-radius: 5px; margin-bottom: 8px; background: #f9f9f9;">
                             <div style="display: flex; justify-content: space-between; align-items: center;">
@@ -2382,9 +2387,9 @@
             Blockly.Python.forBlock['robot_gripper'] = function(block, generator) {
                 const action = block.getFieldValue('ACTION');
                 const angles = {
-                    'open': '180',
-                    'close': '0',
-                    'half': '90'
+                    'open': '50',
+                    'close': '-50',
+                    'half': '0'
                 };
                 return `robot.move_joint(5, ${angles[action]})  # Gripper\ntime.sleep(0.5)\n`;
             };
