@@ -49,11 +49,11 @@
   "commands": {
     "title": "Commando-regel voorbeelden",
     "description": "Deze commando's worden automatisch ingevuld op basis van je geselecteerde Leader en Follower. Kopieer ze of open ze direct in de web-SSH-terminal.",
-    "start_teleoperation": "Start Teleoperatie (CLI, graden)",
-    "record_dataset": "Dataset Opnemen (CLI, graden)",
-    "record_desc": "Neemt teleoperatie-trajecten lokaal op met LeRobot 0.6.1; alle motorwaarden worden als graden opgeslagen.",
-    "evaluate_replay": "Policy Rollout (CLI, graden)",
-    "evaluate_desc": "Voert een getrainde policy uit op de geselecteerde robot via de graden-veilige LeRobot-wrapper.",
+    "start_teleoperation": "Start Teleoperatie (CLI)",
+    "record_dataset": "Dataset Opnemen (CLI)",
+    "record_desc": "Neemt teleoperatie-trajecten lokaal op met de standaard LeRobot 0.6.1 CLI.",
+    "evaluate_replay": "Policy Rollout (CLI)",
+    "evaluate_desc": "Voert een getrainde policy uit op de geselecteerde robot met de standaard LeRobot 0.6.1 rollout-CLI.",
     "copy": "Kopiëren",
     "select_devices": "Selecteer apparaten hierboven om in te vullen..."
   },
@@ -129,7 +129,16 @@
     "handover_failed": "<strong>❌ Teleoperatie is nog gestopt.</strong>{{reason}} Open het tabblad Teleoperatie of het systeemlog voor details.",
     "handover_cancelled": "<strong>⏹ Teleoperatie blijft gestopt.</strong> Start deze handmatig wanneer je klaar bent.",
     "handover_running": "<strong>🧩 Blockly neemt de follower over.</strong> Teleoperatie is tijdens het programma tijdelijk niet beschikbaar en komt enkele seconden na afloop automatisch terug.",
-    "handover_slow": "<strong>Het opnieuw verbinden van teleoperatie duurt langer dan verwacht.</strong> Controleer de teleoperatiestatus of het systeemlog."
+    "handover_slow": "<strong>Het opnieuw verbinden van teleoperatie duurt langer dan verwacht.</strong> Controleer de teleoperatiestatus of het systeemlog.",
+    "run_confirm_warning": "Programma uitvoeren?\\n\\n⚠️ WAARSCHUWING: de robot kan direct gaan bewegen. Houd de werkruimte vrij en blijf binnen bereik van de noodstop.",
+    "emergency_stop": "🛑 NOODSTOP",
+    "emergency_stopped": "<strong>🛑 Noodstop geactiveerd.</strong> Het Blockly-programma wordt onderbroken, de robotverbinding is losgekoppeld en teleoperatie blijft gestopt.",
+    "emergency_stop_failed": "Noodstop kon niet worden geactiveerd",
+    "emergency_stopped_result": "Het programma is door de noodstop onderbroken. Teleoperatie wordt niet automatisch hervat.",
+    "execution_success": "Gelukt",
+    "execution_completed": "Programma succesvol uitgevoerd",
+    "execution_error": "Uitvoeringsfout",
+    "unknown_error": "Onbekende fout"
   },
   "network": {
     "title": "Netwerk Beheer",
@@ -211,7 +220,8 @@
     "ssh_title": "💻 SSH-terminal",
     "ssh_description": "Open in de browser een SSH-sessie naar deze robot/computer. Authenticatie wordt afgehandeld door de SSH-daemon van het systeem.",
     "ssh_open": "Open SSH-terminal",
-    "ssh_note": "Alleen LAN/localhost; de web-GUI bewaart geen SSH-wachtwoord."
+    "ssh_note": "Alleen LAN/localhost; de web-GUI bewaart geen SSH-wachtwoord.",
+    "bt_scanner_link": "Open Bluetooth-scanner"
   },
   "common": {
     "close": "Sluiten",
