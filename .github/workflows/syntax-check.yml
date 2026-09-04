@@ -15,6 +15,40 @@ jobs:
           python-version: "3.12"
       - name: Python syntax
         run: python -m py_compile webserver.py teleoperation_manager.py blockly_manager.py lerobot_degrees.py
+      - name: Translation completeness
+        run: |
+          python - <<'PY'
+          import json
+          import re
+          from pathlib import Path
+
+          def flatten(obj, prefix=""):
+              out = {}
+              for key, value in obj.items():
+                  full = f"{prefix}.{key}" if prefix else key
+                  if isinstance(value, dict):
+                      out.update(flatten(value, full))
+                  else:
+                      out[full] = value
+              return out
+
+          nl = flatten(json.loads(Path("static/i18n/nl.json").read_text()))
+          en = flatten(json.loads(Path("static/i18n/en.json").read_text()))
+
+          if set(nl) != set(en):
+              missing_nl = sorted(set(en) - set(nl))
+              missing_en = sorted(set(nl) - set(en))
+              raise SystemExit(f"Translation key mismatch. Missing NL={missing_nl}; missing EN={missing_en}")
+
+          html = Path("templates/index.html").read_text()
+          used = set(re.findall(r'data-i18n="(?:\\[[^]]+\\])?([^"]+)"', html))
+          missing = sorted(key for key in used if key not in nl or key not in en)
+          if missing:
+              raise SystemExit(f"Missing translations for GUI keys: {missing}")
+
+          print(f"Translation keys OK: {len(nl)} keys, {len(used)} used by index.html")
+          PY
+
       - name: Browser JavaScript syntax
         run: |
           python - <<'PY'
