@@ -380,14 +380,15 @@
         let robot = null;
         let jointStates = {};
         
-        // Joint configuration - using percentage (-100 to 100) matching LeRobot
+        // Joint configuration in degrees. Limits are centered around the
+        // calibrated midpoint and derived from the SO-101 URDF travel.
         const jointConfig = {
-            'Rotation': { id: 1, min: -100, max: 100, initial: 0, label: 'Base Rotation' },
+            'Rotation': { id: 1, min: -110, max: 110, initial: 0, label: 'Base Rotation' },
             'Pitch': { id: 2, min: -100, max: 100, initial: 0, label: 'Shoulder Pitch' },
-            'Elbow': { id: 3, min: -100, max: 100, initial: 0, label: 'Elbow' },
-            'Wrist_Pitch': { id: 4, min: -100, max: 100, initial: 0, label: 'Wrist Pitch' },
-            'Wrist_Roll': { id: 5, min: -100, max: 100, initial: 0, label: 'Wrist Roll' },
-            'Jaw': { id: 6, min: -100, max: 100, initial: 0, label: 'Gripper' }
+            'Elbow': { id: 3, min: -95, max: 95, initial: 0, label: 'Elbow' },
+            'Wrist_Pitch': { id: 4, min: -95, max: 95, initial: 0, label: 'Wrist Pitch' },
+            'Wrist_Roll': { id: 5, min: -160, max: 160, initial: 0, label: 'Wrist Roll' },
+            'Jaw': { id: 6, min: -50, max: 50, initial: 0, label: 'Gripper' }
         };
 
         function init() {
@@ -541,8 +542,7 @@
                         
                         // Set initial joint position
                         if (robot.joints[jointName]) {
-                            const radians = config.initial * Math.PI / 180;
-                            robot.joints[jointName].setJointValue(radians);
+                            robot.joints[jointName].setJointValue(degreesToUrdfRadians(config.initial, jointName));
                         }
                     });
                     
@@ -595,27 +595,24 @@
             });
         }
 
-        function updateJoint(jointName, percentage) {
-            jointStates[jointName] = percentage;
+        function updateJoint(jointName, degrees) {
+            jointStates[jointName] = degrees;
             
-            // Update UI - show percentage
             const valueDisplay = document.getElementById('value-' + jointName);
             if (valueDisplay) {
-                valueDisplay.textContent = percentage.toFixed(1) + '%';
+                valueDisplay.textContent = degrees.toFixed(1) + '°';
             }
             
-            // Update robot joint - convert percentage to radians using URDF limits
             if (robot && robot.joints && robot.joints[jointName]) {
-                const radians = percentageToRadians(percentage, jointName);
-                robot.joints[jointName].setJointValue(radians);
+                robot.joints[jointName].setJointValue(degreesToUrdfRadians(degrees, jointName));
             }
 
-            // Send to follower when leader mode enabled and user adjusts
+            // Send native degree targets to the follower when leader mode is enabled.
             const toggle = document.getElementById('leaderToggle');
             if (toggle && toggle.checked) {
                 const motorName = mapJointToMotor(jointName);
                 if (motorName) {
-                    sendLeaderPositions([motorName], [percentage]);
+                    sendLeaderPositions([motorName], [degrees]);
                 }
             }
         }
@@ -637,22 +634,17 @@
                 .then(function(data) {
                     if (data.success && data.motor_names && data.positions) {
                         data.motor_names.forEach(function(motorName, index) {
-                            const percentage = data.positions[index]; // In percentage (-100 to 100)
+                            const degrees = data.positions[index];
                             const jointName = mapMotorToJoint(motorName);
                             
                             if (jointName && robot && robot.joints[jointName]) {
-                                // Convert percentage to radians using URDF limits
-                                const radians = percentageToRadians(percentage, jointName);
+                                robot.joints[jointName].setJointValue(degreesToUrdfRadians(degrees, jointName));
                                 
-                                // Update 3D robot
-                                robot.joints[jointName].setJointValue(radians);
-                                
-                                // Update UI (in percentage)
                                 const slider = document.getElementById('slider-' + jointName);
                                 const valueDisplay = document.getElementById('value-' + jointName);
                                 if (slider && valueDisplay) {
-                                    slider.value = percentage;
-                                    valueDisplay.textContent = percentage.toFixed(1) + '%';
+                                    slider.value = degrees;
+                                    valueDisplay.textContent = degrees.toFixed(1) + '°';
                                 }
                             }
                         });
@@ -731,25 +723,25 @@
                         const leaderEnabled = !!(leaderToggle && leaderToggle.checked);
 
                         data.motor_names.forEach((motorName, index) => {
-                            const percentage = data.positions[index]; // Already in percentage (-100 to 100)
+                            const degrees = data.positions[index];
                             
                             // Map LeRobot motor names to our joint names
                             const jointName = mapMotorToJoint(motorName);
                             
                             // Debug logging (only log once per session)
                             if (!window.mappingLogged) {
-                                console.log(`Mapping: ${motorName} (${percentage.toFixed(1)}%) -> ${jointName}`);
+                                console.log(`Mapping: ${motorName} (${degrees.toFixed(1)}°) -> ${jointName}`);
                             }
                             
                             if (!leaderEnabled && jointName && robot && robot.joints[jointName]) {
                                 // Only apply polled positions when NOT in leader mode
-                                const radians = percentageToRadians(percentage, jointName);
+                                const radians = degreesToUrdfRadians(degrees, jointName);
                                 robot.joints[jointName].setJointValue(radians);
                                 const slider = document.getElementById('slider-' + jointName);
                                 const valueDisplay = document.getElementById('value-' + jointName);
                                 if (slider && valueDisplay) {
-                                    slider.value = percentage;
-                                    valueDisplay.textContent = percentage.toFixed(1) + '%';
+                                    slider.value = degrees;
+                                    valueDisplay.textContent = degrees.toFixed(1) + '°';
                                 }
                             }
                         });
@@ -823,11 +815,10 @@
             return inverse[jointName] || null;
         }
         
-    // Convert percentage to radians based on URDF joint limits
-    // For all joints except Jaw (gripper): range is -100..100
-    // For Jaw (gripper): range is 0..100
-    function percentageToRadians(percentage, jointName) {
-            // URDF joint limits in radians (from so101.urdf)
+    // LeRobot degrees are centered around the calibrated motor midpoint.
+    // The URDF joints use absolute radians, so add the degree offset to the
+    // midpoint of each URDF travel range and clamp to the model limits.
+    function degreesToUrdfRadians(degrees, jointName) {
             const jointLimits = {
                 'Rotation': { lower: 1.22014, upper: 5.05986 },
                 'Pitch': { lower: 1.39467, upper: 4.88692 },
@@ -842,16 +833,10 @@
                 console.warn(`No limits found for joint ${jointName}`);
                 return 0;
             }
-            
-            // Map percentage to joint range (lower to upper)
-            // For Jaw (gripper): 0% = lower limit, 100% = upper limit
-            // For other joints: -100% = lower limit, +100% = upper limit, 0% = middle
-            const normalized = (jointName === 'Jaw')
-                ? (percentage / 100)
-                : ((percentage + 100) / 200);
-            const radians = limits.lower + normalized * (limits.upper - limits.lower);
-            
-            return radians;
+
+            const midpoint = (limits.lower + limits.upper) / 2;
+            const radians = midpoint + THREE.MathUtils.degToRad(degrees);
+            return THREE.MathUtils.clamp(radians, limits.lower, limits.upper);
         }
 
         // Send positions to backend for follower control
