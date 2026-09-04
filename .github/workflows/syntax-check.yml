@@ -2,7 +2,7 @@ name: Syntax check
 
 on:
   push:
-    branches: [main]
+    branches: [main, lerobot-0.6.1-degrees]
   pull_request:
 
 jobs:
@@ -14,7 +14,7 @@ jobs:
         with:
           python-version: "3.12"
       - name: Python syntax
-        run: python -m py_compile webserver.py teleoperation_manager.py blockly_manager.py
+        run: python -m py_compile webserver.py teleoperation_manager.py blockly_manager.py lerobot_degrees.py
       - name: Browser JavaScript syntax
         run: |
           python - <<'PY'
