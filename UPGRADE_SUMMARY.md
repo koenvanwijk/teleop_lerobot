@@ -187,13 +187,13 @@ lerobot[feetech]  # LeRobot met Feetech support
 #### 1. Remote Teleoperation (Origineel)
 ```bash
 # Start webserver → Open browser → Start teleoperation
-uvicorn webserver:app --host 0.0.0.0 --port 5000
+uvicorn webserver:app --host 0.0.0.0 --port 80
 ```
 
 #### 2. Camera Monitoring (NIEUW)
 ```bash
 # Cameras auto-detect bij startup
-# View streams: http://localhost:5000 → Cameras tab
+# View streams: http://localhost → Cameras tab
 ```
 
 #### 3. WiFi Configuration (NIEUW)
@@ -206,7 +206,7 @@ uvicorn webserver:app --host 0.0.0.0 --port 5000
 #### 4. Real-time Monitoring (NIEUW)
 ```javascript
 // WebSocket client
-const ws = new WebSocket('ws://localhost:5000/ws');
+const ws = new WebSocket('ws://localhost/ws');
 ws.onmessage = (e) => console.log(JSON.parse(e.data));
 ```
 
@@ -252,7 +252,7 @@ git pull
 sudo reboot
 
 # 4. Access web interface
-# Open browser: http://localhost:5000
+# Open browser: http://localhost
 ```
 
 ### 🔍 File Changes Summary
@@ -284,11 +284,11 @@ webserver_basic_backup.py      # Before extensions
    ```bash
    python webserver.py
    # OF
-   uvicorn webserver:app --host 0.0.0.0 --port 5000
+   uvicorn webserver:app --host 0.0.0.0 --port 80
    ```
 
 3. **Test web interface:**
-   - Open http://localhost:5000
+   - Open http://localhost
    - Test alle 4 tabs
    - Test teleoperation start/stop
    - Test camera detection
@@ -319,7 +319,7 @@ webserver_basic_backup.py      # Before extensions
    sudo apt-get install network-manager hostapd dnsmasq
    ```
 
-4. **Port 5000 in gebruik:**
+4. **Port 80 in gebruik:**
    ```bash
    # Change port in startup command:
    uvicorn webserver:app --host 0.0.0.0 --port 8000
