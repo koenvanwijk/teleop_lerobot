@@ -517,151 +517,151 @@ async def stop_teleoperation() -> bool:
 
 async def initialize_hardware_background():
     """Initialize cameras/network/robots after the web UI is already reachable."""
-        try:
-            # The HTTP/WebSocket server is already online. Give USB/network services
-            # a moment to settle without delaying GUI availability.
-            logger.info("⏳ Hardware initialization starts in background...")
-            await asyncio.sleep(1)
-            
-            # Initialize camera manager
-            if CAMERA_AVAILABLE:
-                logger.info("📹 Initializing camera manager...")
-                try:
-                    # Detect available cameras
-                    available_cameras = await detect_cameras(max_index=4)
-                    if available_cameras:
-                        camera_configs = [
-                            {'index': idx, 'name': f'Camera {idx}', 'resolution': [640, 480], 'fps': 30}
-                            for idx in available_cameras
-                        ]
-                        state.camera_manager = CameraManager(camera_configs)
-                        if await state.camera_manager.initialize():
-                            state.cameras_enabled = True
-                            logger.info(f"✅ Camera manager initialized: {len(available_cameras)} cameras")
-                        else:
-                            logger.warning("⚠️  Camera manager failed to initialize")
+    try:
+        # The HTTP/WebSocket server is already online. Give USB/network services
+        # a moment to settle without delaying GUI availability.
+        logger.info("⏳ Hardware initialization starts in background...")
+        await asyncio.sleep(1)
+        
+        # Initialize camera manager
+        if CAMERA_AVAILABLE:
+            logger.info("📹 Initializing camera manager...")
+            try:
+                # Detect available cameras
+                available_cameras = await detect_cameras(max_index=4)
+                if available_cameras:
+                    camera_configs = [
+                        {'index': idx, 'name': f'Camera {idx}', 'resolution': [640, 480], 'fps': 30}
+                        for idx in available_cameras
+                    ]
+                    state.camera_manager = CameraManager(camera_configs)
+                    if await state.camera_manager.initialize():
+                        state.cameras_enabled = True
+                        logger.info(f"✅ Camera manager initialized: {len(available_cameras)} cameras")
                     else:
-                        logger.info("ℹ️  No cameras detected")
-                except Exception as e:
-                    logger.error(f"Error initializing cameras: {e}")
-            
-            # Initialize network manager
-            if NETWORK_AVAILABLE:
-                logger.info("🌐 Initializing network manager...")
-                try:
-                    state.network_manager = NetworkManager(
-                        ap_ssid="LeRobot-AP",
-                        ap_password="robotics123",
-                        interface="wlan0"
-                    )
-                    if await state.network_manager.initialize():
-                        state.network_enabled = True
-                        logger.info("✅ Network manager initialized")
+                        logger.warning("⚠️  Camera manager failed to initialize")
+                else:
+                    logger.info("ℹ️  No cameras detected")
+            except Exception as e:
+                logger.error(f"Error initializing cameras: {e}")
+        
+        # Initialize network manager
+        if NETWORK_AVAILABLE:
+            logger.info("🌐 Initializing network manager...")
+            try:
+                state.network_manager = NetworkManager(
+                    ap_ssid="LeRobot-AP",
+                    ap_password="robotics123",
+                    interface="wlan0"
+                )
+                if await state.network_manager.initialize():
+                    state.network_enabled = True
+                    logger.info("✅ Network manager initialized")
+                    
+                    # Check for network connectivity
+                    logger.info("🔍 Checking network connectivity...")
+                    status = await state.network_manager.get_status()
+                    
+                    # If no network connection, auto-start AP
+                    if status.get('state') != 'connected' and status.get('connectivity') != 'full':
+                        logger.warning("⚠️  No network connection detected")
+                        logger.info("📡 Auto-starting WiFi Access Point for setup...")
                         
-                        # Check for network connectivity
-                        logger.info("🔍 Checking network connectivity...")
-                        status = await state.network_manager.get_status()
-                        
-                        # If no network connection, auto-start AP
-                        if status.get('state') != 'connected' and status.get('connectivity') != 'full':
-                            logger.warning("⚠️  No network connection detected")
-                            logger.info("📡 Auto-starting WiFi Access Point for setup...")
-                            
-                            try:
-                                # Start AP mode
-                                ap_started = await state.network_manager.start_ap()
-                                if ap_started:
-                                    logger.info("✅ WiFi Access Point started")
-                                    logger.info(f"   SSID: LeRobot-AP")
-                                    logger.info(f"   Password: robotics123")
-                                    logger.info(f"   Connect and visit: http://192.168.4.1:5000")
-                                else:
-                                    logger.error("❌ Failed to start Access Point")
-                            except Exception as ap_error:
-                                logger.error(f"Error starting AP: {ap_error}")
-                        else:
-                            logger.info(f"✅ Network connected: {status.get('ssid', 'unknown')}")
-                            
+                        try:
+                            # Start AP mode
+                            ap_started = await state.network_manager.start_ap()
+                            if ap_started:
+                                logger.info("✅ WiFi Access Point started")
+                                logger.info(f"   SSID: LeRobot-AP")
+                                logger.info(f"   Password: robotics123")
+                                logger.info(f"   Connect and visit: http://192.168.4.1:5000")
+                            else:
+                                logger.error("❌ Failed to start Access Point")
+                        except Exception as ap_error:
+                            logger.error(f"Error starting AP: {ap_error}")
                     else:
-                        logger.warning("⚠️  Network manager failed to initialize")
-                except Exception as e:
-                    logger.error(f"Error initializing network: {e}")
-            
-            # Initial state refresh to get device ports
-            state.refresh_state()
-            
-            # Initialize Blockly manager AFTER state refresh to get correct robot port
-            if BLOCKLY_AVAILABLE:
-                logger.info("🧩 Initializing Blockly manager...")
-                try:
-                    # Pass follower robot port, type and ID to Blockly for direct robot control
-                    robot_port = state.follower_port if state.follower_port else None
-                    robot_type = state.follower_type if state.follower_type else None
-                    robot_id = state.follower_id if state.follower_id else None
-                    logger.info(f"Using robot for Blockly: port={robot_port}, type={robot_type}, id={robot_id}")
-                    state.blockly_manager = BlocklyManager(
-                        robot_port=robot_port,
-                        robot_type=robot_type,
-                        robot_id=robot_id
-                    )
-                    state.blockly_enabled = True
-                    logger.info(f"✅ Blockly manager initialized (port: {robot_port}, type: {robot_type}, id: {robot_id})")
-                except Exception as e:
-                    logger.error(f"Error initializing Blockly: {e}")
-            
-            # Initialize Bluetooth GATT service
-            if BLUETOOTH_AVAILABLE:
-                logger.info("📡 Initializing Bluetooth GATT service...")
-                try:
-                    bluetooth_mgr = BLEGattServer("LeRobot")
-                    bluetooth_mgr.start()
-                    state.bluetooth_manager = bluetooth_mgr
-                    state.bluetooth_enabled = True
-                    logger.info("✅ Bluetooth GATT service started")
-                except Exception as e:
-                    logger.error(f"Error initializing Bluetooth GATT: {e}")
-            
-            # Initial state refresh
-            state.refresh_state()
-            logger.info("✅ State refreshed")
+                        logger.info(f"✅ Network connected: {status.get('ssid', 'unknown')}")
+                        
+                else:
+                    logger.warning("⚠️  Network manager failed to initialize")
+            except Exception as e:
+                logger.error(f"Error initializing network: {e}")
+        
+        # Initial state refresh to get device ports
+        state.refresh_state()
+        
+        # Initialize Blockly manager AFTER state refresh to get correct robot port
+        if BLOCKLY_AVAILABLE:
+            logger.info("🧩 Initializing Blockly manager...")
+            try:
+                # Pass follower robot port, type and ID to Blockly for direct robot control
+                robot_port = state.follower_port if state.follower_port else None
+                robot_type = state.follower_type if state.follower_type else None
+                robot_id = state.follower_id if state.follower_id else None
+                logger.info(f"Using robot for Blockly: port={robot_port}, type={robot_type}, id={robot_id}")
+                state.blockly_manager = BlocklyManager(
+                    robot_port=robot_port,
+                    robot_type=robot_type,
+                    robot_id=robot_id
+                )
+                state.blockly_enabled = True
+                logger.info(f"✅ Blockly manager initialized (port: {robot_port}, type: {robot_type}, id: {robot_id})")
+            except Exception as e:
+                logger.error(f"Error initializing Blockly: {e}")
+        
+        # Initialize Bluetooth GATT service
+        if BLUETOOTH_AVAILABLE:
+            logger.info("📡 Initializing Bluetooth GATT service...")
+            try:
+                bluetooth_mgr = BLEGattServer("LeRobot")
+                bluetooth_mgr.start()
+                state.bluetooth_manager = bluetooth_mgr
+                state.bluetooth_enabled = True
+                logger.info("✅ Bluetooth GATT service started")
+            except Exception as e:
+                logger.error(f"Error initializing Bluetooth GATT: {e}")
+        
+        # Initial state refresh
+        state.refresh_state()
+        logger.info("✅ State refreshed")
+        sys.stdout.flush()
+        sys.stderr.flush()
+        
+        if state.devices_available:
+            logger.info("✅ USB devices beschikbaar")
             sys.stdout.flush()
             sys.stderr.flush()
             
-            if state.devices_available:
-                logger.info("✅ USB devices beschikbaar")
+            # Auto-start teleoperation als devices beschikbaar zijn
+            logger.info("🎮 Auto-start teleoperation...")
+            sys.stdout.flush()
+            sys.stderr.flush()
+            await asyncio.sleep(2)  # Extra delay voor device stabiliteit
+            
+            logger.info("   Calling start_teleoperation()...")
+            sys.stdout.flush()
+            sys.stderr.flush()
+            
+            if await start_teleoperation():
+                logger.info("✅ Teleoperation automatisch gestart")
                 sys.stdout.flush()
                 sys.stderr.flush()
-                
-                # Auto-start teleoperation als devices beschikbaar zijn
-                logger.info("🎮 Auto-start teleoperation...")
-                sys.stdout.flush()
-                sys.stderr.flush()
-                await asyncio.sleep(2)  # Extra delay voor device stabiliteit
-                
-                logger.info("   Calling start_teleoperation()...")
-                sys.stdout.flush()
-                sys.stderr.flush()
-                
-                if await start_teleoperation():
-                    logger.info("✅ Teleoperation automatisch gestart")
-                    sys.stdout.flush()
-                    sys.stderr.flush()
-                else:
-                    logger.warning("⚠️  Kon teleoperation niet automatisch starten")
-                    sys.stdout.flush()
-                    sys.stderr.flush()
             else:
-                logger.warning("⚠️  Geen USB devices gevonden - teleoperation niet gestart")
-                logger.info("   💡 Sluit devices aan en start handmatig via web interface")
+                logger.warning("⚠️  Kon teleoperation niet automatisch starten")
                 sys.stdout.flush()
                 sys.stderr.flush()
-            
-            logger.info("Server initialization complete")
-            logger.info("=" * 60)
-            
-        except Exception as e:
-            logger.error(f"Error during startup: {e}", exc_info=True)
+        else:
+            logger.warning("⚠️  Geen USB devices gevonden - teleoperation niet gestart")
+            logger.info("   💡 Sluit devices aan en start handmatig via web interface")
+            sys.stdout.flush()
+            sys.stderr.flush()
         
+        logger.info("Server initialization complete")
+        logger.info("=" * 60)
+        
+    except Exception as e:
+        logger.error(f"Error during startup: {e}", exc_info=True)
+    
 
 
 @asynccontextmanager
