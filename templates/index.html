@@ -2089,7 +2089,12 @@
 
             if (scanButton) scanButton.disabled = true;
             scanResults.style.display = 'block';
-            wifiList.innerHTML = '<div class="wifi-item" style="cursor:default;" data-i18n="network.scanning">Scanning…</div>';
+            wifiList.innerHTML = '';
+            const scanning = document.createElement('div');
+            scanning.className = 'wifi-item';
+            scanning.style.cursor = 'default';
+            scanning.textContent = i18next.t('network.scanning');
+            wifiList.appendChild(scanning);
             countEl.textContent = '';
 
             try {
