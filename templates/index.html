@@ -298,6 +298,34 @@
         }
         
         /* Responsive */
+        .ssh-terminal-card {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+
+        .ssh-terminal-card h3,
+        .ssh-terminal-card p {
+            margin: 0;
+        }
+
+        .ssh-terminal-card .ssh-card-action {
+            align-self: flex-start;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            margin: 0;
+            padding: 11px 18px;
+            text-decoration: none;
+        }
+
+        .ssh-terminal-card .ssh-card-note {
+            margin: 0;
+            font-size: 0.85em;
+            line-height: 1.4;
+            color: #666;
+        }
+
         @media (max-width: 768px) {
             .header h1 { font-size: 1.8em; }
             .tabs { flex-wrap: wrap; }
@@ -720,40 +748,40 @@
             </div>
             
             <div class="status-card">
-                <h3>⬆️ Software Update</h3>
-                <p style="color:#666; margin-bottom:12px;">
-                    Recommended update flow: pull the latest <code>main</code>, rerun the idempotent <code>install.sh</code>, then reboot.
+                <h3 data-i18n="system.update_title">⬆️ Software Update</h3>
+                <p style="color:#666; margin-bottom:12px;" data-i18n="system.update_description">
+                    Recommended update flow: pull the latest branch, rerun install.sh, then reboot.
                 </p>
                 <div class="status-row">
-                    <span class="status-label">Current version:</span>
-                    <span class="status-value" id="software-update-version">Loading…</span>
+                    <span class="status-label" data-i18n="system.update_current_version">Current version:</span>
+                    <span class="status-value" id="software-update-version" data-i18n="system.loading">Loading…</span>
                 </div>
                 <div class="status-row">
-                    <span class="status-label">Repository:</span>
+                    <span class="status-label" data-i18n="system.update_repository">Repository:</span>
                     <span class="status-value" id="software-update-repo">-</span>
                 </div>
                 <div class="status-row">
-                    <span class="status-label">Update:</span>
-                    <span class="status-value" id="software-update-state">Not checked</span>
+                    <span class="status-label" data-i18n="system.update_status">Update:</span>
+                    <span class="status-value" id="software-update-state" data-i18n="system.update_not_checked">Not checked</span>
                 </div>
-                <pre id="software-update-command" style="background:#f8f9fa; padding:12px; border-radius:8px; overflow-x:auto; margin-top:12px;">Loading update command…</pre>
+                <pre id="software-update-command" style="background:#f8f9fa; padding:12px; border-radius:8px; overflow-x:auto; margin-top:12px;" data-i18n="system.update_loading_command">Loading update command…</pre>
                 <div class="button-group" style="margin-top:12px;">
-                    <button class="btn btn-secondary" onclick="loadSoftwareUpdateStatus(true)">🔍 Check for update</button>
-                    <button class="btn btn-primary" onclick="copySoftwareUpdateCommand()">📋 Copy update command</button>
-                    <button class="btn btn-success" onclick="openSoftwareUpdateSsh()">💻 Open in SSH terminal</button>
+                    <button class="btn btn-secondary" onclick="loadSoftwareUpdateStatus(true)" data-i18n="system.update_check">🔍 Check for update</button>
+                    <button class="btn btn-primary" onclick="copySoftwareUpdateCommand()" data-i18n="system.update_copy">📋 Copy update command</button>
+                    <button class="btn btn-success" onclick="openSoftwareUpdateSsh()" data-i18n="system.update_open_ssh">💻 Open in SSH terminal</button>
                 </div>
-                <div class="alert alert-info" style="margin-top:12px;">
-                    The web GUI does not execute <code>install.sh</code> itself because the installer can require interactive <code>sudo</code> authentication. The SSH terminal keeps that visible and interactive.
+                <div class="alert alert-info" style="margin-top:12px;" data-i18n="system.update_interactive_note">
+                    The web GUI does not run install.sh itself because sudo may require interactive authentication. Use the SSH terminal for the update.
                 </div>
             </div>
 
-            <div class="status-card">
-                <h3>💻 SSH Terminal</h3>
-                <p style="color:#666; margin-bottom:12px;">
-                    Open an SSH session to this robot/computer in the browser. Authentication is still handled by the host SSH daemon.
+            <div class="status-card ssh-terminal-card">
+                <h3 data-i18n="system.ssh_title">💻 SSH Terminal</h3>
+                <p style="color:#666;" data-i18n="system.ssh_description">
+                    Open an SSH session to this robot/computer in the browser. Authentication is handled by the host SSH daemon.
                 </p>
-                <a class="btn btn-primary" href="/ssh" target="_blank" rel="noopener">Open SSH Terminal</a>
-                <div style="margin-top:10px; font-size:0.85em; color:#666;">LAN/localhost only; no SSH password is stored by the web GUI.</div>
+                <a class="btn btn-primary ssh-card-action" href="/ssh" target="_blank" rel="noopener" data-i18n="system.ssh_open">Open SSH Terminal</a>
+                <p class="ssh-card-note" data-i18n="system.ssh_note">LAN/localhost only; no SSH password is stored by the web GUI.</p>
             </div>
 
             <div class="status-card">
@@ -875,12 +903,12 @@
             <div id="blockly-handover" class="status-card" style="display:none; margin-top:20px; border:2px solid #3b82f6; background:#eff6ff;">
                 <div style="display:flex; align-items:center; justify-content:space-between; gap:16px; flex-wrap:wrap;">
                     <div>
-                        <h3 style="margin:0 0 6px; color:#1d4ed8;">🔄 Robot control handover</h3>
-                        <div id="blockly-handover-text" style="font-size:1.05em; color:#1e40af;">
+                        <h3 style="margin:0 0 6px; color:#1d4ed8;" data-i18n="blockly.handover_title">🔄 Robot control handover</h3>
+                        <div id="blockly-handover-text" style="font-size:1.05em; color:#1e40af;" data-i18n="blockly.handover_stopped">
                             Teleoperation is temporarily stopped.
                         </div>
                     </div>
-                    <button class="btn btn-danger" id="blockly-cancel-resume-btn" onclick="cancelBlocklyResume()" style="display:none;">
+                    <button class="btn btn-danger" id="blockly-cancel-resume-btn" onclick="cancelBlocklyResume()" style="display:none;" data-i18n="blockly.handover_keep_stopped">
                         ⏹ Keep teleoperation stopped
                     </button>
                 </div>
@@ -2172,18 +2200,18 @@
                 document.getElementById('software-update-repo').textContent = data.repo_dir || '-';
                 softwareUpdateCommand = data.update_command || '';
                 document.getElementById('software-update-command').textContent =
-                    softwareUpdateCommand || 'Update command unavailable';
+                    softwareUpdateCommand || i18next.t('system.update_command_unavailable');
 
                 if (data.dirty) {
-                    stateEl.textContent = '⚠️ Local changes present — commit/stash before updating';
+                    stateEl.textContent = '⚠️ ' + i18next.t('system.update_dirty');
                 } else if (!data.upstream) {
-                    stateEl.textContent = 'ℹ️ No upstream configured';
+                    stateEl.textContent = 'ℹ️ ' + i18next.t('system.update_no_upstream');
                 } else if (data.behind > 0) {
-                    stateEl.textContent = `⬆️ ${data.behind} commit(s) available`;
+                    stateEl.textContent = '⬆️ ' + i18next.t('system.update_commits_available', { count: data.behind });
                 } else if (data.ahead > 0) {
-                    stateEl.textContent = `ℹ️ Local branch is ${data.ahead} commit(s) ahead`;
+                    stateEl.textContent = 'ℹ️ ' + i18next.t('system.update_commits_ahead', { count: data.ahead });
                 } else {
-                    stateEl.textContent = checkRemote ? '✅ Up to date' : 'Ready — click Check for update';
+                    stateEl.textContent = checkRemote ? '✅ ' + i18next.t('system.update_up_to_date') : i18next.t('system.update_ready');
                 }
             } catch (error) {
                 stateEl.textContent = '❌ ' + error;
@@ -2196,7 +2224,7 @@
             }
             if (!softwareUpdateCommand) return;
             const copied = await copyTextToClipboard(softwareUpdateCommand);
-            showStatus(copied ? 'Update command copied' : 'Could not copy update command', copied ? 'success' : 'error');
+            showStatus(copied ? i18next.t('system.update_copied') : i18next.t('system.update_copy_failed'), copied ? 'success' : 'error');
         }
 
         async function openSoftwareUpdateSsh() {
@@ -2908,7 +2936,7 @@ ${pythonCode}`;
 
                 if (remaining > 0) {
                     setBlocklyHandover(
-                        `Blockly finished. <strong>Returning to teleoperation in <span style="font-size:1.35em;">${remaining}</span> s</strong>.`,
+                        i18next.t('blockly.handover_countdown', { seconds: remaining }),
                         { cancellable: true }
                     );
                     return;
@@ -2916,7 +2944,7 @@ ${pythonCode}`;
 
                 stopBlocklyResumeCountdown();
                 setBlocklyHandover(
-                    '<strong>Reconnecting teleoperation…</strong> Waiting for the leader/follower connection.',
+                    i18next.t('blockly.handover_reconnecting'),
                     { cancellable: false }
                 );
                 waitForTeleoperationResume();
@@ -2934,7 +2962,7 @@ ${pythonCode}`;
 
                     if (status.teleoperation_running) {
                         setBlocklyHandover(
-                            '<strong>✅ Teleoperation active.</strong> The leader has control again.',
+                            i18next.t('blockly.handover_active'),
                             { success: true, cancellable: false }
                         );
                         setTimeout(() => setBlocklyHandover('', { hide: true }), 4000);
@@ -2951,7 +2979,7 @@ ${pythonCode}`;
                             ? ` <span style="font-size:0.95em;">${status.resume_error}</span>`
                             : '';
                         setBlocklyHandover(
-                            `<strong>❌ Teleoperation is still stopped.</strong>${reason} Open the Teleoperation tab or System Log for details.`,
+                            i18next.t('blockly.handover_failed', { reason }),
                             { cancellable: false }
                         );
                         return;
@@ -2963,7 +2991,7 @@ ${pythonCode}`;
             }
 
             setBlocklyHandover(
-                '<strong>Teleoperation reconnect is taking longer than expected.</strong> Check Teleoperation status or the system log.',
+                i18next.t('blockly.handover_slow'),
                 { cancellable: false }
             );
         }
@@ -2991,7 +3019,7 @@ ${pythonCode}`;
 
                 stopBlocklyResumeCountdown();
                 setBlocklyHandover(
-                    '<strong>⏹ Teleoperation will remain stopped.</strong> Start it manually when you are ready.',
+                    i18next.t('blockly.handover_cancelled'),
                     { cancellable: false }
                 );
             } catch (error) {
@@ -3022,7 +3050,7 @@ ${code}`;
             if (runBtn) runBtn.disabled = true;
             stopBlocklyResumeCountdown();
             setBlocklyHandover(
-                '<strong>🧩 Blockly is taking control of the follower.</strong> Teleoperation is temporarily unavailable while the program runs and will return automatically a few seconds after it finishes.',
+                i18next.t('blockly.handover_running'),
                 { cancellable: false }
             );
 
