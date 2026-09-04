@@ -2916,8 +2916,11 @@ ${pythonCode}`;
                     }
 
                     if (!status.resume_pending && !status.teleoperation_running) {
+                        const reason = status.resume_error
+                            ? ` <span style="font-size:0.95em;">${status.resume_error}</span>`
+                            : '';
                         setBlocklyHandover(
-                            '<strong>Teleoperation is stopped.</strong> It did not resume automatically.',
+                            `<strong>❌ Teleoperation is still stopped.</strong>${reason} Open the Teleoperation tab or System Log for details.`,
                             { cancellable: false }
                         );
                         return;
