@@ -31,10 +31,11 @@ Verbind met `LeRobot-AP`, open `http://192.168.4.1/` en ga naar **Advanced -> Ne
 
 ## 3. Robot login / SSH
 
-Wanneer Linux of SSH om het loginwachtwoord vraagt, gebruik:
+Voor Linux of SSH gebruik je:
 
 ```text
-lerobotlogin
+Loginnaam:  lerobot
+Wachtwoord: lerobotlogin
 ```
 
 Browser-SSH:
@@ -52,7 +53,8 @@ Het **Setup WiFi-wachtwoord** (`robotics123`) en het **Linux/SSH-loginwachtwoord
 | Bluetooth-naam | `LeRobot-F686` | Robot herkennen en IP-adres opvragen |
 | Setup WiFi | `LeRobot-AP` | Tijdelijk netwerk als normaal netwerk ontbreekt |
 | Setup WiFi-wachtwoord | `robotics123` | Verbinden met `LeRobot-AP` |
-| Linux / SSH loginwachtwoord | `lerobotlogin` | Inloggen op de robot |
+| Linux / SSH loginnaam | `lerobot` | Gebruikersnaam om in te loggen |
+| Linux / SSH wachtwoord | `lerobotlogin` | Wachtwoord om in te loggen |
 
 ## Update van een bestaande robot
 
