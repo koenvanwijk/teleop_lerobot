@@ -630,9 +630,9 @@ ssh pi@[PI_IP]
 Voeg toe aan `~/.bashrc` op je computer:
 ```bash
 alias lerobot="ssh pi@[PI_IP]"
-alias lerobot-web="open http://[PI_IP]:5000"  # macOS
+alias lerobot-web="open http://[PI_IP]"  # macOS
 # of
-alias lerobot-web="xdg-open http://[PI_IP]:5000"  # Linux
+alias lerobot-web="xdg-open http://[PI_IP]"  # Linux
 ```
 
 ### Statisch IP Adres
