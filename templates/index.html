@@ -1539,16 +1539,42 @@
             if (evalEl) evalEl.textContent = cmds.evalCmd;
         }
 
-        function copyCmd(elId) {
+        async function copyTextToClipboard(text) {
+            if (navigator.clipboard && typeof navigator.clipboard.writeText === 'function') {
+                try {
+                    await navigator.clipboard.writeText(text);
+                    return true;
+                } catch (error) {
+                    console.warn('Clipboard API unavailable/blocked, using fallback:', error);
+                }
+            }
+
+            const textarea = document.createElement('textarea');
+            textarea.value = text;
+            textarea.setAttribute('readonly', '');
+            textarea.style.position = 'fixed';
+            textarea.style.left = '-9999px';
+            textarea.style.top = '0';
+            document.body.appendChild(textarea);
+            textarea.focus();
+            textarea.select();
+
+            let copied = false;
+            try {
+                copied = document.execCommand('copy');
+            } catch (error) {
+                console.warn('Fallback copy failed:', error);
+            } finally {
+                document.body.removeChild(textarea);
+            }
+            return copied;
+        }
+
+        async function copyCmd(elId) {
             const el = document.getElementById(elId);
             if (!el) return;
-            const text = el.textContent;
-            navigator.clipboard.writeText(text).then(() => {
-                showStatus('Command copied to clipboard', 'success');
-            }).catch(err => {
-                console.error('Clipboard error:', err);
-                showStatus('Failed to copy command', 'error');
-            });
+            const copied = await copyTextToClipboard(el.textContent);
+            showStatus(copied ? 'Command copied to clipboard' : 'Failed to copy command', copied ? 'success' : 'error');
         }
         
         function updateDeviceInfo(role) {
@@ -2124,12 +2150,8 @@
                 await loadSoftwareUpdateStatus(false);
             }
             if (!softwareUpdateCommand) return;
-            try {
-                await navigator.clipboard.writeText(softwareUpdateCommand);
-                showStatus('Update command copied', 'success');
-            } catch (error) {
-                showStatus('Could not copy update command: ' + error, 'error');
-            }
+            const copied = await copyTextToClipboard(softwareUpdateCommand);
+            showStatus(copied ? 'Update command copied' : 'Could not copy update command', copied ? 'success' : 'error');
         }
 
         async function openSoftwareUpdateSsh() {
