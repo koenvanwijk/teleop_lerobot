@@ -48,12 +48,12 @@
   },
   "commands": {
     "title": "Commando-regel voorbeelden",
-    "description": "Deze commando's worden automatisch ingevuld op basis van je geselecteerde Leader en Follower. Gebruik de kopieer knoppen om in een terminal te plakken.",
-    "start_teleoperation": "Start Teleoperatie (CLI)",
-    "record_dataset": "Dataset Opnemen (CLI)",
-    "record_desc": "Neemt teleoperatie trajecten op naar een lokale map.",
-    "evaluate_replay": "Evalueren / Afspelen (CLI)",
-    "evaluate_desc": "Speelt een opgenomen traject af of evalueert een policy.",
+    "description": "Deze commando's worden automatisch ingevuld op basis van je geselecteerde Leader en Follower. Kopieer ze of open ze direct in de web-SSH-terminal.",
+    "start_teleoperation": "Start Teleoperatie (CLI, graden)",
+    "record_dataset": "Dataset Opnemen (CLI, graden)",
+    "record_desc": "Neemt teleoperatie-trajecten lokaal op met LeRobot 0.6.1; alle motorwaarden worden als graden opgeslagen.",
+    "evaluate_replay": "Policy Rollout (CLI, graden)",
+    "evaluate_desc": "Voert een getrainde policy uit op de geselecteerde robot via de graden-veilige LeRobot-wrapper.",
     "copy": "Kopiëren",
     "select_devices": "Selecteer apparaten hierboven om in te vullen..."
   },
