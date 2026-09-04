@@ -548,19 +548,21 @@
             <!-- Commands Sub-tab Content -->
             <div id="commands" class="subtab-content active">
                 <h3 data-i18n="commands.title">💻 Command-line examples</h3>
-                <p style="color:#666; margin: 10px 0 20px;" data-i18n="commands.description">These commands are auto-filled based on your selected Leader and Follower. Use the copy buttons to paste in a terminal.</p>
+                <p style="color:#666; margin: 10px 0 20px;" data-i18n="commands.description">These commands are auto-filled based on your selected Leader and Follower. Copy them or open them directly in the web SSH terminal.</p>
 
             <div class="status-card">
                 <h3 data-i18n="commands.start_teleoperation">Start Teleoperation (CLI)</h3>
                 <pre id="cmd-teleoperate" style="background:#f8f9fa; padding:12px; border-radius:8px; overflow-x:auto;" data-i18n="commands.select_devices"># Select devices above to populate…</pre>
                 <button class="btn btn-primary" onclick="copyCmd('cmd-teleoperate')" data-i18n="commands.copy">📋 Copy</button>
+                <button class="btn btn-success" onclick="openCmdInSsh('cmd-teleoperate')">💻 SSH</button>
             </div>
 
             <div class="status-card">
                 <h3 data-i18n="commands.record_dataset">Record Dataset (CLI)</h3>
-                <p style="color:#666; font-size:0.9em;" data-i18n="commands.record_desc">Records teleoperated trajectories to a local folder.</p>
+                <p style="color:#666; font-size:0.9em;" data-i18n="commands.record_desc">Records teleoperated trajectories locally using the LeRobot 0.4.3 dataset configuration.</p>
                 <pre id="cmd-record" style="background:#f8f9fa; padding:12px; border-radius:8px; overflow-x:auto;" data-i18n="commands.select_devices"># Select devices above to populate…</pre>
                 <button class="btn btn-primary" onclick="copyCmd('cmd-record')" data-i18n="commands.copy">📋 Copy</button>
+                <button class="btn btn-success" onclick="openCmdInSsh('cmd-record')">💻 SSH</button>
             </div>
 
             <div class="status-card">
@@ -568,6 +570,7 @@
                 <p style="color:#666; font-size:0.9em;" data-i18n="commands.evaluate_desc">Replays a recorded trajectory or evaluates a policy.</p>
                 <pre id="cmd-eval" style="background:#f8f9fa; padding:12px; border-radius:8px; overflow-x:auto;" data-i18n="commands.select_devices"># Select devices above to populate…</pre>
                 <button class="btn btn-primary" onclick="copyCmd('cmd-eval')" data-i18n="commands.copy">📋 Copy</button>
+                <button class="btn btn-success" onclick="openCmdInSsh('cmd-eval')">💻 SSH</button>
             </div>
             </div>
             <!-- End Commands Sub-tab -->
@@ -1496,10 +1499,6 @@
         // Commands helper (dynamic CLI)
         // ==============================
         function buildCmds(follower, leader) {
-            // Assumptions:
-            // - CLI tools: lerobot-teleoperate, lerobot-record, lerobot-eval
-            // - Types come from selection (usually base like 'so101') and must be suffixed correctly
-            // - IDs default to device id if available
             const baseFollowerType = follower.type || 'so101';
             const baseLeaderType = leader.type || 'so101';
             const fType = baseFollowerType.endsWith('_follower') ? baseFollowerType : `${baseFollowerType}_follower`;
@@ -1509,28 +1508,41 @@
             const fId = follower.id || 'default';
             const lId = leader.id || 'default';
 
-            const teleop = `lerobot-teleoperate \
-  --robot.type=${fType} \
-  --robot.port=${fPort} \
-  --robot.id=${fId} \
-  --teleop.type=${lType} \
-  --teleop.port=${lPort} \
-  --teleop.id=${lId}`;
+            const teleop = [
+                'lerobot-teleoperate \\',
+                `  --robot.type=${fType} \\`,
+                `  --robot.port=${fPort} \\`,
+                `  --robot.id=${fId} \\`,
+                `  --teleop.type=${lType} \\`,
+                `  --teleop.port=${lPort} \\`,
+                `  --teleop.id=${lId}`
+            ].join('\n');
 
-            const record = `lerobot-record \
-  --robot.type=${fType} \
-  --robot.port=${fPort} \
-  --robot.id=${fId} \
-  --teleop.type=${lType} \
-  --teleop.port=${lPort} \
-  --teleop.id=${lId} \
-  --output_dir=~/lerobot_datasets/session_$(date +%Y%m%d_%H%M%S)`;
+            // LeRobot 0.4.3 requires dataset.repo_id and dataset.single_task.
+            // Keep the actual data local by default; no Hugging Face upload.
+            const record = [
+                'SESSION=$(date +%Y%m%d_%H%M%S)',
+                'lerobot-record \\',
+                `  --robot.type=${fType} \\`,
+                `  --robot.port=${fPort} \\`,
+                `  --robot.id=${fId} \\`,
+                `  --teleop.type=${lType} \\`,
+                `  --teleop.port=${lPort} \\`,
+                `  --teleop.id=${lId} \\`,
+                '  --dataset.repo_id=local/session_$SESSION \\',
+                '  --dataset.root=$HOME/lerobot_datasets/session_$SESSION \\',
+                '  --dataset.single_task="Teleoperated recording" \\',
+                '  --dataset.num_episodes=10 \\',
+                '  --dataset.push_to_hub=false'
+            ].join('\n');
 
-            const evalCmd = `lerobot-eval \
-  --robot.type=${fType} \
-  --robot.port=${fPort} \
-  --robot.id=${fId} \
-  --policy_path=~/lerobot_models/latest.pt`;
+            const evalCmd = [
+                'lerobot-eval \\',
+                `  --robot.type=${fType} \\`,
+                `  --robot.port=${fPort} \\`,
+                `  --robot.id=${fId} \\`,
+                '  --policy_path=~/lerobot_models/latest.pt'
+            ].join('\n');
 
             return { teleop, record, evalCmd };
         }
@@ -1551,6 +1563,17 @@
             if (teleEl) teleEl.textContent = cmds.teleop;
             if (recEl) recEl.textContent = cmds.record;
             if (evalEl) evalEl.textContent = cmds.evalCmd;
+        }
+
+        function openCmdInSsh(elId) {
+            const el = document.getElementById(elId);
+            if (!el) return;
+            const command = el.textContent.trim();
+            if (!command || command.startsWith('#')) {
+                showStatus('Select Leader and Follower first', 'info');
+                return;
+            }
+            window.open('/ssh?command=' + encodeURIComponent(command), '_blank', 'noopener');
         }
 
         async function copyTextToClipboard(text) {
