@@ -70,7 +70,10 @@ class TeleoperationManager:
         self.robot_action_processor = None
         self.robot_observation_processor = None
         
-        init_logging()
+        # Preserve the webserver's handlers (GUI ring buffer/file/stdout). When
+        # this manager is used standalone, initialize LeRobot logging normally.
+        if not logging.getLogger().handlers:
+            init_logging()
         register_third_party_plugins()
     
     def start(self, robot_type: str, robot_port: str, robot_id: str, 
