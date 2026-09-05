@@ -1,9 +1,10 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# Fix Bluetooth WiFi provisioning on delivered robots.
-# Symptom: Bluetooth works and shows the old IP, but changing WiFi via BLE fails
-# because the service user is not allowed to modify NetworkManager connections.
+# Fix/check Bluetooth WiFi provisioning on delivered robots.
+# Symptom: Bluetooth works and shows the old IP, but changing WiFi via BLE gives
+# no visible new IP because NetworkManager rejected the WiFi change or because
+# the phone/browser did not show the BLE status characteristic clearly.
 
 if [[ "${EUID}" -ne 0 ]]; then
   echo "Run with sudo: sudo ./fix_ble_wifi_provisioning.sh" >&2
@@ -12,6 +13,7 @@ fi
 
 SERVICE="lerobot-webserver.service"
 RULE_FILE="/etc/polkit-1/rules.d/49-lerobot-networkmanager.rules"
+LOG_FILE="/tmp/lerobot-ble-wifi-check.txt"
 
 # Prefer the actual systemd service user. Fall back to the invoking user.
 SERVICE_USER=""
@@ -63,10 +65,43 @@ if systemctl is-enabled "$SERVICE" >/dev/null 2>&1 || systemctl is-active "$SERV
   systemctl restart "$SERVICE"
 fi
 
-echo ""
-echo "NetworkManager permissions for $SERVICE_USER:"
-su -s /bin/bash -c 'nmcli general permissions || true' "$SERVICE_USER"
+{
+  echo "=== LeRobot BLE WiFi provisioning check ==="
+  date -Is
+  echo "Service user: $SERVICE_USER"
+  echo ""
+  echo "--- systemd service ---"
+  systemctl status "$SERVICE" --no-pager || true
+  echo ""
+  echo "--- NetworkManager permissions as $SERVICE_USER ---"
+  su -s /bin/bash -c 'nmcli general permissions || true' "$SERVICE_USER"
+  echo ""
+  echo "--- Active NetworkManager connections ---"
+  nmcli -t -f NAME,TYPE,DEVICE con show --active || true
+  echo ""
+  echo "--- WiFi device status ---"
+  nmcli device status || true
+  echo ""
+  echo "--- Current IP addresses ---"
+  hostname -I || true
+  ip -br addr || true
+  echo ""
+  echo "--- Recent LeRobot logs ---"
+  journalctl -u "$SERVICE" -b -n 120 --no-pager || true
+} | tee "$LOG_FILE"
 
 echo ""
-echo "Done. Test from Bluetooth again: scan/select WiFi, enter password, connect, then read IP again."
-echo "If it still fails, collect logs with: journalctl -u lerobot-webserver.service -b -n 200 --no-pager"
+echo "Done. Diagnostic log saved to: $LOG_FILE"
+echo ""
+echo "Retest flow:"
+echo "  1. Open https://koenvanwijk.github.io/teleop_lerobot/ on Android/Chrome/Edge."
+echo "  2. Scan/select the robot."
+echo "  3. Scan WiFi, select SSID, enter password, press connect."
+echo "  4. Watch the status line. It should move through connecting -> connected:<ssid>."
+echo "  5. Read IP again; the link should become http://<new-ip>/ ."
+echo ""
+echo "If there is still no new IP, send the contents of: $LOG_FILE"
+echo "Also useful live commands:"
+echo "  journalctl -u lerobot-webserver.service -f"
+echo "  nmcli general permissions"
+echo "  nmcli device status"
