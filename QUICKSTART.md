@@ -46,56 +46,49 @@ http://<IP-adres>/ssh
 
 Het **Setup WiFi-wachtwoord** (`robotics123`) en het **Linux/SSH-loginwachtwoord** (`lerobotlogin`) zijn twee onafhankelijke wachtwoorden.
 
-## 4. Bluetooth kan IP lezen maar WiFi niet wijzigen
+## 4. Normale update / delivery-flow
 
-Symptoom: Bluetooth werkt, de robot is zichtbaar en het oude IP-adres wordt getoond, maar na het kiezen van een nieuw WiFi-netwerk verandert het IP-adres niet. Dan mist de service waarschijnlijk NetworkManager-rechten om WiFi-profielen te wijzigen.
-
-Voer op de robot eenmalig uit:
+Voor een geteste robot is de normale update simpel:
 
 ```bash
 cd ~/teleop_lerobot
 git switch main
 git pull --ff-only
-chmod +x fix_ble_wifi_provisioning.sh
-sudo ./fix_ble_wifi_provisioning.sh
+./install.sh
 sudo reboot
 ```
 
-Daarna opnieuw testen via Bluetooth: WiFi scannen, netwerk kiezen, wachtwoord invullen, verbinden en daarna het IP-adres opnieuw uitlezen.
+Na reboot hoort dit automatisch te gebeuren:
+
+```text
+webserver start op poort 80
+calibration is al door install.sh uit de repo naar de LeRobot-cache gezet
+teleoperation start automatisch als leader en follower beschikbaar zijn
+```
+
+Web-teleoperation mag nooit wachten op een terminalprompt zoals **Press ENTER to use provided calibration file**. De webserver gebruikt bestaande repo-calibration non-interactive. Als calibration ontbreekt of niet matcht, moet teleop zichtbaar falen in de UI/logs; hij mag niet verborgen op Enter wachten.
+
+## 5. Bluetooth kan IP lezen maar WiFi niet wijzigen
+
+Symptoom: Bluetooth werkt, de robot is zichtbaar en het oude IP-adres wordt getoond, maar na het kiezen van een nieuw WiFi-netwerk verandert het IP-adres niet. Dan mist de service waarschijnlijk NetworkManager-rechten om WiFi-profielen te wijzigen of de WiFi-switch faalde zonder duidelijke status.
+
+De normale oplossing is opnieuw de installer draaien:
+
+```bash
+cd ~/teleop_lerobot
+git switch main
+git pull --ff-only
+./install.sh
+sudo reboot
+```
+
+Daarna opnieuw testen via Bluetooth: WiFi scannen, netwerk kiezen, wachtwoord invullen, verbinden en daarna het IP-adres opnieuw uitlezen. Bij mislukken hoort de robot terug te vallen naar `LeRobot-AP` zodat hij headless bereikbaar blijft.
 
 Logs bij problemen:
 
 ```bash
 journalctl -u lerobot-webserver.service -b -n 200 --no-pager
 nmcli general permissions
-```
-
-## 5. Teleop opent calibratie of wacht op Enter
-
-Symptoom: de webinterface of auto-start probeert teleoperation te starten, maar LeRobot toont een calibratieprompt zoals: druk op Enter om de bestaande calibratie te gebruiken, of `c` om opnieuw te calibreren. Dat is normaal in een terminal, maar verkeerd voor een headless geleverde robot.
-
-Voer op de robot eenmalig uit:
-
-```bash
-cd ~/teleop_lerobot
-git switch main
-git pull --ff-only
-chmod +x fix_headless_delivery.sh
-sudo ./fix_headless_delivery.sh
-sudo reboot
-```
-
-Deze fix doet twee dingen:
-
-- teleoperation start niet meer automatisch bij boot, tenzij `LEROBOT_AUTOSTART_TELEOP=1` expliciet gezet is;
-- web-teleoperation gebruikt bestaande calibratie zonder interactieve Enter-prompt, of faalt zichtbaar in de logs/UI als calibratie ontbreekt.
-
-Controle bij problemen:
-
-```bash
-journalctl -u lerobot-webserver.service -b -n 200 --no-pager
-grep -n "LEROBOT_AUTOSTART_TELEOP\|_connect_device_non_interactive" webserver.py teleoperation_manager.py
-ls -R ~/.cache/huggingface/lerobot/calibration
 ```
 
 ## 6. Installatiehulp
@@ -120,19 +113,7 @@ docs/LeRobot-F686-Quick-Start.pdf
 | Linux / SSH loginnaam | `lerobot` | Gebruikersnaam om in te loggen |
 | Linux / SSH wachtwoord | `lerobotlogin` | Wachtwoord om in te loggen |
 
-## Update van een bestaande robot
-
-Voor een update haal je de laatste versie van `main` op, voer je de installer opnieuw uit en reboot je de robot:
-
-```bash
-cd ~/teleop_lerobot
-git switch main
-git pull --ff-only
-./install.sh
-sudo reboot
-```
-
-Na de reboot wordt de lokale webinterface automatisch gestart. Als de desktopbrowser niet automatisch opent, controleer:
+Als de desktopbrowser niet automatisch opent, controleer:
 
 ```bash
 cat ~/.local/state/lerobot-webui-autostart.log
