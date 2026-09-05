@@ -46,7 +46,31 @@ http://<IP-adres>/ssh
 
 Het **Setup WiFi-wachtwoord** (`robotics123`) en het **Linux/SSH-loginwachtwoord** (`lerobotlogin`) zijn twee onafhankelijke wachtwoorden.
 
-## 4. Installatiehulp
+## 4. Bluetooth kan IP lezen maar WiFi niet wijzigen
+
+Symptoom: Bluetooth werkt, de robot is zichtbaar en het oude IP-adres wordt getoond, maar na het kiezen van een nieuw WiFi-netwerk verandert het IP-adres niet. Dan mist de service waarschijnlijk NetworkManager-rechten om WiFi-profielen te wijzigen.
+
+Voer op de robot eenmalig uit:
+
+```bash
+cd ~/teleop_lerobot
+git switch main
+git pull --ff-only
+chmod +x fix_ble_wifi_provisioning.sh
+sudo ./fix_ble_wifi_provisioning.sh
+sudo reboot
+```
+
+Daarna opnieuw testen via Bluetooth: WiFi scannen, netwerk kiezen, wachtwoord invullen, verbinden en daarna het IP-adres opnieuw uitlezen.
+
+Logs bij problemen:
+
+```bash
+journalctl -u lerobot-webserver.service -b -n 200 --no-pager
+nmcli general permissions
+```
+
+## 5. Installatiehulp
 
 Voor installatiehulp, stappenplan en achtergrond:
 
