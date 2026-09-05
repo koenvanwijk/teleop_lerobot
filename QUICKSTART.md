@@ -46,6 +46,18 @@ http://<IP-adres>/ssh
 
 Het **Setup WiFi-wachtwoord** (`robotics123`) en het **Linux/SSH-loginwachtwoord** (`lerobotlogin`) zijn twee onafhankelijke wachtwoorden.
 
+## 4. Installatiehulp
+
+Voor installatiehulp, stappenplan en achtergrond:
+
+https://sites.google.com/view/teleop-lerobot
+
+De printable quick-start kaart staat in de repo als:
+
+```text
+docs/LeRobot-F686-Quick-Start.pdf
+```
+
 ## Begrippen niet door elkaar halen
 
 | Functie | Voorbeeld | Waarvoor |
