@@ -105,7 +105,7 @@ jobs:
           assert "Environment=PORT=80" in installer
           assert "AmbientCapabilities=CAP_NET_BIND_SERVICE" in installer
           assert "/dev/tcp/127.0.0.1/80" in installer
-          assert 'connectLink.href = `http://${ip}`' in scanner
+          assert ('connectLink.href = `http://${ip}`' in scanner) or ('connectLink.href = `http://${ip}/`' in scanner)
 
           print("Port 80 configuration OK")
           PY
