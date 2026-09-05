@@ -1,74 +1,90 @@
 %PDF-1.4
-%---- ReportLab Generated PDF document (opensource)
+% ASCII-safe PDF
 1 0 obj
-<<
-/F1 2 0 R /F2 3 0 R
->>
+<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>
 endobj
 2 0 obj
-<<
-/BaseFont /Helvetica /Encoding /WinAnsiEncoding /Name /F1 /Subtype /Type1 /Type /Font
->>
+<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica-Bold >>
 endobj
 3 0 obj
-<<
-/BaseFont /Helvetica-Bold /Encoding /WinAnsiEncoding /Name /F2 /Subtype /Type1 /Type /Font
->>
+<< /Length 3113 >>
+stream
+0.09 0.14 0.33 rg 40 735 515 70 re f
+1 1 1 rg BT /F2 26 Tf 60 780 Td (LeRobot-F686) Tj ET
+1 1 1 rg BT /F1 12 Tf 60 758 Td (Quick Start - verbinden, setup en login) Tj ET
+0.75 0.85 1 rg BT /F2 10 Tf 430 780 Td (ROBOT SETUP CARD) Tj ET
+0.94 0.97 1 rg 40 560 515 155 re f
+0.15 0.39 0.92 rg BT /F2 15 Tf 60 690 Td (1. Bluetooth - snelste manier om het IP-adres te vinden) Tj ET
+0 0 0 rg BT /F2 10 Tf 60 668 Td (Android / Chrome of Edge op laptop:) Tj ET
+0 0 0 rg BT /F1 10 Tf 245 668 Td (open de Bluetooth-scanner, kies LeRobot-F686) Tj ET
+0 0 0 rg BT /F1 10 Tf 60 652 Td (en lees het huidige IP-adres uit.) Tj ET
+0.15 0.39 0.92 rg BT /F2 10 Tf 60 628 Td (Scanner:) Tj ET
+0.15 0.39 0.92 rg BT /F1 10 Tf 115 628 Td (https://koenvanwijk.github.io/teleop_lerobot/) Tj ET
+0 0 0 rg BT /F2 11 Tf 60 605 Td (Open daarna:) Tj ET
+0 0 0 rg BT /F2 11 Tf 150 605 Td (http://<IP-adres>/) Tj ET
+1 1 1 rg 60 570 360 24 re f
+0.72 0.11 0.11 rg BT /F2 9 Tf 70 578 Td (iPhone: Web Bluetooth werkt niet in Safari. Gebruik WiFi/AP hieronder.) Tj ET
+1 1 1 rg 450 592 70 70 re f
+0 0 0 rg BT /F2 12 Tf 461 628 Td (SCAN) Tj ET
+0 0 0 rg BT /F2 8 Tf 455 612 Td (BLUETOOTH) Tj ET
+1 0.98 0.92 rg 40 420 515 120 re f
+0.71 0.33 0.04 rg BT /F2 14 Tf 60 515 Td (2. Geen netwerk? Gebruik het Setup Access Point) Tj ET
+1 1 1 rg 60 470 220 38 re f
+0 0 0 rg BT /F1 8 Tf 72 492 Td (WiFi netwerk \(SSID\)) Tj ET
+0 0 0 rg BT /F2 13 Tf 72 477 Td (LeRobot-AP) Tj ET
+1 1 1 rg 300 470 220 38 re f
+0 0 0 rg BT /F1 8 Tf 312 492 Td (Setup WiFi wachtwoord) Tj ET
+0 0 0 rg BT /F2 13 Tf 312 477 Td (robotics123) Tj ET
+0 0 0 rg BT /F1 10 Tf 60 445 Td (Verbind met LeRobot-AP en open http://192.168.4.1/.) Tj ET
+0 0 0 rg BT /F1 10 Tf 60 429 Td (Ga daarna naar Advanced - Network om normale WiFi te kiezen.) Tj ET
+0.94 0.99 0.96 rg 40 300 515 100 re f
+0.08 0.5 0.24 rg BT /F2 14 Tf 60 375 Td (3. Robot login / SSH) Tj ET
+1 1 1 rg 60 330 180 38 re f
+0 0 0 rg BT /F1 8 Tf 72 352 Td (Login-wachtwoord) Tj ET
+0 0 0 rg BT /F2 14 Tf 72 337 Td (lerobot) Tj ET
+0 0 0 rg BT /F2 10 Tf 270 350 Td (Browser-SSH: http://<IP-adres>/ssh) Tj ET
+0 0 0 rg BT /F1 10 Tf 270 332 Td (Dit staat los van het Setup WiFi-wachtwoord.) Tj ET
+1 0.95 0.95 rg 40 175 515 105 re f
+0.72 0.11 0.11 rg BT /F2 13 Tf 60 255 Td (Belangrijk: dit zijn drie verschillende dingen) Tj ET
+0 0 0 rg BT /F2 9 Tf 60 232 Td (Bluetooth-naam) Tj ET
+0 0 0 rg BT /F2 9 Tf 180 232 Td (LeRobot-F686) Tj ET
+0 0 0 rg BT /F1 9 Tf 340 232 Td (Robot herkennen / IP opvragen) Tj ET
+0 0 0 rg BT /F2 9 Tf 60 214 Td (Setup WiFi) Tj ET
+0 0 0 rg BT /F2 9 Tf 180 214 Td (LeRobot-AP + robotics123) Tj ET
+0 0 0 rg BT /F1 9 Tf 340 214 Td (Tijdelijk netwerk zonder normaal netwerk) Tj ET
+0 0 0 rg BT /F2 9 Tf 60 196 Td (Robot login) Tj ET
+0 0 0 rg BT /F2 9 Tf 180 196 Td (lerobot) Tj ET
+0 0 0 rg BT /F1 9 Tf 340 196 Td (Linux / SSH login) Tj ET
+0 0 0 rg BT /F2 9 Tf 60 178 Td (Webpoort) Tj ET
+0 0 0 rg BT /F2 9 Tf 180 178 Td (80) Tj ET
+0 0 0 rg BT /F1 9 Tf 340 178 Td (Geen :5000 meer nodig) Tj ET
+0.29 0.35 0.41 rg BT /F1 8 Tf 40 28 Td (Webpoort: 80 - Bluetooth is de voorkeursroute - iPhone: gebruik WiFi/AP of bekend IP-adres) Tj ET
+endstream
 endobj
 4 0 obj
-<<
-/Contents 8 0 R /MediaBox [ 0 0 595.2756 841.8898 ] /Parent 7 0 R /Resources <<
-/Font 1 0 R /ProcSet [ /PDF /Text /ImageB /ImageC /ImageI ]
->> /Rotate 0 /Trans <<
-
->> 
-  /Type /Page
->>
+<< /Type /Page /Parent 5 0 R /MediaBox [0 0 595 842] /Resources << /Font << /F1 1 0 R /F2 2 0 R >> >> /Contents 3 0 R >>
 endobj
 5 0 obj
-<<
-/PageMode /UseNone /Pages 7 0 R /Type /Catalog
->>
+<< /Type /Pages /Kids [4 0 R] /Count 1 >>
 endobj
 6 0 obj
-<<
-/Author (anonymous) /CreationDate (D:20260905063132+00'00') /Creator (anonymous) /Keywords () /ModDate (D:20260905063132+00'00') /Producer (ReportLab PDF Library - \(opensource\)) 
-  /Subject (unspecified) /Title (LeRobot-F686 Quick Start) /Trapped /False
->>
+<< /Type /Catalog /Pages 5 0 R >>
 endobj
 7 0 obj
-<<
-/Count 1 /Kids [ 4 0 R ] /Type /Pages
->>
-endobj
-8 0 obj
-<<
-/Filter [ /ASCII85Decode /FlateDecode ] /Length 9062
->>
-stream
-Gau14>E9cEObM]U=4EusLrHr4KZ,Pl>P8CX<a:c&^DJYZ1IY&s_eu2]8/hBk2mU'T7(.j:F%/f,YXg')<bH!8'+nC'dnppHrDOg;IJ'`k^409JrDR"O:%@ds;0QSQ]_kFm_omtDR]C`UMR)[HC7^<gD<B-BrL5J>dEd<VfO"2m=Z,Tn'P#UY__AR=]8ODhb,3L>DD1k#/Vh'2A#pbeKC!VggQp)tG`6`=3K.HH>[>;#>a<bleEL.#2H<c1$r^Hil;KR+e(>C!"97hjR&:JN??C<M2"`P3W9qa-m`.LDN"N`#eO>Gm1iK]T^DU9=DYV%??!Z5j]`.'1G/O<aKg+it;`'9CBa3p`NS!JSg5Sl+eC\?Qj5l/bmu$$$AbgWGC3T^=:W#$e^3KHHna`1ApJ*AX^TYfZYjF@;F-l=kZENTYE9[E%Ydo'a]XY`3h\T(GO3@OQAp_4-^Fel>q[`.RAR!sXhJBXRX-R6S=&"f02Dnc;cLXkl;g*Z^3fEiU2qZ[HI@]0OcTcjXe'$ai%kmtGH1?Z&5Q<Hf\[f*OmHo%NDQJTQ%@@$,s&Bl3D,9'6BbHEmcV^ukHYqZJ[Nk0=*pu!ZFtO6G`faqhZC^2*`h5HklUc&45-eK;e*Jd]jZI[&Y1[6$OtuF!Ie@+jbu%2Y$&i-.>VTi"S',ObCh5:)q;LTnicE1oM\itLa4<>heT'1Of..1%qen)2+P9GuBa\a>LH4,S\i]9N:ekZq2N6ddAnhi<?'iP)[i^q5h<t9^"F%=\DX["[in`^>Zg<V+]AdG507J<JjRRW3g_KN1*tN\A"Ap2BDfaPHh([Rboj'<EF4lO??eFq.[0\[=ZX4(2TWtB'5&!JqgN":2=^u:NAeV&[:1[?_g3ffum+P4(mpqIIHYpLGBE<SukE+9(f&eZaokh&rb\;JeD9ZZsZYGZccs'ba.7eODX0cKH1^A(fg"(e!h)ZFZdH92Zq=`M^R^@!u2MWX(\'_A5g:jtcU^)f"j_1>_@r37+;4F`mT%`ak`-,k>C/)GT+%D0Xh5GTi@,VL=L+`ZfBkPfT)nqt]jpQb-XB9563Fok^Cn5Z+%2oTb$#Ee#<guHdHeaV7]nP?')k,jb(7OU5b-J17L,b&A`).d'MM<K,)D^J(U-D"$iGpdB='nTKA4t<H/P"9,<Q_mbqPIpsQD78-73h#;'JZ5T#l,/Da&'="@@D5:m9hD(7UTXBJV@_r)l=3L'P!BP!jf\Z%%Ib]$7pc\B;;sK=@edbTj<5'GQelJj_W#)mr@RCcKEY-*]sQ@qA!,rQa<AmJVAP5)]:tM;$^#Wo7aus(S$K3ce6[V^`oK\/:>:en:eZp(BOtOE&N*[pDCX.VQq43XZ0Baf;-90+YU(HYJPUBUTgnDcGlPX@D0eq=O\r)$iMQVlW7Jf*F[2Z4%!0*3hHe.rnL"/4o,Ma#@@N)fZR,So+=eYJtk"&776)TKkqVF<P3j.0GdRLS"_'ENd?Dsd4bVli<,,:ZQ"oKiX;[iHi`nb0;/="L83_q8*I?4kGC=J5U1f#2T.2O#iLrlj=RTBJ1)rOc<1i3$4AcuX<.oT(.F>%_E3,u,1tN/=>a9U/$KUP"ZF>rER7hO=(%_/cA$cO(AakD<`B>UoZPq7RD;.%!fIW7fuE`&R'l6LO;:qdC!K28(0JLhc:1@dH@Ue)\[4-PHr961Lr-_V'\9ZEYgBtu]%.VIWts!80,3"'(56lA#qUHIY_^%$lb3p4BMr9PGYhMG*e\qLrMCt/o/RKg^OUXH0;+n=3/YAcd?$@YTlQ/[j;di:OXM,ZNe"u,*;(M2US2Ud6J`CcF`S7KjVgBh9[C1<m3/^L`mtJJp6N#;NX77G*G869.]h50$L9R"^nTCZ=9s\cDoAID&@g=UIA3s%8cn>)+Ts^o]"fME#qWG9Yc%R^)o5BZi<t3j0.<=c6=Aa[cA$d.)f\Y]]nR8(e>3M1./=^^=(OV*BCgH5Qa78O"Vs/ZD!4Q#TcM9f#ub5o#!!VW<F?D;"W"KmB1%jalXqMp%@meVC<]94XI2\HN]g&CW(0D[Fn#g;CR:fX,=OtZ!pW'I5lE5YTIt5E6F@ee&-^SL!!2aJ5X7Kl$E+npUPR.rl;]:"$S%HS-u7RL.>fXW="F^E#:Y35.gdg9``Y]WL%TMR_KlrkYco`k1[bZ%bU]o(Yp_/nc<4ZjL%S&/@)Ke^$O[=n4T$%'UaOcX<lljCI)4LW3s#ds#V7_AB>[(<$P*OpHpQFZPFP(lUp.p)!Xl+</@<^U88J>8?O/3icIp9*!fJnRpGh_?H?)0=YMA%pJVDta(4P:[kZ;/S""9YXC4SgT(0Hf)S.2S./G.-=d'(5/<c]$("GQL^K#0jhI#juY3^(%)_E(1!eHOHT\q#*#k9r[.J@ZsR)Botof=6?WkiX?./ta90"k:6$;-6+L4d$2OT-cN)cNpK(i%`Y$b@YFq8mYmmL'$\gQEsFW.kKa-YT@Wb(0-1-6B%EDM$Y^i-Epf.-nGMCfoR*/@q9^dOK,@hkMZaUrGjf*ZbRbEF#NY@Y[/2g2Uf7Q,!ZMe[*I?\]:9=)$7n$U=]DU4M^Z\MI.fnZ\#:(jZh%>#Fqkcr(Kb@AZZn])@A.hh7a3'[coPaEW^1#)f/XeT>$t2:E&M15^j9RnY_^&a%BU!h@^Vjb`9QtgIa[:MdAS*GMEoE`ka\AEOt\_N]GuWE3==S?1h98,:a/CAF=E)GQ[hD+>V<1\.Quo8[%E(Q=HACBMeFKBO:5c3G6Jc:X0A1H("TE[JONO9=;R"564Um/,-+c/R;Jk8,H\2sNkdtCS4-g`=H?,_$V^u0578$)<2Q1FR&@/pD(7)a_:d2H^d@>gl^;$d;8k"94=%0#OMH/W+L%f)("Omi7qo7\kI*CCKqV)`U4Q?HY95ipBi8?48^<(93#gT1D![Y,H8\f+`*^6m&V'+e[/H3*01V/d3Jp)H;8d1+U=9lR7!+I+&0-BG-lOB98)XZ,B#1"4n-qn$eeM#2`k]tU%7_!t.2qp>.&%nU@4o,qm]Cq5%q0,84'E?L<?SNu0ST1g<+=I,Wj'4N$L=1YX@'(-HMTTnn)6q+)Nl@hNCaHrHRuC:W0,^iegRU))i99o.#W$hZ-Xb/6YDnuSI+Xd[n5p)F!Pq2gCuQQ0!K,E;HSFKWU+VL-p7UuV6deP_F"A4%rjKi,d?bAAWa)/2WCOJY3-[Z?0b1<ok-H$$iLD`oZPq7YJ@=6X2M.i<nZN[Dc<MdZBaLo;5fhV&2-I>]+g5Yc-c2@V4d.l!03d#<7(:dV4_cF7Dh))Kl8r.F@+Br-6.`U3!t.42!i1YA-],c0MGIV<?i9US.->C/.)d-AqbrS6F6fP,",h4E.N_]3?,isC]o-:KldJ6Koj):kBr>aZY:oDWKJ=h8utO&L%R.&YTCgget4QcXF!KH^$$87pl2W=+bb'@$S2W.L%T\nYjMmQonY6)n;tMuLBJCO=(/cR&m,k=N%M+'C])Q_iqPD.nK%'sqJu>^LZS[$\dG8%oeE:"LMqHf[_:Pd2V5psiX\!Fh7KN9]e4cDIUg.,05`H#hs]EOQ[ct=R6rRP+a%EgD^2,>r:GHk(=u3,h>EJKX39mRfmd5=h(3ch(Rch$]ucXR`mf/U9d]O1=R8K*\(feffN`?2/at@d+#`k)4p1A`qe67OR_`7SB.%*LSNGTj1k?I`HiL7Y\\EWDpYF;rDg0Cuj5p!`k*NR=S'CoVLKESLp[ipF?$>]:EP(Sdg-#=8X@kbej_,:N2X0dQ^V)a)c"?Zf^+fTdoQ/80^<hAhd/%0ab'#a$?YE@/L#UoWf31'MWu=@7(L>XX<I+Z.6X@0E($SZHYHrerZINd1o[O,"/E:h$HJW7$K.TRM(NJCgD9ZT9G]b+=ME1O[m6s7*_baQ<`)s+,?T]91B5hu*@m8;pCs;>pY.ic]Y?/j#4fl=RC(m4n>Q6RA"T>pJc,9K#H96EnVOfE4IMt$0n)jGjDS)F+]c!`NX\IW,rtT*HfBHMp1E@LDr>?'pWUuY-/`j2+\)gW@;rZ93IsYO=2eKGA[WlffqJs>"Ma&kup)c22Mna-.[!DN7H#^/FKl=/]I<d$A6S"/-b:R?o7i0mJG(#g'P(3G2<[1m5QWE/UH)hO9AZ\EUL5$kBPu76jefL`)d>K@*O'!$r`bNe'NV%Crem_%S)G)5X=/@YPm7r$SCGg^KXORTrU1&jb4W@PeOL6"C>dIHU\0G6!GPuKoTY3^;.1VW8Bs;@>]T[-75"%M+mq5"G7D-(s&#s<kVH\#m0)%pMrrEG%&H(P7gud;?eT,k84Pt"apRdF%CKHpE5&RorRRsQXTr.-,UK1Z81=K@EB"uO/DJdUlSX"4MelW76pN7Alb,QBOOkru*25LL.0fGK_X#@)!2J0!k=W&)YT3;ojQpuH54q\G46Wq@D(`!]"cUQJ7A.]&Fbp!X8.'DtsrF!$\he=naduL>N:nJ+Vh(Y.i`Q;UT0U)CJ(OuJ@M\eVWnaF5B6n3!'&9m?6e9n-M;7s!dqa&PRQ_nEA+"a@u?<cK$C?jQNS813!AnpU8>E6;<`p>1`An.;^5"7k50c"NH`j"ENoali'+k.3I%6:iHPjFo[XbH&F8_<O6B-WL:N.md2bjQs_mW\VK]tTMum/1-i6[L;\A$@qKlI4kFc2FQrDL_UBjb-^[eT<4T2HP*7UW6AC?d,,#;\.SgJYD_9B<);mWU.e(Bi-uAf$^XEG&=)8eT,Los(/puRBJg..MUXnrnZ]'E`eiq&p?Hr4%.t1Q/*KcGHDmtf!\o&+fh2Hdq5bDAPe[e0pZBLN$0Q,ZQ2BeoMECpg'Yu^Z2'cfnnd$VSo@Ui7Q0Y6j*W&?@O0-o(sB36`Zcf,eM2Y9AD%Z<c*Aed#Zo&P5?ojc6'Y%X;h)R%R\mLg&!'G_m8V,GW\',rGWYVOZ]j4'(]X=,npGSO9k^bhUi20rhjl)g"-042--a_q^uO4jQmK=]8m_jjNAXb:gA7Y.+[(7CZ4W")]d:LZ1biS[aR#BgS/AT'2V$PsiTe>7W%[9eTQM?R3^f0!:MUf*V=KPbLef0eR[@iU1iYm&Fhd/GX7_aAVU\ehk^LTZBj8'5QgYt7fqpX4II8X)0@`fuW)Ug8"7,4B2lijELZ?K;;\-l'ojB=-:o03j=!o5@C%c7:e70m#__EB;:Xc5uG]TaRoK[jtmkI*k5*DncLN<(_=D5K'SrKgMaOT<Lc.1i5KWF.1+0=&F<f^go[e#[J2^_'h5*b6+Ys"5qK>*Se",\mq9q#KSY&8%<k2aq^;W$qeTC/$D'8q"*HTZ:lGOr#*5Za5+d!r:]B)CPZ:[Ri,\9iFLH'r.2?""U243OE.r$9FKdq"siOJG6\3`Ek.X22gK[/\ehR[+2>R4h4O(s<OH`fNr295hkK%nOsqqO9#J2oAI8rG[pUS$>QX?^?M;dAjI^cOqs%Z:'YV/.lACd]$S:7XP\K,0!lo7#X4EeT'1Of?:kYV+%gBVcb)_bilY8Qpf`^n&D@gC9f@J+1ESLgY9pKc#WF7pAGer@p7hSG3PLIbskuK_R("W2lWIiDrU]t92(,5GurWV2:%gM2LUKmb23PAE@O,hP#sdXUbADTcoF6&81.o$9egRNY+)"?9[bOE0A^$"==`7k=^$RP2G,nb)OaDpS[8fRh5,>m[Hh"j1/E$2gR&m?D0]&PlmHYlRa`^oP15uX7^qYb;K&2Q8a-8e`7bu.K?/5%RRP_8?s@F3%E#YU$rirO"P/kt<O*5F#>mC#Ktqk4VkgNk;cm810bn:-4/S5*XKc^kB57lOFk'*#8=d)\#JM"J#Q(iQC:0]eYR'LqMkJAKd%nH\DG6Ht@\I.[KmkJ?AH7:8ecchX'Nf%3ZcEm`MJOH?a;1;*Ca$%(('4jO#qRh3B-RKa/2Dak_T#iD@:MA8fTAq8Z,"5r!Xfrg2JaqKYVB]F]*U%:Ktnm<#V<(!g$k*=_F"C:^?6`G84/mV^BlIh-EutYB>\Wh$bm!!r5LT#^\-iHOOJb`n=.;+h\=Z?-F!!/_ReV=f$bsY,J>P-qb:H]AI0dGX0=3`Km!1u/EEk9/mj<Tq$Pjlnf>lHefqMP69#tPmDdQV)$0DFMkUg^"VbG,W94HfKkrd7=[GBeIcDih^e)j!!pU)DUL>j:_I!udBiDEmZFb/Bc\>5FSAe&&E(V=%;\Hp9P3ZU/$AMJ.$):B2nXYc0pF$>4;%apY,]lgJaI\Pk4X3>dP_A0Jl&Vl)M;6"ia?5\ThP'$,R#6OcYcc:&m``+H;OtTiG63[fc<8ZNSB\oLSNb%OBjjM>&U4EoTgrKRpi&(,O2)s@:c@';JONTU=NEd9+U<Qeck9GkG0WQ>ibZONJOQ@H=Mu-'7^Nb0`#Gj"=K%_4IV?d.o(=!+YcH7W'\+^H6Y6\kdLfU-GRE^H)&1YSRD@fJS\hr^("O*KYY^b)]#k`<e!2&2:uk_R<IJ1b*n1qUK=\pG:`!5%C5'(LAk_Zs/$)6`c:13%=P/53Y_@UR.B'JT"_X=U[UP?Z&-5d=6bWW6Q=Z+TfoSBc3+sf%Ca_e]^#W*o"CH_6+t4IRL;G.5$S7MpYY[An6bWU0q$O4T)$1aT(Ka5!ZOt^k(:FeHlT)\cbVa.5Bn_7g"W$YD=F]t^fh?"J7?A3[.#5.&#(]4'(K`)@Z_8@iocP]V-jTOM76/_^PBuUP<=4ZBbLm/KPg+fJ^d;T6MdRm9ILm.E#^c[]q$JYS+(qA@'j0*T?r87l2P_t0#a,8T[Lc9fJkIk8;3doiLh7$G77Af4W-&4YFq\!(.iaP],-Z#@A[Cqr@/Vg:_BM#H/6pEP30Xb$SB9H'S%umX!fM`Nfl3h(_O1Jkc?t:tg*qFo=o5:d^nT=U=>+#@)tI!2Q`n8P&e\;;;IM]p.BFm?Kls@&/<Z+3\h+WID5"1?RgCW^Ts/DB6"e7im:[FuTDsucHm,_c=VMVm'%f'G#Um!4_SV`Cl_b;JKoIONfiVWFZRDnf(4co6$S:Yafs$s]qHJOY$Yp*NB-Dt_2*$R]mSQmNm2.jTs,<+6SYLF9Up,rl^d@;flNJ);1T:a517#^"@gO]&_-'"p.juA_YXjG;%0m1j>Tp=B=98j8EAeGq^`m1n/DS5k)9FK/I$aP`('4*G%7_WHE>02N.$=p)1S\q(.>=Pr,XXiU8<1QK'TLU0dE!XSKtKF'r'8X@2b2IUb%'L9QZK)'jGACRfbBDs_GMQjNZs6t'II4$Ace"0"<<+%3!s4q'Ua]>80/J)(sc'(J>;T673`[h'R&H6gP$$i9<"qmVs<WHN$;d?/7Q''_Cu$!)c/F+\%k>d!fOk=fr00!(:"ZW*<$*W.=ngf'*K)YPeb-u!XnaA2XDZmD@/!PPXiu/\sTi8^'Q@OX0<Yb3?&Q3@6NZYXN+QH72;u0*d%W%405Ym!=R'i><LOeC)G97Ynm`S$TSLZ)LM]&_,k&.paW?M?\O2["W$C"C]nL,og#X`E.u)R:`!4:C5)?=/$K;n!ZSQZfJW.)gD6sUb%^93<sYllh,.9u"\1qn!pdf`B/>eZ/6'VlUhtg>E]>#S=(%^WJb9_\YR'LqlR?.J6g4[<-*j2!OEt\FUH/>\+%T[F+a&?)Z4L-I"\0e?#V7Mpfdor-X?W4S=BJ+%;8-ubjbnZ+D4D%?#qR&AY],]>H9n[;E#WH-D$'$K76j_<4[tQVq?h<2-cm&<,me.hEe(JmR=P-R:gm44#V>NRB-UI`/<hck:`3mj:(&VK_m^I;]s]=d:"j4t'\;<Z_Ku,]=HEIh]>f=$7Jp4hGEB\QK/ag\6=E#Y.'/bI$L;t+@,8d/lHW@2GG`0mR0r9*<*7Hs$L9;[=L_IAf3BJt/5/00+rE_E$`rM+L%W?8_SR%Pc!2ErSq@.]M+(hr?\*oY"kH<pJISRd/>Oo&O=t6Dl6n3ZcLhbF*GdLj>>PZb`$2EV/=[.[#qS1aYj_g-Z`#L\M!CL!<#8A%S[0J2Jb9\,_BMkcXIfJ,(:N.;fKrt/WcL%N/*u^]NV3rEKnV#[(9ZS3\3aT^$A!m].%AaU!Xi'8/2E.!qKZ:Q,I7Y,Z3=kc>6ld].Bp%R^qrF.NGKcBI_69"'-:o2I]0XB#?+`L87:C"cA%)W(*4)j<+c7?^JQo4637O%E&O^PJV>a:)sK[sOY/U4qW7#^R]K1"g37fJ.!CuQ35BPK>$u"j"cadq;Da'B;8c@mU2o3@e4%ajNZ<`_3JoL_d82"B=GY=/=gdE7U\eOC!VI!RTH6B&e,uY"Y)dri$#9jG#?h.N(K*("[K>_oNI\SJ"k6g+TH:[)$H!4L>Do8TB*?`-)$+lt$E+nE5Ws%)e5$1"<4\?bC%iLY.@TMJ6o;<KphT.$[Q/2"nSN#Do)ATnI=HUS/XC79HB]uX2lZc<8RG<B.RTegrV996a&XqOm.P=<^YG)mG.T]B96mplp[mKXq6W&lIIaT_OnY(lk@:RGj"G[6d'QjPN*fAmVMp;-YLSk]9u0r_2$ILRI575>\eK!91*?AP%7Au0`HKBCGfJBL[lke$fQp>Zn^tl/)RldM=jId(b$(\;;"Qp@/'#_]VP4pF4L:%s\/SZmGPlE^e0_Q%LYb<$SLsgY*RoLS!NnS/dJ85Gn\*UoIX1frEO5O]?!K&_]+f1L2p96QHYC3"/@TON0DCOm?8N],3M2dp\RQ\9@uIJQ7/c=5>@2iYH<T&_T"NQkDJoF7(M^Q2[@$5S?g-,UmUk.e?+/K6onE;5H*M_rEI[drGt`E/D)G6<CqBFB>K3k\P53:K[]ATC=i^GO?>b5&?>`K196$;9m)`>A0s'7pfO%-=nGd]:9498F?LbM5ZkV*^jE:I5lsFV<f;?Q3WSP/arsPBH^WN9S"<0ZZWEn,.k(mAU.8O8_busa4^UY;PYc=V1jp_CZ76`FBc^NnJoQ,tW@X1AC;iPP60fmiom'_.Y_H+?]OQi#&Z!XcbS=7DlA'SO7Z)K999Q)ucQ7f(FPK^r:U@X]lq"uGcOj(iUQP%s7F_P83H\'MFXXDLSSZCJn`)(:</2\GoX1hk'm-jY[&,48@&aS.Ah/_(\,P0aW,'CGF[93@?0"a'tU\_*bSSr0&6u/ih:\RsMrSq>B<*]>C0E%/u~>endstream
+<< /Title (LeRobot-F686 Quick Start) /Producer (ChatGPT) >>
 endobj
 xref
-0 9
+0 8
 0000000000 65535 f 
-0000000061 00000 n 
-0000000102 00000 n 
-0000000209 00000 n 
-0000000321 00000 n 
-0000000524 00000 n 
-0000000592 00000 n 
-0000000869 00000 n 
-0000000928 00000 n 
+0000000026 00000 n 
+0000000096 00000 n 
+0000000171 00000 n 
+0000003336 00000 n 
+0000003472 00000 n 
+0000003529 00000 n 
+0000003578 00000 n 
 trailer
-<<
-/ID 
-[<ae7e1f0612662d9ad8db4cd2266f5f31><ae7e1f0612662d9ad8db4cd2266f5f31>]
-% ReportLab generated PDF document -- digest (opensource)
-
-/Info 6 0 R
-/Root 5 0 R
-/Size 9
->>
+<< /Size 8 /Root 6 0 R /Info 7 0 R >>
 startxref
-10081
+3653
 %%EOF
