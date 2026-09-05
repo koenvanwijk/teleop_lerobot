@@ -139,10 +139,11 @@ class TeleoperationManager:
             # Create processors (LeRobot's default processors)
             self.teleop_action_processor, self.robot_action_processor, self.robot_observation_processor = make_default_processors()
             
-            # Connect devices. In the web/server path this must never ask for
-            # keyboard input. If the repo calibration is present, LeRobot should
-            # use it non-interactively. If calibration is missing or mismatched,
-            # fail visibly instead of hanging on "Press ENTER...".
+            # Connect devices. Web/server boot must never ask for keyboard input.
+            # It may, however, heal one stable mismatch by writing the existing
+            # repo/cache calibration to Feetech registers, because LeRobot 0.6.1
+            # treats a transient register-read mismatch as "not calibrated" and
+            # would otherwise ask for ENTER in calibrate().
             self._connect_device_non_interactive(self.teleop, "teleoperator")
             self._connect_device_non_interactive(self.robot, "robot")
             
@@ -170,23 +171,112 @@ class TeleoperationManager:
             return False
 
     def _connect_device_non_interactive(self, device, label: str):
-        """Connect using existing calibration only; never open an interactive prompt.
+        """Connect with existing calibration only; never open an interactive prompt.
 
-        LeRobot's default connect() path can prompt:
-        "Press ENTER to use provided calibration file ... or type c ...".
-        That is acceptable in a terminal but fatal for a delivered headless robot.
-        The web UI must either connect with existing/applied calibration or fail visibly.
+        LeRobot's default connect(calibrate=True) path can call calibrate(), and
+        calibrate() prompts: "Press ENTER to use provided calibration file...".
+        That is fine in a terminal but fatal during headless delivery.
+
+        Delivery behavior implemented here:
+          1. connect(calibrate=False) with a few retries for cold-boot USB/bus timing;
+          2. verify calibration by reading the motor registers repeatedly;
+          3. on transient read errors, wait/retry instead of treating it as lost calibration;
+          4. if there is a stable register mismatch and a repo/cache calibration exists,
+             write that existing calibration to the Feetech registers once;
+          5. verify again; otherwise fail visibly in logs/UI.
         """
-        try:
-            return device.connect(calibrate=False)
-        except TypeError:
-            # Other/older device classes may not expose calibrate=. Fall back to
-            # connect(), but make the risk visible in the log.
-            logging.warning(
-                "%s connect() does not support calibrate=False; falling back to default connect()",
-                label,
+        last_error = None
+        for attempt in range(1, 4):
+            try:
+                try:
+                    device.connect(calibrate=False)
+                except TypeError:
+                    raise RuntimeError(
+                        f"{label} connect() does not support calibrate=False; refusing interactive connect()"
+                    )
+                break
+            except Exception as exc:
+                last_error = exc
+                logging.warning("%s non-interactive connect attempt %d/3 failed: %s", label, attempt, exc)
+                time.sleep(0.75 * attempt)
+        else:
+            raise RuntimeError(f"{label} failed to connect non-interactively: {last_error}")
+
+        self._ensure_existing_calibration_applied(device, label)
+
+    def _ensure_existing_calibration_applied(self, device, label: str) -> None:
+        """Verify and, if needed, apply the existing calibration non-interactively."""
+        bus = getattr(device, "bus", None)
+        calibration = getattr(device, "calibration", None)
+        device_id = getattr(device, "id", "unknown")
+
+        if bus is None:
+            logging.info("%s has no bus; skipping register-level calibration verification", label)
+            return
+
+        if not calibration:
+            raise RuntimeError(
+                f"{label} id={device_id} has no calibration file loaded; cannot start headless teleop"
             )
-            return device.connect()
+
+        if self._calibration_matches_with_retries(device, label, attempts=6, delay_s=0.35):
+            logging.info("%s id=%s calibration registers match existing file", label, device_id)
+            return
+
+        logging.warning(
+            "%s id=%s has a stable calibration register mismatch; applying existing repo/cache calibration once",
+            label,
+            device_id,
+        )
+        try:
+            bus.write_calibration(calibration)
+        except Exception as exc:
+            raise RuntimeError(f"{label} failed to write existing calibration to motor registers: {exc}") from exc
+
+        if not self._calibration_matches_with_retries(device, label, attempts=6, delay_s=0.35):
+            raise RuntimeError(
+                f"{label} id={device_id} calibration still mismatches after applying existing calibration"
+            )
+
+        logging.info("%s id=%s existing calibration applied and verified", label, device_id)
+
+    def _calibration_matches_with_retries(self, device, label: str, attempts: int, delay_s: float) -> bool:
+        """Read LeRobot's is_calibrated repeatedly to absorb cold-boot bus glitches."""
+        failures = []
+        false_count = 0
+        for attempt in range(1, attempts + 1):
+            try:
+                if bool(device.is_calibrated):
+                    if failures or false_count:
+                        logging.info(
+                            "%s calibration matched after %d attempt(s); transient bus mismatch/read issue recovered",
+                            label,
+                            attempt,
+                        )
+                    return True
+                false_count += 1
+                logging.warning(
+                    "%s calibration register mismatch on attempt %d/%d",
+                    label,
+                    attempt,
+                    attempts,
+                )
+            except Exception as exc:
+                failures.append(str(exc))
+                logging.warning(
+                    "%s calibration register read failed on attempt %d/%d: %s",
+                    label,
+                    attempt,
+                    attempts,
+                    exc,
+                )
+            time.sleep(delay_s)
+
+        if failures and false_count == 0:
+            raise RuntimeError(
+                f"{label} calibration registers could not be read reliably after {attempts} attempts: {failures[-1]}"
+            )
+        return False
     
     def _teleop_loop(self):
         """
