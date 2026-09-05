@@ -139,9 +139,12 @@ class TeleoperationManager:
             # Create processors (LeRobot's default processors)
             self.teleop_action_processor, self.robot_action_processor, self.robot_observation_processor = make_default_processors()
             
-            # Connect devices
-            self.teleop.connect()
-            self.robot.connect()
+            # Connect devices. In the web/server path this must never ask for
+            # keyboard input. If the repo calibration is present, LeRobot should
+            # use it non-interactively. If calibration is missing or mismatched,
+            # fail visibly instead of hanging on "Press ENTER...".
+            self._connect_device_non_interactive(self.teleop, "teleoperator")
+            self._connect_device_non_interactive(self.robot, "robot")
             
             self.fps = fps
             self.actual_fps = 0.0
@@ -165,6 +168,25 @@ class TeleoperationManager:
             logging.error(f"Failed to start teleoperation: {e}")
             self.stop(preserve_error=True)
             return False
+
+    def _connect_device_non_interactive(self, device, label: str):
+        """Connect using existing calibration only; never open an interactive prompt.
+
+        LeRobot's default connect() path can prompt:
+        "Press ENTER to use provided calibration file ... or type c ...".
+        That is acceptable in a terminal but fatal for a delivered headless robot.
+        The web UI must either connect with existing/applied calibration or fail visibly.
+        """
+        try:
+            return device.connect(calibrate=False)
+        except TypeError:
+            # Other/older device classes may not expose calibrate=. Fall back to
+            # connect(), but make the risk visible in the log.
+            logging.warning(
+                "%s connect() does not support calibrate=False; falling back to default connect()",
+                label,
+            )
+            return device.connect()
     
     def _teleop_loop(self):
         """
