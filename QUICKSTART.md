@@ -70,7 +70,35 @@ journalctl -u lerobot-webserver.service -b -n 200 --no-pager
 nmcli general permissions
 ```
 
-## 5. Installatiehulp
+## 5. Teleop opent calibratie of wacht op Enter
+
+Symptoom: de webinterface of auto-start probeert teleoperation te starten, maar LeRobot toont een calibratieprompt zoals: druk op Enter om de bestaande calibratie te gebruiken, of `c` om opnieuw te calibreren. Dat is normaal in een terminal, maar verkeerd voor een headless geleverde robot.
+
+Voer op de robot eenmalig uit:
+
+```bash
+cd ~/teleop_lerobot
+git switch main
+git pull --ff-only
+chmod +x fix_headless_delivery.sh
+sudo ./fix_headless_delivery.sh
+sudo reboot
+```
+
+Deze fix doet twee dingen:
+
+- teleoperation start niet meer automatisch bij boot, tenzij `LEROBOT_AUTOSTART_TELEOP=1` expliciet gezet is;
+- web-teleoperation gebruikt bestaande calibratie zonder interactieve Enter-prompt, of faalt zichtbaar in de logs/UI als calibratie ontbreekt.
+
+Controle bij problemen:
+
+```bash
+journalctl -u lerobot-webserver.service -b -n 200 --no-pager
+grep -n "LEROBOT_AUTOSTART_TELEOP\|_connect_device_non_interactive" webserver.py teleoperation_manager.py
+ls -R ~/.cache/huggingface/lerobot/calibration
+```
+
+## 6. Installatiehulp
 
 Voor installatiehulp, stappenplan en achtergrond:
 
