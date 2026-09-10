@@ -11,6 +11,7 @@ set -euo pipefail
 # - webserver starts on port 80 at reboot
 # - teleoperation auto-start remains enabled at reboot
 # - web teleop must never wait for an interactive calibration prompt
+# - optional robot identity, Linux login password and Tailscale onboarding
 
 # ========= Config =========
 CONDA_DIR="$HOME/miniconda3"
@@ -18,6 +19,7 @@ CONDA_ENV="lerobot"
 LEROBOT_VERSION="0.6.1"
 UDEV_RULE="/etc/udev/rules.d/99-usb-serial-aliases.rules"
 WEBSERVER_SERVICE="/etc/systemd/system/lerobot-webserver.service"
+IDENTITY_FILE="/etc/lerobot/identity.env"
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # ==========================
 
@@ -31,10 +33,27 @@ Normale update voor een geteste robot:
   ./install.sh
   sudo reboot
 
+Delivery/onboarding voorbeeld:
+  TAILSCALE_AUTH_KEY=tskey-auth-... ./install.sh \
+    --robot-name lerobot-f686 \
+    --tailscale \
+    --tailscale-tags tag:lerobot \
+    --set-login-password
+
 Opties:
-  --lerobot-src <pad>      Installeer lerobot vanuit lokale bron met pip install -e
-  --lerobot-git <url>      Clone lerobot uit Git en installeer editable
-  --lerobot-branch <naam>  Branch/tag voor --lerobot-git
+  --lerobot-src <pad>             Installeer lerobot vanuit lokale bron met pip install -e
+  --lerobot-git <url>             Clone lerobot uit Git en installeer editable
+  --lerobot-branch <naam>         Branch/tag voor --lerobot-git
+  --robot-name <naam>             Zet robot-identiteit/hostname, bijv. lerobot-f686
+  --login-user <naam>             Linux-user waarvan password gezet wordt; default: huidige user
+  --set-login-password            Vraag interactief om nieuw Linux-loginwachtwoord
+  --login-password <wachtwoord>   Zet Linux-loginwachtwoord non-interactive; liever env LEROBOT_LOGIN_PASSWORD
+  --tailscale                     Installeer/configureer Tailscale
+  --tailscale-auth-key <key>      Tailscale auth key; liever env TAILSCALE_AUTH_KEY of file
+  --tailscale-auth-key-file <pad> Lees Tailscale auth key uit bestand
+  --tailscale-tags <tags>         Comma-separated tags, default: tag:lerobot
+  --tailscale-ssh                 Zet Tailscale SSH aan bij tailscale up
+  --tailscale-shields-up          Blokkeer inkomend verkeer behalve Tailscale SSH/serve volgens Tailscale policy
 EOF
 }
 
@@ -43,14 +62,164 @@ EOF
 LEROBOT_SRC=""
 LEROBOT_GIT=""
 LEROBOT_BRANCH=""
+ROBOT_NAME="${LEROBOT_ROBOT_NAME:-}"
+LOGIN_USER="${LEROBOT_LOGIN_USER:-$USER}"
+LOGIN_PASSWORD="${LEROBOT_LOGIN_PASSWORD:-}"
+SET_LOGIN_PASSWORD=0
+INSTALL_TAILSCALE=0
+TAILSCALE_AUTH_KEY="${TAILSCALE_AUTH_KEY:-}"
+TAILSCALE_AUTH_KEY_FILE="${TAILSCALE_AUTH_KEY_FILE:-}"
+TAILSCALE_TAGS="${TAILSCALE_TAGS:-tag:lerobot}"
+TAILSCALE_ENABLE_SSH="${TAILSCALE_ENABLE_SSH:-0}"
+TAILSCALE_SHIELDS_UP="${TAILSCALE_SHIELDS_UP:-0}"
+
 while [[ $# -gt 0 ]]; do
   case "$1" in
     --lerobot-src) LEROBOT_SRC="$2"; shift 2 ;;
     --lerobot-git) LEROBOT_GIT="$2"; shift 2 ;;
     --lerobot-branch) LEROBOT_BRANCH="$2"; shift 2 ;;
+    --robot-name) ROBOT_NAME="$2"; shift 2 ;;
+    --login-user) LOGIN_USER="$2"; shift 2 ;;
+    --set-login-password) SET_LOGIN_PASSWORD=1; shift ;;
+    --login-password) LOGIN_PASSWORD="$2"; SET_LOGIN_PASSWORD=1; shift 2 ;;
+    --tailscale) INSTALL_TAILSCALE=1; shift ;;
+    --tailscale-auth-key) TAILSCALE_AUTH_KEY="$2"; INSTALL_TAILSCALE=1; shift 2 ;;
+    --tailscale-auth-key-file) TAILSCALE_AUTH_KEY_FILE="$2"; INSTALL_TAILSCALE=1; shift 2 ;;
+    --tailscale-tags) TAILSCALE_TAGS="$2"; INSTALL_TAILSCALE=1; shift 2 ;;
+    --tailscale-ssh) TAILSCALE_ENABLE_SSH=1; INSTALL_TAILSCALE=1; shift ;;
+    --tailscale-shields-up) TAILSCALE_SHIELDS_UP=1; INSTALL_TAILSCALE=1; shift ;;
     *) echo "Onbekende optie: $1"; usage; exit 1 ;;
   esac
 done
+
+truthy() {
+  case "${1,,}" in
+    1|true|yes|y|on) return 0 ;;
+    *) return 1 ;;
+  esac
+}
+
+sanitize_hostname() {
+  local raw="$1"
+  printf '%s' "$raw" \
+    | tr '[:upper:]' '[:lower:]' \
+    | sed -E 's/[^a-z0-9-]+/-/g; s/^-+//; s/-+$//; s/-+/-/g' \
+    | cut -c1-63
+}
+
+configure_robot_identity() {
+  if [[ -z "$ROBOT_NAME" ]]; then
+    return 0
+  fi
+
+  local safe_name
+  safe_name="$(sanitize_hostname "$ROBOT_NAME")"
+  if [[ -z "$safe_name" ]]; then
+    echo "❌ Ongeldige robotnaam: $ROBOT_NAME" >&2
+    exit 1
+  fi
+  ROBOT_NAME="$safe_name"
+
+  echo "🏷️  Configureer robot-identiteit: $ROBOT_NAME"
+  if command -v hostnamectl >/dev/null 2>&1; then
+    sudo hostnamectl set-hostname "$ROBOT_NAME" || true
+  fi
+  printf '%s\n' "$ROBOT_NAME" | sudo tee /etc/hostname >/dev/null
+
+  sudo mkdir -p "$(dirname "$IDENTITY_FILE")"
+  sudo tee "$IDENTITY_FILE" >/dev/null <<EOF
+LEROBOT_ROBOT_NAME=$ROBOT_NAME
+LEROBOT_LOGIN_USER=$LOGIN_USER
+LEROBOT_REPO=$SCRIPT_DIR
+EOF
+  sudo chmod 0644 "$IDENTITY_FILE"
+}
+
+configure_login_password() {
+  if [[ "$SET_LOGIN_PASSWORD" -ne 1 ]]; then
+    return 0
+  fi
+
+  if ! id "$LOGIN_USER" >/dev/null 2>&1; then
+    echo "❌ Linux-user bestaat niet: $LOGIN_USER" >&2
+    echo "   Maak de user eerst aan of run de installer als de juiste user." >&2
+    exit 1
+  fi
+
+  if [[ -z "$LOGIN_PASSWORD" ]]; then
+    if [[ -t 0 ]]; then
+      local pw1 pw2
+      read -r -s -p "Nieuw wachtwoord voor $LOGIN_USER: " pw1
+      echo
+      read -r -s -p "Herhaal wachtwoord voor $LOGIN_USER: " pw2
+      echo
+      if [[ "$pw1" != "$pw2" ]]; then
+        echo "❌ Wachtwoorden zijn niet gelijk" >&2
+        exit 1
+      fi
+      LOGIN_PASSWORD="$pw1"
+    else
+      echo "❌ Geen interactief terminal voor wachtwoord." >&2
+      echo "   Gebruik env LEROBOT_LOGIN_PASSWORD of --login-password." >&2
+      exit 1
+    fi
+  fi
+
+  if [[ ${#LOGIN_PASSWORD} -lt 8 ]]; then
+    echo "❌ Wachtwoord is te kort; gebruik minimaal 8 tekens" >&2
+    exit 1
+  fi
+
+  echo "🔐 Zet Linux-loginwachtwoord voor user: $LOGIN_USER"
+  printf '%s:%s\n' "$LOGIN_USER" "$LOGIN_PASSWORD" | sudo chpasswd
+  unset LOGIN_PASSWORD
+}
+
+install_and_configure_tailscale() {
+  if [[ "$INSTALL_TAILSCALE" -ne 1 ]]; then
+    return 0
+  fi
+
+  echo "🛜 Configureer Tailscale remote toegang…"
+  if ! command -v tailscale >/dev/null 2>&1; then
+    echo "⬇️  Installeer Tailscale…"
+    curl -fsSL https://tailscale.com/install.sh | sh
+  else
+    echo "✅ Tailscale al aanwezig"
+  fi
+
+  sudo systemctl enable --now tailscaled 2>/dev/null || true
+
+  if [[ -n "$TAILSCALE_AUTH_KEY_FILE" ]]; then
+    [[ -f "$TAILSCALE_AUTH_KEY_FILE" ]] || { echo "❌ Auth-key-file bestaat niet: $TAILSCALE_AUTH_KEY_FILE" >&2; exit 1; }
+    TAILSCALE_AUTH_KEY="$(sudo cat "$TAILSCALE_AUTH_KEY_FILE" 2>/dev/null || cat "$TAILSCALE_AUTH_KEY_FILE")"
+  fi
+  TAILSCALE_AUTH_KEY="$(printf '%s' "$TAILSCALE_AUTH_KEY" | tr -d '[:space:]')"
+
+  local ts_args=(up)
+  if [[ -n "$TAILSCALE_AUTH_KEY" ]]; then
+    ts_args+=("--auth-key=$TAILSCALE_AUTH_KEY")
+  fi
+  if [[ -n "$ROBOT_NAME" ]]; then
+    ts_args+=("--hostname=$ROBOT_NAME")
+  fi
+  if [[ -n "$TAILSCALE_TAGS" ]]; then
+    ts_args+=("--advertise-tags=$TAILSCALE_TAGS")
+  fi
+  if truthy "$TAILSCALE_ENABLE_SSH"; then
+    ts_args+=("--ssh")
+  fi
+  if truthy "$TAILSCALE_SHIELDS_UP"; then
+    ts_args+=("--shields-up")
+  fi
+
+  echo "🔗 tailscale up uitvoeren; auth key wordt niet gelogd."
+  sudo tailscale "${ts_args[@]}"
+
+  echo "✅ Tailscale status:"
+  sudo tailscale status || true
+  echo "Tailscale IPv4: $(tailscale ip -4 2>/dev/null || echo onbekend)"
+}
 
 ARCH="$(uname -m)"
 case "$ARCH" in
@@ -72,9 +241,14 @@ esac
 if command -v apt-get >/dev/null 2>&1; then
   echo "🔧 Controleer system packages…"
   sudo apt-get update -y
-  sudo apt-get install -y git curl bluetooth bluez openssh-client openssh-server
+  sudo apt-get install -y git curl zip bluetooth bluez openssh-client openssh-server
   sudo systemctl enable --now ssh 2>/dev/null || sudo systemctl enable --now sshd 2>/dev/null || true
 fi
+
+# ---- Identity/password/Tailscale onboarding ----
+configure_robot_identity
+configure_login_password
+install_and_configure_tailscale
 
 # ---- Conda ----
 if [[ -x "$CONDA_DIR/bin/conda" ]]; then
@@ -208,6 +382,7 @@ WEBSERVER_SCRIPT="$SCRIPT_DIR/webserver.py"
 CONDA_BIN="$CONDA_DIR/condabin/conda"
 [[ -f "$WEBSERVER_SCRIPT" ]] || { echo "❌ webserver.py ontbreekt" >&2; exit 1; }
 chmod +x "$WEBSERVER_SCRIPT"
+[[ -f "$SCRIPT_DIR/support_bundle.sh" ]] && chmod +x "$SCRIPT_DIR/support_bundle.sh" || true
 
 # Remove old @reboot cron entry to avoid duplicate webservers.
 if crontab -l 2>/dev/null | grep -qF "webserver"; then
@@ -321,9 +496,21 @@ echo "  2. Bluetooth IP/WiFi provisioning"
 echo "  3. AP fallback LeRobot-AP als geen netwerk bereikbaar is"
 echo "  4. teleoperation start automatisch als leader+follower aanwezig zijn"
 echo "  5. web teleop gebruikt bestaande repo-calibration zonder Enter-prompt"
+if [[ -n "$ROBOT_NAME" ]]; then
+  echo "  6. robot-identiteit/hostname: $ROBOT_NAME"
+fi
+if [[ "$INSTALL_TAILSCALE" -eq 1 ]]; then
+  echo "  7. Tailscale remote toegang geconfigureerd"
+fi
+echo ""
+echo "Support bundle maken:"
+echo "  ./support_bundle.sh"
 echo ""
 echo "Controle:"
 echo "  sudo systemctl status lerobot-webserver.service"
 echo "  journalctl -u lerobot-webserver.service -b -n 200 --no-pager"
 echo "  ls -R ~/.cache/huggingface/lerobot/calibration"
+if command -v tailscale >/dev/null 2>&1; then
+  echo "  tailscale status"
+fi
 echo ""
