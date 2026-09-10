@@ -3,127 +3,131 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>LeRobot QR Codes</title>
+    <title>LeRobot Setup QR</title>
     <style>
+        * { box-sizing: border-box; }
         body {
-            font-family: Arial, sans-serif;
-            max-width: 800px;
-            margin: 50px auto;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            max-width: 860px;
+            margin: 40px auto;
             padding: 20px;
             text-align: center;
+            color: #172033;
         }
+        h1 { color: #667eea; margin-bottom: 8px; }
+        .lead { color: #667085; margin: 0 0 28px; }
         .qr-section {
-            margin: 40px 0;
-            padding: 30px;
+            margin: 30px 0;
+            padding: 28px;
             border: 2px solid #667eea;
-            border-radius: 10px;
+            border-radius: 16px;
             background: #f8f9fa;
-        }
-        h1 {
-            color: #667eea;
-        }
-        h2 {
-            color: #333;
-            margin-bottom: 20px;
         }
         .qr-code {
             margin: 20px auto;
-            padding: 20px;
+            padding: 18px;
             background: white;
-            border-radius: 10px;
+            border-radius: 12px;
             display: inline-block;
+        }
+        .url {
+            font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+            overflow-wrap: anywhere;
+            font-size: 14px;
         }
         .instructions {
             text-align: left;
+            background: #f8fafc;
+            padding: 22px;
+            border-radius: 14px;
+            margin-top: 24px;
+        }
+        .platform {
+            margin: 14px 0;
+            padding: 14px;
+            border-left: 4px solid #667eea;
             background: white;
-            padding: 20px;
             border-radius: 8px;
-            margin-top: 20px;
+        }
+        .note {
+            margin-top: 18px;
+            padding: 14px;
+            background: #fff7ed;
+            border: 1px solid #fdba74;
+            border-radius: 10px;
+            color: #9a3412;
         }
         .print-button {
-            padding: 15px 30px;
+            padding: 14px 26px;
             background: #667eea;
             color: white;
             border: none;
-            border-radius: 8px;
+            border-radius: 10px;
             font-size: 16px;
+            font-weight: 700;
             cursor: pointer;
-            margin: 20px;
-        }
-        .print-button:hover {
-            background: #5568d3;
+            margin: 10px;
         }
         @media print {
-            .print-button, .instructions { display: none; }
-            .qr-section { page-break-after: always; }
+            .print-button { display: none; }
+            body { margin: 0; max-width: none; }
+            .instructions { break-inside: avoid; }
         }
     </style>
     <script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.3/build/qrcode.min.js"></script>
 </head>
 <body>
-    <h1>🤖 LeRobot QR Codes</h1>
-    <p>Scan deze QR codes om snel verbinding te maken met je robot</p>
+    <h1>🤖 LeRobot Setup</h1>
+    <p class="lead">Eén QR-code voor Android, desktop én iPhone/iPad.</p>
 
-    <button class="print-button" onclick="window.print()">🖨️ Print QR Codes</button>
+    <button class="print-button" onclick="window.print()">🖨️ Print setupkaart</button>
 
-    <div class="qr-section">
-        <h2>📡 Bluetooth Scanner</h2>
-        <p>Scan om het IP-adres te vinden via Bluetooth</p>
+    <section class="qr-section">
+        <h2>📡 Scan om de robot in te stellen</h2>
         <div class="qr-code">
-            <canvas id="qr-bluetooth"></canvas>
+            <canvas id="qr-setup"></canvas>
         </div>
-        <p><strong>URL:</strong> <span id="bluetooth-url"></span></p>
-    </div>
+        <p><strong>Setup URL</strong></p>
+        <p class="url" id="setup-url"></p>
+        <p>Vind de robot via Bluetooth, configureer WiFi en open daarna het lokale Control Center.</p>
+    </section>
 
-    <div class="qr-section">
-        <h2>🌐 Directe Verbinding (via IP)</h2>
-        <p>Werkt alleen als je het IP-adres kent</p>
-        <div class="qr-code">
-            <canvas id="qr-direct"></canvas>
+    <section class="instructions">
+        <h2>Gebruik</h2>
+
+        <div class="platform">
+            <strong>Android</strong><br>
+            Scan de QR-code → open in Chrome → tik op <b>Scan voor LeRobot</b> → stel WiFi in.
         </div>
-        <p><strong>URL:</strong> <span id="direct-url"></span></p>
-        <p><small>Vervang <code>&lt;IP&gt;</code> met je robot IP-adres</small></p>
-    </div>
 
-    <div class="instructions">
-        <h3>📱 Gebruik instructies:</h3>
-        <ol>
-            <li><strong>Print deze pagina</strong> met de QR codes</li>
-            <li><strong>Plak op de robot</strong> of houd bij de hand</li>
-            <li><strong>Scan met camera app</strong> op je telefoon</li>
-            <li><strong>Voor Bluetooth scanner:</strong>
-                <ul>
-                    <li>Scan de eerste QR code</li>
-                    <li>Klik op "Scan voor LeRobot"</li>
-                    <li>Selecteer je robot</li>
-                    <li>IP-adres wordt automatisch getoond</li>
-                </ul>
-            </li>
-        </ol>
-    </div>
+        <div class="platform">
+            <strong>iPhone / iPad</strong><br>
+            Scan de QR-code → de pagina opent in Safari → tik op <b>Open setup in Bluefy</b>.
+            Is Bluefy nog niet geïnstalleerd, installeer deze via de App Store en tik daarna opnieuw op
+            <b>Open setup in Bluefy</b>. Configureer vervolgens de robot via Bluetooth.
+        </div>
+
+        <div class="platform">
+            <strong>Desktop</strong><br>
+            Open de setup-URL in Chrome of Edge → tik op <b>Scan voor LeRobot</b>.
+        </div>
+
+        <div class="note">
+            <strong>Na de setup op iPhone:</strong>
+            Bluefy is alleen bedoeld voor Bluetooth/WiFi commissioning. Gebruik het LeRobot Control Center
+            daarna bij voorkeur in Safari. Als het Control Center vanuit Bluefy wordt geopend, verschijnt
+            automatisch een waarschuwing met een knop om het adres voor Safari te kopiëren.
+        </div>
+    </section>
 
     <script>
-        // Get current hostname or use placeholder
-        const hostname = window.location.hostname || 'localhost';
-        const port = window.location.port || '8000';
-        
-        // Generate QR code for Bluetooth scanner
-        const bluetoothUrl = `http://${hostname}:${port}/bluetooth`;
-        document.getElementById('bluetooth-url').textContent = bluetoothUrl;
-        QRCode.toCanvas(document.getElementById('qr-bluetooth'), bluetoothUrl, {
-            width: 300,
-            margin: 2,
-            color: {
-                dark: '#000000',
-                light: '#FFFFFF'
-            }
-        });
+        // Eén stabiele publieke URL voor alle platforms.
+        const setupUrl = 'https://koenvanwijk.github.io/teleop_lerobot/';
 
-        // Generate QR code for direct connection (placeholder)
-        const directUrl = `http://<IP>:8000`;
-        document.getElementById('direct-url').textContent = directUrl;
-        QRCode.toCanvas(document.getElementById('qr-direct'), directUrl, {
-            width: 300,
+        document.getElementById('setup-url').textContent = setupUrl;
+
+        QRCode.toCanvas(document.getElementById('qr-setup'), setupUrl, {
+            width: 320,
             margin: 2,
             color: {
                 dark: '#000000',
