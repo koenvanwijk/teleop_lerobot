@@ -173,6 +173,46 @@
       return {kind:'info', text:`📡 ${raw}`};
     }
 
+    async function bluetoothAvailability() {
+      if (!navigator.bluetooth || typeof navigator.bluetooth.getAvailability !== 'function') return null;
+      try {
+        return await navigator.bluetooth.getAvailability();
+      } catch (e) {
+        console.debug('Bluetooth availability check not available:', e);
+        return null;
+      }
+    }
+
+    async function ensureBluetoothAvailable() {
+      const available = await bluetoothAvailability();
+      if (available === false) {
+        show(statusBox, '⚠️ Bluetooth is niet beschikbaar. Zet Bluetooth aan en probeer opnieuw.', 'warn');
+        return false;
+      }
+      return true;
+    }
+
+    function showBluetoothError(error) {
+      const message = String(error?.message || error || '');
+      const lower = message.toLowerCase();
+
+      if (lower.includes('bluetooth adapter not available') ||
+          lower.includes('no bluetooth adapter') ||
+          lower.includes('bluetooth is turned off') ||
+          lower.includes('bluetooth is off')) {
+        show(statusBox, '⚠️ Bluetooth lijkt uit te staan of niet beschikbaar. Zet Bluetooth aan en probeer opnieuw.', 'warn');
+        return;
+      }
+
+      if (error?.name === 'NotFoundError' &&
+          (lower.includes('cancel') || lower.includes('chooser'))) {
+        show(statusBox, 'Geen robot gekozen. Tik opnieuw op “Scan voor LeRobot” om het nogmaals te proberen.', 'info');
+        return;
+      }
+
+      show(statusBox, `Bluetooth fout: ${message}`, 'err');
+    }
+
     async function getService() {
       if (!bleServer || !bleServer.connected) bleServer = await bleDevice.gatt.connect();
       if (!bleService) bleService = await bleServer.getPrimaryService(LEROBOT_SERVICE_UUID);
@@ -213,6 +253,7 @@
       }
       scanButton.disabled = true;
       try {
+        if (!await ensureBluetoothAvailable()) return;
         show(statusBox, 'Bluetooth scan gestart...', 'info');
         resultCard.classList.remove('show');
         bleService = null;
@@ -225,7 +266,7 @@
         if (ip) show(statusBox, `✅ IP gelezen: ${ip}`, 'ok');
         else show(statusBox, '⚠️ Geen IP gevonden. Stel WiFi in of gebruik LeRobot-AP.', 'warn');
       } catch (e) {
-        show(statusBox, `Bluetooth fout: ${e.message || e}`, 'err');
+        showBluetoothError(e);
       } finally {
         scanButton.disabled = false;
       }
@@ -319,6 +360,11 @@
       }
     } else {
       show(statusBox, 'Klik op “Scan voor LeRobot” om te beginnen.', 'info');
+      bluetoothAvailability().then(available => {
+        if (available === false) {
+          show(statusBox, '⚠️ Bluetooth is niet beschikbaar. Zet Bluetooth aan voordat je scant.', 'warn');
+        }
+      });
     }
   </script>
 </body>
