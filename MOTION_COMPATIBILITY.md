@@ -284,7 +284,58 @@ curl -s -X POST http://localhost:8010/api/motion/command \
 
 For a real Reachy Mini Wireless, set `REACHY_MINI_HOST` to its hostname/IP and `REACHY_MINI_CONNECTION_MODE=network`. The mapping profile and API do not change.
 
-The next increment is a leader-only source loop that reads a connected SO101 leader with `use_degrees=False` and streams these normalized values through this profile, so no SO101 follower is required.
+### Stream a physical SO101 leader directly to Reachy Mini
+
+Normal leader/follower teleoperation and leader-only source mode cannot own the same serial leader at the same time. Stop the normal teleoperation first.
+
+The leader-only source manager opens the SO101 leader with LeRobot `use_degrees=False`, so body joints are calibration-normalized to `[-100,100]` and the gripper uses `[0,100]`. Those are exactly the source ranges declared by the Reachy profile.
+
+Start Reachy Mini (or its simulator) on port 8000 and Teleopworks on port 8010. Then:
+
+```bash
+curl -s -X POST http://localhost:8010/api/motion/source/start \
+  -H 'Content-Type: application/json' \
+  -d '{
+    "profile_id": "MC-SO101-LEADER-REACHY-MINI-V1",
+    "port": "/dev/tty_leader",
+    "source_id": "black",
+    "fps": 50
+  }' | python -m json.tool
+```
+
+Use the actual leader ID that owns the calibration file on the laptop. The source manager fails closed if the calibration does not match the connected hardware.
+
+Status:
+
+```bash
+curl -s http://localhost:8010/api/motion/source/status | python -m json.tool
+```
+
+Stop:
+
+```bash
+curl -s -X POST http://localhost:8010/api/motion/source/stop | python -m json.tool
+```
+
+The live path is therefore:
+
+```text
+SO101 leader
+  ↓  LeRobot calibration normalization
+[-100,100] / gripper [0,100]
+  ↓
+MC-SO101-LEADER-REACHY-MINI-V1
+  ↓
+canonical expressive-head SI command
+  ↓
+pollen.reachy-mini.head-pose.v1
+  ↓
+Reachy Mini SDK set_target()
+  ↓
+Reachy daemon
+  ↓
+MuJoCo or physical Reachy Mini
+```
 
 ## Quest controller → SO101
 
