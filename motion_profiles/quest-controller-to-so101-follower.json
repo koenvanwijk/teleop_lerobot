@@ -1,0 +1,228 @@
+{
+  "compatibility_id": "MC-QUEST-CONTROLLER-SO101-FOLLOWER-V1",
+  "version": "1.0.0",
+  "lifecycle_status": "approved",
+  "compatibility_decision": "conditionally_compatible",
+  "conditions": [
+    "Reference profile maps Quest controller axes/triggers to absolute SO101 joint targets; it is an interoperability example, not an ergonomic production control profile.",
+    "Tracked 6D controller-pose retargeting requires a kinematics/retargeting provider and a separately validated Motion Compatibility Profile."
+  ],
+  "source": {
+    "endpoint_id": "quest-controller",
+    "endpoint_type": "quest_controller",
+    "role": "human_interface",
+    "capability_profile_ref": "teleopworks.quest-controller.v1",
+    "calibration_ref": "runtime-bound",
+    "input_schema_id": "teleopworks.quest.gamepad-normalized.v1",
+    "frame": "quest-controller-input"
+  },
+  "mapping": {
+    "kind": "affine_dof",
+    "mapping_id": "MAP-QUEST-AXES-TO-SO101-JOINTS-V1",
+    "version": "1.0.0",
+    "canonical_action_schema_id": "epaoa.robot-control.joint-position.v1",
+    "command_space": "JOINT",
+    "control_mode": "POSITION",
+    "semantics": "NORMALIZED_ABSOLUTE",
+    "canonical_frame": "robot-joint-space",
+    "dof_mappings": [
+      {
+        "source_dof": "left_stick_x",
+        "canonical_dof": "shoulder_pan",
+        "target_dof": "shoulder_pan",
+        "source_unit": "1",
+        "canonical_unit": "rad",
+        "target_unit": "deg",
+        "source_range": {
+          "minimum": -1,
+          "maximum": 1
+        },
+        "target_range": {
+          "minimum": -110,
+          "maximum": 110
+        },
+        "source_to_canonical": {
+          "kind": "affine",
+          "scale": 1.9198621771937625,
+          "offset": 0
+        },
+        "target_from_canonical": {
+          "kind": "affine",
+          "scale": 57.29577951308232,
+          "offset": 0
+        }
+      },
+      {
+        "source_dof": "left_stick_y",
+        "canonical_dof": "shoulder_lift",
+        "target_dof": "shoulder_lift",
+        "source_unit": "1",
+        "canonical_unit": "rad",
+        "target_unit": "deg",
+        "source_range": {
+          "minimum": -1,
+          "maximum": 1
+        },
+        "target_range": {
+          "minimum": -100,
+          "maximum": 100
+        },
+        "source_to_canonical": {
+          "kind": "affine",
+          "scale": 1.7453292519943295,
+          "offset": 0
+        },
+        "target_from_canonical": {
+          "kind": "affine",
+          "scale": 57.29577951308232,
+          "offset": 0
+        }
+      },
+      {
+        "source_dof": "right_stick_y",
+        "canonical_dof": "elbow_flex",
+        "target_dof": "elbow_flex",
+        "source_unit": "1",
+        "canonical_unit": "rad",
+        "target_unit": "deg",
+        "source_range": {
+          "minimum": -1,
+          "maximum": 1
+        },
+        "target_range": {
+          "minimum": -95,
+          "maximum": 95
+        },
+        "source_to_canonical": {
+          "kind": "affine",
+          "scale": 1.6580627893946132,
+          "offset": 0
+        },
+        "target_from_canonical": {
+          "kind": "affine",
+          "scale": 57.29577951308232,
+          "offset": 0
+        }
+      },
+      {
+        "source_dof": "left_trigger",
+        "canonical_dof": "wrist_flex",
+        "target_dof": "wrist_flex",
+        "source_unit": "1",
+        "canonical_unit": "rad",
+        "target_unit": "deg",
+        "source_range": {
+          "minimum": 0,
+          "maximum": 1
+        },
+        "target_range": {
+          "minimum": -95,
+          "maximum": 95
+        },
+        "source_to_canonical": {
+          "kind": "affine",
+          "scale": 3.3161255787892263,
+          "offset": -1.6580627893946132
+        },
+        "target_from_canonical": {
+          "kind": "affine",
+          "scale": 57.29577951308232,
+          "offset": 0
+        }
+      },
+      {
+        "source_dof": "right_stick_x",
+        "canonical_dof": "wrist_roll",
+        "target_dof": "wrist_roll",
+        "source_unit": "1",
+        "canonical_unit": "rad",
+        "target_unit": "deg",
+        "source_range": {
+          "minimum": -1,
+          "maximum": 1
+        },
+        "target_range": {
+          "minimum": -160,
+          "maximum": 160
+        },
+        "source_to_canonical": {
+          "kind": "affine",
+          "scale": 2.792526803190927,
+          "offset": 0
+        },
+        "target_from_canonical": {
+          "kind": "affine",
+          "scale": 57.29577951308232,
+          "offset": 0
+        }
+      },
+      {
+        "source_dof": "right_trigger",
+        "canonical_dof": "gripper",
+        "target_dof": "gripper",
+        "source_unit": "1",
+        "canonical_unit": "rad",
+        "target_unit": "deg",
+        "source_range": {
+          "minimum": 0,
+          "maximum": 1
+        },
+        "target_range": {
+          "minimum": -50,
+          "maximum": 50
+        },
+        "source_to_canonical": {
+          "kind": "affine",
+          "scale": 1.7453292519943295,
+          "offset": -0.8726646259971648
+        },
+        "target_from_canonical": {
+          "kind": "affine",
+          "scale": 57.29577951308232,
+          "offset": 0
+        }
+      }
+    ]
+  },
+  "target": {
+    "endpoint_id": "so101-follower",
+    "endpoint_type": "so101_follower",
+    "role": "teleoperation_follower",
+    "capability_profile_ref": "teleopworks.so101-follower.v1",
+    "calibration_ref": "runtime-bound",
+    "accepted_action_schema_id": "epaoa.robot-control.joint-position.v1",
+    "adapter_mapping_ref": "lerobot.so101-follower.degrees.v1",
+    "frame": "so101-follower-joint-space",
+    "required_dofs": [
+      "shoulder_pan",
+      "shoulder_lift",
+      "elbow_flex",
+      "wrist_flex",
+      "wrist_roll",
+      "gripper"
+    ]
+  },
+  "constraints": {
+    "missing_dof_behavior": "reject",
+    "out_of_range_behavior": "reject",
+    "stale_calibration_behavior": "reject"
+  },
+  "validation": {
+    "method": "reference_implementation",
+    "evidence_class": "E2",
+    "physical_validation": false
+  },
+  "evidence_refs": [
+    "teleop_lerobot/tests/test_motion_compatibility.py"
+  ],
+  "invalidation_triggers": [
+    "source_capability_change",
+    "source_calibration_change",
+    "target_capability_change",
+    "target_calibration_change",
+    "mapping_change",
+    "action_schema_change",
+    "frame_change",
+    "safety_profile_change"
+  ]
+}
