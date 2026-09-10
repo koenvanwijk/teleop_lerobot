@@ -10,6 +10,7 @@ source native                 canonical EPAOA                    target native
 SO101 leader (deg) ────────► joint position (rad) ────────────► SO101 follower (deg)
                          └──► joint position (rad) ────────────► URDF simulation (rad)
 
+SO101 normalized ───────────► expressive head SI semantics ────► Reachy Mini / MuJoCo
 Quest controls (0..1/-1..1) ► joint position (rad) ────────────► SO101 follower (deg)
 ```
 
@@ -21,6 +22,8 @@ Equal array lengths or equal motor names are never treated as proof of compatibi
 - `motion_profiles/so101-leader-to-so101-follower.json` — SO101 physical reference mapping.
 - `motion_profiles/so101-leader-to-urdf-simulation.json` — same source mapped to the browser URDF target.
 - `motion_profiles/quest-controller-to-so101-follower.json` — reference mapping from normalized Quest controller channels to SO101 joints.
+- `motion_profiles/so101-leader-to-reachy-mini.json` — heteromorphic mapping from a normalized SO101 leader to Reachy Mini expressive head/antenna motion.
+- `reachy_mini_target.py` — optional adapter for the official Reachy Mini SDK.
 - `tests/test_motion_compatibility.py` — executable E2 reference tests.
 
 The canonical EPAOA schema lives in the EPAOA repository as
@@ -193,6 +196,96 @@ and applies the target-native radians directly to the URDF joints.
 The sliders in simulation mode also use this path, making the browser itself a
 simple source for testing.
 
+## SO101 leader → Reachy Mini
+
+Reachy Mini is deliberately treated as a different robot morphology. The reference mapping does not pretend that SO101 arm joints and Reachy Mini joints are equivalent.
+
+The profile is:
+
+```text
+MC-SO101-LEADER-REACHY-MINI-V1
+```
+
+It expects the SO101 source in LeRobot normalized mode:
+
+```text
+shoulder_pan   [-100,100] → head yaw    [-60°,60°]
+shoulder_lift  [-100,100] → head pitch  [-35°,35°]
+elbow_flex     [-100,100] → head Z      [-20mm,20mm]
+wrist_flex     [-100,100] → head roll   [-30°,30°]
+wrist_roll     [-100,100] → right antenna [-45°,45°]
+gripper        [0,100]    → left antenna  [-45°,45°]
+```
+
+The canonical schema is provider-defined as
+`teleopworks.robot-control.expressive-head.v1`; all angular values are radians and translation is metres.
+
+The target adapter uses the official Reachy Mini SDK `set_target()` method with a 4×4 head pose and the antenna vector. This is suitable for a reactive control loop. Reachy Mini's own daemon remains responsible for its motor-level safety and hardware-specific limits.
+
+### Test first against Reachy Mini MuJoCo
+
+Install the optional SDK:
+
+```bash
+pip install reachy-mini
+```
+
+Terminal 1 — start the official Reachy Mini simulator/daemon:
+
+```bash
+reachy-mini-daemon --sim
+```
+
+The Reachy daemon normally listens on localhost port 8000.
+
+Terminal 2 — run Teleopworks on another port:
+
+```bash
+cd /home/kwijk/localdata/teleop_lerobot
+source .venv/bin/activate
+LEROBOT_SIMULATION_ONLY=1 PORT=8010 python webserver.py
+```
+
+Then send a neutral normalized SO101 pose:
+
+```bash
+curl -s -X POST http://localhost:8010/api/motion/command \
+  -H 'Content-Type: application/json' \
+  -d '{
+    "profile_id": "MC-SO101-LEADER-REACHY-MINI-V1",
+    "values": {
+      "shoulder_pan": 0,
+      "shoulder_lift": 0,
+      "elbow_flex": 0,
+      "wrist_flex": 0,
+      "wrist_roll": 0,
+      "gripper": 50
+    }
+  }' | python -m json.tool
+```
+
+Move the virtual Reachy head, for example:
+
+```bash
+curl -s -X POST http://localhost:8010/api/motion/command \
+  -H 'Content-Type: application/json' \
+  -d '{
+    "profile_id": "MC-SO101-LEADER-REACHY-MINI-V1",
+    "values": {
+      "shoulder_pan": 50,
+      "shoulder_lift": -30,
+      "elbow_flex": 25,
+      "wrist_flex": 20,
+      "wrist_roll": 40,
+      "gripper": 75
+    }
+  }' | python -m json.tool
+```
+
+For a real Reachy Mini Wireless, set `REACHY_MINI_HOST` to its hostname/IP and `REACHY_MINI_CONNECTION_MODE=network`. The mapping profile and API do not change.
+
+The next increment is a leader-only source loop that reads a connected SO101 leader with `use_degrees=False` and streams these normalized values through this profile, so no SO101 follower is required.
+
 ## Quest controller → SO101
 
 The current executable Quest profile is deliberately simple and explicit. It
@@ -253,6 +346,7 @@ implements:
 
 - `lerobot.so101-follower.degrees.v1`
 - `teleopworks.browser-urdf.v1`
+- `pollen.reachy-mini.head-pose.v1`
 
 A Jetson, different robot, MuJoCo/Isaac simulation or another hardware adapter
 can be added behind a new adapter mapping without changing existing sources.
