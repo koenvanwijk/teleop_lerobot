@@ -5,7 +5,6 @@
   "compatibility_decision": "compatible",
   "source": {
     "endpoint_id": "so101-leader",
-    "endpoint_type": "so101_leader",
     "role": "demonstration_leader",
     "capability_profile_ref": "teleopworks.so101-leader.v1",
     "calibration_ref": "runtime-bound",
@@ -13,7 +12,6 @@
     "frame": "so101-leader-joint-space"
   },
   "mapping": {
-    "kind": "affine_dof",
     "mapping_id": "MAP-SO101-DEG-TO-URDF-RAD-V1",
     "version": "1.0.0",
     "canonical_action_schema_id": "epaoa.robot-control.joint-position.v1",
@@ -38,12 +36,10 @@
           "maximum": 5.059862177193763
         },
         "source_to_canonical": {
-          "kind": "affine",
           "scale": 0.017453292519943295,
           "offset": 0
         },
         "target_from_canonical": {
-          "kind": "affine",
           "scale": 1,
           "offset": 3.1399999999999997
         }
@@ -64,12 +60,10 @@
           "maximum": 4.886124251994329
         },
         "source_to_canonical": {
-          "kind": "affine",
           "scale": 0.017453292519943295,
           "offset": 0
         },
         "target_from_canonical": {
-          "kind": "affine",
           "scale": 1,
           "offset": 3.140795
         }
@@ -90,12 +84,10 @@
           "maximum": 4.712387789394613
         },
         "source_to_canonical": {
-          "kind": "affine",
           "scale": 0.017453292519943295,
           "offset": 0
         },
         "target_from_canonical": {
-          "kind": "affine",
           "scale": 1,
           "offset": 3.054325
         }
@@ -116,12 +108,10 @@
           "maximum": 4.799652789394613
         },
         "source_to_canonical": {
-          "kind": "affine",
           "scale": 0.017453292519943295,
           "offset": 0
         },
         "target_from_canonical": {
-          "kind": "affine",
           "scale": 1,
           "offset": 3.14159
         }
@@ -142,12 +132,10 @@
           "maximum": 5.9827968031909275
         },
         "source_to_canonical": {
-          "kind": "affine",
           "scale": 0.017453292519943295,
           "offset": 0
         },
         "target_from_canonical": {
-          "kind": "affine",
           "scale": 1,
           "offset": 3.19027
         }
@@ -168,21 +156,19 @@
           "maximum": 4.886124625997165
         },
         "source_to_canonical": {
-          "kind": "affine",
           "scale": 0.017453292519943295,
           "offset": 0
         },
         "target_from_canonical": {
-          "kind": "affine",
           "scale": 1,
           "offset": 4.01346
         }
       }
-    ]
+    ],
+    "digest": "sha256:f46f1e74383bb1eb270ba77e8fae8bd00444eaa1ad8bf4de66073f38378af810"
   },
   "target": {
     "endpoint_id": "browser-urdf-simulation",
-    "endpoint_type": "urdf_simulation",
     "role": "robot_target",
     "capability_profile_ref": "teleopworks.so101-urdf-sim.v1",
     "calibration_ref": "static-urdf-v1",
@@ -204,9 +190,10 @@
     "stale_calibration_behavior": "reject"
   },
   "validation": {
-    "method": "reference_implementation",
-    "evidence_class": "E2",
-    "physical_validation": false
+    "validated_by": "Teleopworks reference implementation",
+    "validated_at": "2026-09-10T21:00:00Z",
+    "method": "ci_simulated",
+    "test_report_ref": "tests/test_motion_compatibility.py"
   },
   "evidence_refs": [
     "teleop_lerobot/tests/test_motion_compatibility.py"
@@ -219,5 +206,9 @@
     "mapping_change",
     "action_schema_change",
     "frame_change"
-  ]
+  ],
+  "reason_codes": [
+    "REFERENCE_MAPPING_VALIDATED"
+  ],
+  "valid_from": "2026-09-10T21:00:00Z"
 }
