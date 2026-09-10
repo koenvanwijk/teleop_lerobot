@@ -1,77 +1,90 @@
-# LeRobot Bluetooth Scanner
+# LeRobot Bluetooth & WiFi Setup
 
-Vind je LeRobot via Bluetooth en ontdek automatisch het IP-adres!
+Gebruik de publieke setup-pagina om een LeRobot via Bluetooth te vinden, WiFi in te stellen en daarna de lokale robotinterface te openen.
 
-## 🌐 Live Demo
+## 🌐 Setup
 
-**[Open Bluetooth Scanner](https://koenvanwijk.github.io/teleop_lerobot/)**
+**[Open LeRobot Setup](https://koenvanwijk.github.io/teleop_lerobot/)**
 
-Scan voor je LeRobot en krijg direct het IP-adres!
+Dezelfde URL en QR-code werken op Android, desktop en iPhone/iPad.
 
 ## 📱 Gebruik
 
-1. Open de scanner pagina in **Chrome, Edge of Opera** (Safari wordt niet ondersteund)
-2. Zorg dat Bluetooth aan staat op je apparaat
-3. Klik op "Scan voor LeRobot"
-4. Selecteer je robot in de popup
-5. Het IP-adres wordt automatisch getoond
-6. Klik op "Open Web Interface" om te verbinden
+### Android / Chrome
 
-## ✨ Features
+1. Open de setup-pagina in **Chrome**.
+2. Zorg dat Bluetooth aan staat.
+3. Tik op **Scan voor LeRobot**.
+4. Selecteer de robot.
+5. Scan indien nodig de beschikbare WiFi-netwerken.
+6. Kies het netwerk, vul het WiFi-wachtwoord in en verbind.
+7. Zodra de robot een IP-adres heeft, open je de robotinterface.
 
-- ✅ Web Bluetooth API integratie
-- ✅ Automatische IP detectie uit device naam
-- ✅ Direct link naar web interface
-- ✅ Mobiel-vriendelijk responsive design
-- ✅ Werkt volledig standalone (geen server nodig)
+### iPhone / iPad
 
-## 🔧 Lokaal gebruiken
+Safari ondersteunt geen Web Bluetooth. De setup-pagina herkent dit en gebruikt **Bluefy** voor alleen de Bluetooth/WiFi-setup.
 
-Je kunt de pagina ook lokaal openen:
+1. Scan de LeRobot QR-code met de Camera-app.
+2. De setup-pagina opent in Safari.
+3. Tik op **Open setup in Bluefy**.
+4. Als Bluefy nog niet is geïnstalleerd, word je naar de App Store geleid.
+5. Ga na installatie terug naar de setup-pagina en tik opnieuw op **Open setup in Bluefy**.
+6. Tik in Bluefy op **Scan voor LeRobot** en configureer WiFi.
+7. Open daarna de lokale **LeRobot Control Center**.
+8. Als het Control Center nog in Bluefy staat, verschijnt een waarschuwing. Gebruik voor normale robotbediening bij voorkeur Safari; de pagina kan het adres voor je kopiëren.
 
-```bash
-# Download de pagina
-wget https://raw.githubusercontent.com/koenvanwijk/teleop_lerobot/main/static/bluetooth_scan.html
+Bluefy is dus alleen een tijdelijke Web-Bluetooth-brug voor commissioning. De normale robotinterface is bedoeld voor Safari/Chrome/Edge.
 
-# Open in browser
-open bluetooth_scan.html  # macOS
-xdg-open bluetooth_scan.html  # Linux
-start bluetooth_scan.html  # Windows
+## 🖨️ QR-code
+
+**[Open / print de QR-pagina](https://koenvanwijk.github.io/teleop_lerobot/qr.html)**
+
+De hoofd-QR bevat deze universele setup-URL:
+
+```
+https://koenvanwijk.github.io/teleop_lerobot/
 ```
 
-Of integreer in je eigen webserver:
-```bash
-# Als onderdeel van LeRobot webserver
-http://localhost:8000/bluetooth
-```
+Gebruik dus **één QR-code op de robot**:
 
-## 🖨️ QR Code
+- Android → Chrome → Web Bluetooth.
+- iPhone/iPad → Safari landing → Bluefy.
+- Desktop → Chrome/Edge → Web Bluetooth.
 
-Print een QR code voor snelle toegang:
+Er is geen aparte iPhone-QR nodig.
 
-**[Genereer QR Code](https://koenvanwijk.github.io/teleop_lerobot/qr.html)**
+## ✨ Functionaliteit
 
-## 🤖 Setup Robot
+- ✅ Bluetooth discovery
+- ✅ IP-adres uitlezen via BLE
+- ✅ WiFi-netwerken laten scannen door de robot
+- ✅ WiFi SSID/wachtwoord via BLE configureren
+- ✅ Android Chrome / desktop Chrome & Edge
+- ✅ iPhone/iPad via Bluefy
+- ✅ Directe link naar de lokale robotinterface
+- ✅ Responsive setup-pagina
+- ✅ SoftAP blijft alleen beschikbaar als recovery
 
-De robot moet BLE advertising ingeschakeld hebben met IP in device naam:
+## Browserondersteuning
 
-1. Start de LeRobot webserver
-2. Ga naar Advanced → System
-3. Start de Bluetooth IP Service
-4. De robot is nu discoverable als "LeRobot-xxxx" (xxxx = MAC suffix). Het IP adres wordt via GATT characteristic uitgelezen.
+| Platform | Setup via BLE | Control Center |
+|---|---|---|
+| Android Chrome | ✅ Direct | ✅ Chrome |
+| Desktop Chrome / Edge | ✅ Direct | ✅ |
+| iPhone / iPad Safari | ❌ Web Bluetooth | ✅ Aanbevolen voor Control Center |
+| iPhone / iPad Bluefy | ✅ Setup | ⚠️ Alleen voor setup aanbevolen |
+| Firefox | ❌ Web Bluetooth | Niet primair ondersteund |
 
-## Browser Ondersteuning
+## 🔧 Robot
 
-| Browser | Ondersteuning |
-|---------|---------------|
-| Chrome  | ✅ Ja         |
-| Edge    | ✅ Ja         |
-| Opera   | ✅ Ja         |
-| Safari  | ❌ Nee        |
-| Firefox | ❌ Nee        |
+De robot gebruikt een custom BLE GATT service en adverteert als `LeRobot-...`. De setup-pagina leest het IP-adres en bevat characteristics voor WiFi-scan en WiFi-configuratie.
 
-Web Bluetooth API is alleen beschikbaar in Chromium-based browsers.
+Start de webserver; de Bluetooth-service wordt normaal automatisch gestart. Handmatig controleren kan via **Advanced → System** in het Control Center.
 
-## 📚 Documentatie
+## Recovery
 
-Zie [BLUETOOTH_README.md](BLUETOOTH_README.md) voor volledige documentatie over de Bluetooth service.
+Als Bluetooth/WiFi provisioning mislukt, blijft de bestaande **LeRobot-AP** route een recovery-optie. Dit is niet de normale onboarding-flow.
+
+## 📚 Technische documentatie
+
+Zie [BLUETOOTH_README.md](../BLUETOOTH_README.md) voor de GATT UUIDs, BlueZ-implementatie en troubleshooting.
