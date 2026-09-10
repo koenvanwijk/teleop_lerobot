@@ -165,7 +165,7 @@
         }
       }
     ],
-    "digest": "sha256:f46f1e74383bb1eb270ba77e8fae8bd00444eaa1ad8bf4de66073f38378af810"
+    "digest": "sha256:7a3d810e7ed15355d4a27754349d3a629fe40ec232ae38bf360b90b387757082"
   },
   "target": {
     "endpoint_id": "browser-urdf-simulation",
