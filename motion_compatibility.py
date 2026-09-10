@@ -102,6 +102,17 @@ def validate_profile(profile: Mapping[str, Any]) -> None:
         _require(source.get(field), f"source missing {field}")
     for field in ("endpoint_id", "role", "capability_profile_ref", "calibration_ref", "accepted_action_schema_id", "adapter_mapping_ref", "frame"):
         _require(target.get(field), f"target missing {field}")
+    _require(
+        target["accepted_action_schema_id"] == mapping["canonical_action_schema_id"],
+        "target does not accept the canonical action schema",
+    )
+
+    constraints = profile["constraints"]
+    _require(constraints.get("missing_dof_behavior") == "reject", "reference runtime only supports fail-closed missing DOFs")
+    _require(constraints.get("out_of_range_behavior") == "reject", "reference runtime only supports fail-closed range handling")
+    _require(constraints.get("stale_calibration_behavior") == "reject", "reference runtime requires stale calibration rejection")
+    if profile["compatibility_decision"] == "conditionally_compatible":
+        _require(bool(profile.get("conditions")), "conditional compatibility requires conditions")
 
     dofs = mapping.get("dof_mappings")
     _require(isinstance(dofs, list) and dofs, "dof_mappings must not be empty")
@@ -113,8 +124,23 @@ def validate_profile(profile: Mapping[str, Any]) -> None:
         _require(isinstance(item, Mapping), "DOF mapping must be an object")
         for field in ("source_dof", "canonical_dof", "target_dof", "source_unit", "canonical_unit", "target_unit", "source_to_canonical", "target_from_canonical"):
             _require(item.get(field) is not None, f"DOF mapping missing {field}")
-        _range(item, "source_range")
-        _range(item, "target_range")
+        source_min, source_max = _range(item, "source_range")
+        target_min, target_max = _range(item, "target_range")
+        for endpoint_value in (source_min, source_max):
+            canonical_value = _affine(
+                endpoint_value,
+                item["source_to_canonical"],
+                f"{item['source_dof']}.source_to_canonical",
+            )
+            target_value = _affine(
+                canonical_value,
+                item["target_from_canonical"],
+                f"{item['source_dof']}.target_from_canonical",
+            )
+            _require(
+                target_min <= target_value <= target_max,
+                f"declared mapping exceeds target range for {item['target_dof']}",
+            )
         _require(item["source_dof"] not in source_names, f"duplicate source DOF {item['source_dof']}")
         _require(item["canonical_dof"] not in canonical_names, f"duplicate canonical DOF {item['canonical_dof']}")
         _require(item["target_dof"] not in target_names, f"duplicate target DOF {item['target_dof']}")
