@@ -492,7 +492,8 @@ async def start_teleoperation() -> bool:
             teleop_type=teleop_type,
             teleop_port=state.leader_port,
             teleop_id=state.leader_id,
-            fps=60
+            fps=60,
+            motion_profile_id=os.getenv("LEROBOT_MOTION_PROFILE") or None,
         ):
             state.teleop_manager = teleop_manager
             state.teleop_mode = "teleoperation"
@@ -981,9 +982,14 @@ def _dispatch_resolved_motion(resolved: Dict[str, Any]) -> Dict[str, Any]:
             raise HTTPException(status_code=409, detail="SO101 follower teleoperation is not running")
         if not state.teleop_manager.apply_leader_positions(target_native):
             raise HTTPException(status_code=500, detail="Follower rejected resolved target command")
+        evidence = (
+            state.teleop_manager.get_motion_evidence()
+            if hasattr(state.teleop_manager, "get_motion_evidence") else {}
+        )
         return {
             "target": "so101_follower",
             "applied": True,
+            "runtime_evidence": evidence,
         }
 
     raise HTTPException(status_code=422, detail=f"Unsupported target adapter mapping: {adapter_ref}")
