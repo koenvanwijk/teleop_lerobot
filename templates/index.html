@@ -19,6 +19,29 @@
             min-height: 100vh;
             padding: 20px;
         }
+        .bluefy-warning {
+            display: none;
+            max-width: 1200px;
+            margin: 0 auto 16px;
+            padding: 14px 16px;
+            border-radius: 12px;
+            background: #fff7ed;
+            border: 1px solid #fdba74;
+            color: #9a3412;
+            line-height: 1.4;
+        }
+        .bluefy-warning strong { color: #7c2d12; }
+        .bluefy-warning-actions { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 10px; }
+        .bluefy-warning button {
+            border: 0;
+            border-radius: 8px;
+            padding: 9px 12px;
+            font-weight: 700;
+            cursor: pointer;
+        }
+        .bluefy-copy { background: #ea580c; color: #fff; }
+        .bluefy-dismiss { background: #ffedd5; color: #9a3412; }
+
         .container {
             max-width: 1200px;
             margin: 0 auto;
@@ -374,6 +397,15 @@
     </style>
 </head>
 <body>
+    <div id="bluefy-warning" class="bluefy-warning" role="status">
+        <strong>Gebruik Safari voor de robotbediening.</strong><br>
+        Bluefy is alleen bedoeld voor Bluetooth/WiFi-setup. Voor camera's, WebSocket, 3D/Blockly en teleoperation wordt Safari aanbevolen.
+        <div class="bluefy-warning-actions">
+            <button class="bluefy-copy" type="button" onclick="copyControlCenterAddress()">Kopieer adres voor Safari</button>
+            <button class="bluefy-dismiss" type="button" onclick="dismissBluefyWarning()">Sluiten</button>
+        </div>
+    </div>
+
     <div class="container">
         <!-- Header -->
         <div class="header">
@@ -1281,6 +1313,34 @@
 
             if (document.getElementById('robot-log-autoscroll')?.checked) {
                 consoleEl.scrollTop = consoleEl.scrollHeight;
+            }
+        }
+
+        function isIOSWebBluetoothBrowser() {
+            const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) ||
+                (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+            return isIOS && !!navigator.bluetooth;
+        }
+
+        function showBluefyWarningIfNeeded() {
+            if (!isIOSWebBluetoothBrowser()) return;
+            if (sessionStorage.getItem('dismissBluefyWarning') === '1') return;
+            const warning = document.getElementById('bluefy-warning');
+            if (warning) warning.style.display = 'block';
+        }
+
+        function dismissBluefyWarning() {
+            sessionStorage.setItem('dismissBluefyWarning', '1');
+            const warning = document.getElementById('bluefy-warning');
+            if (warning) warning.style.display = 'none';
+        }
+
+        async function copyControlCenterAddress() {
+            try {
+                await navigator.clipboard.writeText(window.location.href);
+                showStatus('Adres gekopieerd. Open Safari en plak het in de adresbalk.', 'success', 5000);
+            } catch (error) {
+                prompt('Kopieer dit adres en open het in Safari:', window.location.href);
             }
         }
 
@@ -3283,6 +3343,7 @@ ${code}`;
         }
         
         // Initialize
+        showBluefyWarningIfNeeded();
         setInterval(updateTeleopStatus, 1000);
         updateTeleopStatus();
     // Load available devices for selector on page load
