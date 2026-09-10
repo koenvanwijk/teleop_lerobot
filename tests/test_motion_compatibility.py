@@ -50,6 +50,7 @@ class MotionCompatibilityTests(unittest.TestCase):
             {
                 "MC-SO101-LEADER-SO101-FOLLOWER-V1",
                 "MC-SO101-LEADER-URDF-SIM-V1",
+                "MC-SO101-LEADER-REACHY-MINI-V1",
                 "MC-QUEST-CONTROLLER-SO101-FOLLOWER-V1",
             },
         )
