@@ -17,7 +17,7 @@ jobs:
         run: python -m py_compile webserver.py teleoperation_manager.py blockly_manager.py network_manager.py motion_compatibility.py
 
       - name: EPAOA motion compatibility tests
-        run: python -m unittest tests/test_motion_compatibility.py -v
+        run: python -m unittest tests/test_motion_compatibility.py tests/test_reachy_mini_target.py -v
       - name: WiFi parser smoke test
         run: |
           python - <<'PY'
