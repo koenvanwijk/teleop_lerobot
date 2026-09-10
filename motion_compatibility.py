@@ -50,7 +50,6 @@ def _range(entry: Mapping[str, Any], name: str) -> tuple[float, float]:
 
 
 def _affine(value: float, transform: Mapping[str, Any], label: str) -> float:
-    _require(transform.get("kind", "affine") == "affine", f"{label}: unsupported transform kind")
     scale = _finite(transform.get("scale"), f"{label}.scale")
     offset = _finite(transform.get("offset", 0.0), f"{label}.offset")
     result = value * scale + offset
@@ -83,7 +82,6 @@ def validate_profile(profile: Mapping[str, Any]) -> None:
     _require(isinstance(mapping, Mapping), "mapping must be an object")
     _require(isinstance(target, Mapping), "target must be an object")
 
-    _require(mapping.get("kind", "affine_dof") == "affine_dof", "mapping requires an unavailable adapter")
     _require(mapping.get("canonical_action_schema_id"), "canonical action schema missing")
     _require(mapping.get("command_space") in {"JOINT", "CARTESIAN", "TOOL", "MOBILE_BASE", "HYBRID", "DISCRETE"}, "invalid command space")
     _require(mapping.get("control_mode") in {"POSITION", "VELOCITY", "ACCELERATION", "EFFORT", "IMPEDANCE", "COMPLIANCE", "TRAJECTORY", "WAYPOINT", "SERVO", "DISCRETE_ACTION"}, "invalid control mode")
@@ -198,8 +196,9 @@ class MotionCompatibilityRegistry:
             result.append({
                 "compatibility_id": profile_id,
                 "version": profile["version"],
-                "source_type": profile["source"].get("endpoint_type"),
-                "target_type": profile["target"].get("endpoint_type"),
+                "source_role": profile["source"].get("role"),
+                "target_role": profile["target"].get("role"),
+                "target_adapter_mapping_ref": profile["target"].get("adapter_mapping_ref"),
                 "command_space": profile["mapping"].get("command_space"),
                 "control_mode": profile["mapping"].get("control_mode"),
                 "validation": profile.get("validation", {}),
