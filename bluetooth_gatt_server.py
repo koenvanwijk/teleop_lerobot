@@ -378,6 +378,7 @@ class LEAdvertisement(ServiceInterface):
         self.adv_type = adv_type
         self.service_uuids = [LEROBOT_SERVICE_UUID]
         self.local_name = "LeRobot"
+        self.tx_power = 0
         
     @dbus_property(PropertyAccess.READ)
     def Type(self) -> 's':
@@ -390,6 +391,14 @@ class LEAdvertisement(ServiceInterface):
     @dbus_property(PropertyAccess.READ)
     def LocalName(self) -> 's':
         return self.local_name
+
+    @dbus_property(PropertyAccess.READWRITE)
+    def TxPower(self) -> 'n':
+        return self.tx_power
+
+    @TxPower.setter
+    def TxPower(self, value: 'n'):
+        self.tx_power = value
     
     def update_name(self, name: str):
         """Update the advertised local name"""
