@@ -4,17 +4,23 @@
 
 De robot adverteert via Bluetooth als `LeRobot-XXXX`, waarbij `XXXX` de laatste vier tekens van het Bluetooth MAC-adres zijn.
 
-Open op Android, Chrome of Edge:
+Open de universele setup-pagina:
 
 https://koenvanwijk.github.io/teleop_lerobot/
 
-Selecteer de robot en lees het huidige IP-adres uit. Open daarna:
+- **Android:** open in Chrome en tik op **Scan voor LeRobot**.
+- **Desktop:** gebruik Chrome of Edge.
+- **iPhone/iPad:** de pagina opent eerst in Safari. Tik op **Open setup in Bluefy**. Als Bluefy nog niet is geïnstalleerd, installeer deze via de App Store, ga terug naar de setup-pagina en tik opnieuw op **Open setup in Bluefy**.
+
+De setup-pagina controleert waar mogelijk of Bluetooth beschikbaar is en meldt het als Bluetooth uit lijkt te staan.
+
+Selecteer de robot, configureer indien nodig WiFi via Bluetooth en lees daarna het huidige IP-adres uit. Open vervolgens:
 
 ```text
 http://<IP-adres>/
 ```
 
-> iPhone/iPad: Safari ondersteunt Web Bluetooth niet. Gebruik daar het Setup Access Point of een reeds bekend IP-adres.
+Op iPhone/iPad is Bluefy alleen bedoeld voor Bluetooth/WiFi-setup. Als het Control Center in Bluefy wordt geopend, verschijnt een waarschuwing om voor normale robotbediening Safari te gebruiken; het adres kan direct worden gekopieerd.
 
 ## 2. Geen netwerk? Gebruik het Setup Access Point
 
@@ -100,7 +106,7 @@ https://sites.google.com/view/teleop-lerobot
 De printable quick-start kaart staat in de repo als:
 
 ```text
-docs/LeRobot-F686-Quick-Start.pdf
+docs/LeRobot_Quick_Start.pdf
 ```
 
 ## Begrippen niet door elkaar halen
