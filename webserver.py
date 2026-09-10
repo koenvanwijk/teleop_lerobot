@@ -152,6 +152,13 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 
+def env_flag(name: str, default: bool = False) -> bool:
+    value = os.getenv(name)
+    if value is None:
+        return default
+    return value.strip().lower() in {"1", "true", "yes", "on"}
+
+
 # ============================================================================
 # Device Detection
 # ============================================================================
@@ -546,6 +553,11 @@ async def stop_teleoperation() -> bool:
 async def initialize_hardware_background():
     """Initialize cameras/network/robots after the web UI is already reachable."""
     try:
+        if env_flag("LEROBOT_SIMULATION_ONLY"):
+            logger.info("🧪 Simulation-only mode: skipping camera, NetworkManager, Bluetooth, Blockly hardware and teleoperation auto-start")
+            logger.info("✅ EPAOA Motion Compatibility and URDF simulation APIs remain available")
+            return
+
         # The HTTP/WebSocket server is already online. Give USB/network services
         # a moment to settle without delaying GUI availability.
         logger.info("⏳ Hardware initialization starts in background...")
@@ -709,7 +721,10 @@ async def lifespan(app: FastAPI):
     """Bring HTTP/WebSocket online immediately; initialize hardware in background."""
     logger.info("=" * 60)
     logger.info("🌐 LeRobot Teleoperation Server")
-    logger.info("✅ Web interface is available; hardware initialization continues in background")
+    if env_flag("LEROBOT_SIMULATION_ONLY"):
+        logger.info("🧪 Simulation-only mode enabled; hardware initialization is disabled")
+    else:
+        logger.info("✅ Web interface is available; hardware initialization continues in background")
     logger.info("=" * 60)
 
     initialization_task = asyncio.create_task(initialize_hardware_background())

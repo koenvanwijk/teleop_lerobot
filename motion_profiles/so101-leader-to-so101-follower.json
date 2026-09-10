@@ -4,8 +4,9 @@
   "lifecycle_status": "approved",
   "compatibility_decision": "conditionally_compatible",
   "conditions": [
-    "Reference mapping uses the current application's declared degree ranges.",
-    "Production use requires binding the active leader and follower calibration fingerprints to session evidence."
+    "Static ranges are reference placeholders; physical execution binds the exact active leader and follower calibration envelopes before motion.",
+    "The admitted source range is the per-DOF overlap between the active leader calibration and the target follower calibration.",
+    "Production use requires retaining the bound calibration fingerprints and resolved profile digest as session evidence."
   ],
   "source": {
     "endpoint_id": "so101-leader",

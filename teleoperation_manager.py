@@ -46,7 +46,12 @@ from lerobot.utils.robot_utils import precise_sleep
 from lerobot.utils.utils import init_logging
 from lerobot.scripts.lerobot_teleoperate import TeleoperateConfig
 
-from motion_compatibility import MotionCompatibilityRegistry, profile_digest
+from motion_compatibility import (
+    MotionCompatibilityRegistry,
+    bind_runtime_calibration,
+    profile_digest,
+    resolve_motion,
+)
 
 
 class TeleoperationManager:
@@ -65,8 +70,10 @@ class TeleoperationManager:
         self.current_canonical_action: Optional[Dict[str, float]] = None
         self.motion_registry: Optional[MotionCompatibilityRegistry] = None
         self.motion_profile_id: Optional[str] = None
+        self.motion_profile: Optional[Dict[str, Any]] = None
         self.motion_profile_digest: Optional[str] = None
         self.motion_mapping_id: Optional[str] = None
+        self.motion_admitted_ranges: Dict[str, Dict[str, float]] = {}
         self.lock = threading.Lock()
         self.fps = 60
         self.actual_fps = 0.0
@@ -146,24 +153,20 @@ class TeleoperationManager:
 
             self.motion_profile_id = motion_profile_id
             self.motion_registry = None
+            self.motion_profile = None
             self.motion_profile_digest = None
             self.motion_mapping_id = None
+            self.motion_admitted_ranges = {}
             if motion_profile_id:
                 self.motion_registry = MotionCompatibilityRegistry(Path(__file__).parent / "motion_profiles")
-                profile = self.motion_registry.get(motion_profile_id)
-                target_adapter = profile["target"]["adapter_mapping_ref"]
+                profile_template = self.motion_registry.get(motion_profile_id)
+                target_adapter = profile_template["target"]["adapter_mapping_ref"]
                 if target_adapter != "lerobot.so101-follower.degrees.v1":
                     raise RuntimeError(
                         f"Motion profile {motion_profile_id} targets {target_adapter}, "
                         "not the in-process SO101 follower"
                     )
-                self.motion_profile_digest = profile_digest(profile)
-                self.motion_mapping_id = profile["mapping"]["mapping_id"]
-                logging.info(
-                    "EPAOA motion compatibility enabled: profile=%s mapping=%s",
-                    motion_profile_id,
-                    self.motion_mapping_id,
-                )
+                self.motion_mapping_id = profile_template["mapping"]["mapping_id"]
 
             # This application deliberately exposes one unit only:
             # degrees for every motor, including the gripper.
@@ -182,6 +185,39 @@ class TeleoperationManager:
             # would otherwise ask for ENTER in calibrate().
             self._connect_device_non_interactive(self.teleop, "teleoperator")
             self._connect_device_non_interactive(self.robot, "robot")
+
+            if self.motion_profile_id and self.motion_registry is not None:
+                profile_template = self.motion_registry.get(self.motion_profile_id)
+                calibration_fingerprints = self.get_calibration_fingerprints()
+                source_ref = calibration_fingerprints.get("source")
+                target_ref = calibration_fingerprints.get("target")
+                if not source_ref or not target_ref:
+                    raise RuntimeError("Cannot bind motion compatibility without source and target calibration fingerprints")
+
+                source_ranges = self._device_degree_ranges(self.teleop)
+                target_ranges = self._device_degree_ranges(self.robot)
+                self.motion_profile = bind_runtime_calibration(
+                    profile_template,
+                    source_calibration_ref=source_ref,
+                    target_calibration_ref=target_ref,
+                    source_ranges=source_ranges,
+                    target_ranges=target_ranges,
+                )
+                self.motion_profile_digest = profile_digest(self.motion_profile)
+                self.motion_admitted_ranges = {
+                    item["source_dof"]: {
+                        "minimum": float(item["source_range"]["minimum"]),
+                        "maximum": float(item["source_range"]["maximum"]),
+                    }
+                    for item in self.motion_profile["mapping"]["dof_mappings"]
+                }
+                logging.info(
+                    "EPAOA motion compatibility enabled: profile=%s mapping=%s calibration-bound digest=%s",
+                    self.motion_profile_id,
+                    self.motion_mapping_id,
+                    self.motion_profile_digest,
+                )
+                logging.info("EPAOA admitted source ranges (deg): %s", self.motion_admitted_ranges)
             
             self.fps = fps
             self.actual_fps = 0.0
@@ -338,8 +374,8 @@ class TeleoperationManager:
                 # values are never treated as native target values by assumption.
                 action_for_robot = teleop_action
                 resolved_motion = None
-                if self.motion_registry is not None and self.motion_profile_id is not None:
-                    profile = self.motion_registry.get(self.motion_profile_id)
+                if self.motion_profile is not None and self.motion_profile_id is not None:
+                    profile = self.motion_profile
                     source_names = {
                         item["source_dof"]
                         for item in profile["mapping"]["dof_mappings"]
@@ -356,8 +392,8 @@ class TeleoperationManager:
                                 f"Non-numeric teleoperation value for {base}: {value!r}"
                             ) from exc
 
-                    resolved_motion = self.motion_registry.resolve(
-                        self.motion_profile_id,
+                    resolved_motion = resolve_motion(
+                        self.motion_profile,
                         source_values,
                     )
                     target_native = resolved_motion["target_native_command"]
@@ -456,6 +492,8 @@ class TeleoperationManager:
         self.current_observation = None
         self.current_action = None
         self.current_canonical_action = None
+        self.motion_profile = None
+        self.motion_admitted_ranges = {}
         
         if not preserve_error:
             self.connection_state = "stopped"
@@ -530,8 +568,42 @@ class TeleoperationManager:
             "motion_profile_id": self.motion_profile_id,
             "motion_profile_digest": self.motion_profile_digest,
             "motion_mapping_id": self.motion_mapping_id,
+            "motion_admitted_ranges": dict(self.motion_admitted_ranges),
             "calibration_fingerprints": self.get_calibration_fingerprints(),
         }
+
+    @staticmethod
+    def _device_degree_ranges(device: Any) -> Dict[str, tuple[float, float]]:
+        """Return the calibrated degree envelope used by LeRobot 0.6.1.
+
+        LeRobot's DEGREES normalization uses the calibration midpoint and motor
+        resolution. The valid calibrated envelope therefore depends on the
+        actual range_min/range_max stored for each connected device.
+        """
+        bus = getattr(device, "bus", None)
+        calibration = getattr(device, "calibration", None)
+        if bus is None or not calibration:
+            raise RuntimeError("Device has no bus/calibration for runtime motion compatibility")
+
+        ranges: Dict[str, tuple[float, float]] = {}
+        for motor_name, motor in bus.motors.items():
+            cal = calibration.get(motor_name)
+            if cal is None:
+                raise RuntimeError(f"Missing calibration for motor {motor_name}")
+            min_raw = float(cal.range_min)
+            max_raw = float(cal.range_max)
+            if min_raw >= max_raw:
+                raise RuntimeError(f"Invalid calibration range for motor {motor_name}: {min_raw}..{max_raw}")
+            try:
+                resolution = float(bus.model_resolution_table[motor.model])
+            except Exception as exc:
+                raise RuntimeError(f"Cannot determine motor resolution for {motor_name}/{motor.model}") from exc
+            max_res = resolution - 1.0
+            midpoint = (min_raw + max_raw) / 2.0
+            min_deg = (min_raw - midpoint) * 360.0 / max_res
+            max_deg = (max_raw - midpoint) * 360.0 / max_res
+            ranges[motor_name] = (min(min_deg, max_deg), max(min_deg, max_deg))
+        return ranges
 
     @staticmethod
     def _stable_calibration_value(value: Any) -> Any:
@@ -574,6 +646,7 @@ class TeleoperationManager:
             "profile_digest": self.motion_profile_digest,
             "mapping_id": self.motion_mapping_id,
             "calibration_fingerprints": self.get_calibration_fingerprints(),
+            "admitted_ranges": dict(self.motion_admitted_ranges),
             "canonical_command": canonical,
         }
 

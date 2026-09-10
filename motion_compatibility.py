@@ -13,6 +13,7 @@ tests.
 
 from __future__ import annotations
 
+import copy
 import hashlib
 import json
 import math
@@ -49,6 +50,11 @@ def _range(entry: Mapping[str, Any], name: str) -> tuple[float, float]:
     return low, high
 
 
+def _within_range(value: float, low: float, high: float) -> bool:
+    tolerance = max(1e-9, 1e-9 * max(abs(value), abs(low), abs(high), 1.0))
+    return (low - tolerance) <= value <= (high + tolerance)
+
+
 def _affine(value: float, transform: Mapping[str, Any], label: str) -> float:
     scale = _finite(transform.get("scale"), f"{label}.scale")
     offset = _finite(transform.get("offset", 0.0), f"{label}.offset")
@@ -66,6 +72,76 @@ def mapping_digest(mapping: Mapping[str, Any]) -> str:
     material = {key: value for key, value in mapping.items() if key != "digest"}
     encoded = json.dumps(material, sort_keys=True, separators=(",", ":")).encode("utf-8")
     return "sha256:" + hashlib.sha256(encoded).hexdigest()
+
+
+def bind_runtime_calibration(
+    profile: Mapping[str, Any],
+    *,
+    source_calibration_ref: str,
+    target_calibration_ref: str,
+    source_ranges: Mapping[str, tuple[float, float]],
+    target_ranges: Mapping[str, tuple[float, float]],
+) -> Dict[str, Any]:
+    """Bind a runtime-bound physical profile to exact calibration envelopes.
+
+    For a direct joint-space mapping the admitted source envelope is the
+    intersection of the source and target calibrated envelopes.  This means a
+    leader may have a wider mechanical/calibrated range than the follower
+    without making the complete pair invalid; commands outside the shared
+    envelope fail closed at runtime.
+    """
+
+    bound = copy.deepcopy(dict(profile))
+    mapping = bound["mapping"]
+
+    for item in mapping["dof_mappings"]:
+        source_name = item["source_dof"]
+        target_name = item["target_dof"]
+        _require(source_name in source_ranges, f"no runtime source range for {source_name}")
+        _require(target_name in target_ranges, f"no runtime target range for {target_name}")
+
+        source_min, source_max = source_ranges[source_name]
+        target_min, target_max = target_ranges[target_name]
+        source_min = _finite(source_min, f"{source_name}.runtime_source_min")
+        source_max = _finite(source_max, f"{source_name}.runtime_source_max")
+        target_min = _finite(target_min, f"{target_name}.runtime_target_min")
+        target_max = _finite(target_max, f"{target_name}.runtime_target_max")
+        _require(source_min < source_max, f"invalid runtime source range for {source_name}")
+        _require(target_min < target_max, f"invalid runtime target range for {target_name}")
+
+        # Convert target-native endpoints back to source-native values through
+        # the declared affine mapping.  Current physical SO101 profile is
+        # deg -> rad -> deg, but the calculation remains explicit.
+        s2c = item["source_to_canonical"]
+        c2t = item["target_from_canonical"]
+        source_scale = _finite(s2c.get("scale"), f"{source_name}.source_to_canonical.scale")
+        source_offset = _finite(s2c.get("offset", 0.0), f"{source_name}.source_to_canonical.offset")
+        target_scale = _finite(c2t.get("scale"), f"{source_name}.target_from_canonical.scale")
+        target_offset = _finite(c2t.get("offset", 0.0), f"{source_name}.target_from_canonical.offset")
+        combined_scale = source_scale * target_scale
+        combined_offset = source_offset * target_scale + target_offset
+        _require(abs(combined_scale) > 1e-12, f"non-invertible mapping for {source_name}")
+
+        target_as_source_a = (target_min - combined_offset) / combined_scale
+        target_as_source_b = (target_max - combined_offset) / combined_scale
+        target_source_min = min(target_as_source_a, target_as_source_b)
+        target_source_max = max(target_as_source_a, target_as_source_b)
+
+        admitted_min = max(source_min, target_source_min)
+        admitted_max = min(source_max, target_source_max)
+        _require(
+            admitted_min < admitted_max,
+            f"no calibrated overlap for {source_name} -> {target_name}",
+        )
+
+        item["source_range"] = {"minimum": admitted_min, "maximum": admitted_max}
+        item["target_range"] = {"minimum": target_min, "maximum": target_max}
+
+    bound["source"]["calibration_ref"] = source_calibration_ref
+    bound["target"]["calibration_ref"] = target_calibration_ref
+    mapping["digest"] = mapping_digest(mapping)
+    validate_profile(bound)
+    return bound
 
 
 def validate_profile(profile: Mapping[str, Any]) -> None:
@@ -138,7 +214,7 @@ def validate_profile(profile: Mapping[str, Any]) -> None:
                 f"{item['source_dof']}.target_from_canonical",
             )
             _require(
-                target_min <= target_value <= target_max,
+                _within_range(target_value, target_min, target_max),
                 f"declared mapping exceeds target range for {item['target_dof']}",
             )
         _require(item["source_dof"] not in source_names, f"duplicate source DOF {item['source_dof']}")
@@ -171,13 +247,19 @@ def resolve_motion(profile: Mapping[str, Any], source_values: Mapping[str, Any])
         _require(source_name in source_values, f"missing source DOF {source_name}")
         source_value = _finite(source_values[source_name], source_name)
         source_min, source_max = _range(item, "source_range")
-        _require(source_min <= source_value <= source_max, f"{source_name} outside declared source range")
+        _require(
+            _within_range(source_value, source_min, source_max),
+            f"{source_name}={source_value:.3f} outside admitted source range [{source_min:.3f}, {source_max:.3f}]",
+        )
 
         canonical_value = _affine(source_value, item["source_to_canonical"], f"{source_name}.source_to_canonical")
         target_value = _affine(canonical_value, item["target_from_canonical"], f"{source_name}.target_from_canonical")
 
         target_min, target_max = _range(item, "target_range")
-        _require(target_min <= target_value <= target_max, f"{item['target_dof']} outside declared target range")
+        _require(
+            _within_range(target_value, target_min, target_max),
+            f"{item['target_dof']}={target_value:.3f} outside target calibrated range [{target_min:.3f}, {target_max:.3f}]",
+        )
 
         canonical[item["canonical_dof"]] = canonical_value
         target_native[item["target_dof"]] = target_value

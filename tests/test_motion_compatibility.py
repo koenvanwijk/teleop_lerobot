@@ -13,6 +13,7 @@ from motion_compatibility import (
     MotionCompatibilityError,
     MotionCompatibilityRegistry,
     MotionSimulationState,
+    bind_runtime_calibration,
     resolve_motion,
     validate_profile,
 )
@@ -119,8 +120,54 @@ class MotionCompatibilityTests(unittest.TestCase):
     def test_out_of_range_value_is_rejected_not_clipped(self) -> None:
         values = dict(SO101_VALUES)
         values["shoulder_pan"] = 111.0
-        with self.assertRaisesRegex(MotionCompatibilityError, "outside declared source range"):
+        with self.assertRaisesRegex(MotionCompatibilityError, "outside admitted source range"):
             self.registry.resolve("MC-SO101-LEADER-SO101-FOLLOWER-V1", values)
+
+    def test_runtime_calibration_binds_physical_range_to_pair_overlap(self) -> None:
+        template = self.registry.get("MC-SO101-LEADER-SO101-FOLLOWER-V1")
+        source_ranges = {
+            "shoulder_pan": (-115.0, 115.0),
+            "shoulder_lift": (-112.0, 112.0),
+            "elbow_flex": (-100.0, 100.0),
+            "wrist_flex": (-100.0, 100.0),
+            "wrist_roll": (-180.0, 180.0),
+            "gripper": (-55.0, 55.0),
+        }
+        target_ranges = {
+            "shoulder_pan": (-110.0, 110.0),
+            "shoulder_lift": (-108.0, 108.0),
+            "elbow_flex": (-98.0, 98.0),
+            "wrist_flex": (-96.0, 96.0),
+            "wrist_roll": (-175.0, 175.0),
+            "gripper": (-50.0, 50.0),
+        }
+        bound = bind_runtime_calibration(
+            template,
+            source_calibration_ref="sha256:leader-calibration",
+            target_calibration_ref="sha256:follower-calibration",
+            source_ranges=source_ranges,
+            target_ranges=target_ranges,
+        )
+
+        shoulder = next(
+            item for item in bound["mapping"]["dof_mappings"]
+            if item["source_dof"] == "shoulder_lift"
+        )
+        self.assertEqual(shoulder["source_range"], {"minimum": -108.0, "maximum": 108.0})
+        self.assertEqual(bound["source"]["calibration_ref"], "sha256:leader-calibration")
+        self.assertEqual(bound["target"]["calibration_ref"], "sha256:follower-calibration")
+
+        values = dict(SO101_VALUES)
+        values["shoulder_lift"] = 105.0
+        resolved = resolve_motion(bound, values)
+        self.assertAlmostEqual(resolved["target_native_command"]["shoulder_lift"], 105.0)
+
+        values["shoulder_lift"] = 110.0
+        with self.assertRaisesRegex(
+            MotionCompatibilityError,
+            r"shoulder_lift=110\.000 outside admitted source range \[-108\.000, 108\.000\]",
+        ):
+            resolve_motion(bound, values)
 
     def test_mapping_tamper_invalidates_digest(self) -> None:
         profile = self.registry.get("MC-SO101-LEADER-SO101-FOLLOWER-V1")
