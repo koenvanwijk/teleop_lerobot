@@ -76,6 +76,14 @@ except ImportError as e:
     logger.warning(f"Motion compatibility runtime not available: {e}")
     MOTION_COMPATIBILITY_AVAILABLE = False
 
+try:
+    from reachy_mini_target import ReachyMiniTargetAdapter, ReachyMiniTargetError
+    REACHY_MINI_TARGET_AVAILABLE = True
+except ImportError as e:
+    logger = logging.getLogger(__name__)
+    logger.warning(f"Reachy Mini target adapter not available: {e}")
+    REACHY_MINI_TARGET_AVAILABLE = False
+
 # Configure logging with force flush
 log_handler = logging.FileHandler('webserver.log')
 log_handler.setLevel(logging.INFO)
@@ -289,6 +297,9 @@ class RobotState:
             if MOTION_COMPATIBILITY_AVAILABLE else None
         )
         self.motion_simulation = MotionSimulationState() if MOTION_COMPATIBILITY_AVAILABLE else None
+        self.reachy_mini_target = (
+            ReachyMiniTargetAdapter() if REACHY_MINI_TARGET_AVAILABLE else None
+        )
         
         # WebSocket clients
         self.websocket_clients: List[WebSocket] = []
@@ -763,6 +774,11 @@ async def lifespan(app: FastAPI):
         if state.bluetooth_manager:
             logger.info("Shutting down Bluetooth service...")
             state.bluetooth_manager.stop()
+
+        # Shutdown optional Reachy Mini SDK target connection
+        if state.reachy_mini_target:
+            logger.info("Shutting down Reachy Mini target adapter...")
+            state.reachy_mini_target.close()
         
         # Close WebSocket connections
         for ws in state.websocket_clients:
@@ -970,6 +986,7 @@ async def api_info():
             "/api/motion/resolve": "Resolve source-native command to canonical and target-native values",
             "/api/motion/command": "Resolve and dispatch a compatibility-profiled command",
             "/api/motion/simulation/state": "Get current URDF simulation target state",
+            "/api/motion/command with MC-SO101-LEADER-REACHY-MINI-V1": "Drive Reachy Mini daemon target",
         }
     }
 
@@ -990,6 +1007,22 @@ def _dispatch_resolved_motion(resolved: Dict[str, Any]) -> Dict[str, Any]:
         return {
             "target": "simulation",
             "simulation_state": simulation_state,
+        }
+
+    if adapter_ref == "pollen.reachy-mini.head-pose.v1":
+        if state.reachy_mini_target is None:
+            raise HTTPException(status_code=503, detail="Reachy Mini target adapter unavailable")
+        try:
+            applied = state.reachy_mini_target.apply(target_native)
+        except ReachyMiniTargetError as exc:
+            raise HTTPException(status_code=503, detail=str(exc)) from exc
+        except Exception as exc:
+            logger.error("Reachy Mini target dispatch failed: %s", exc, exc_info=True)
+            raise HTTPException(status_code=502, detail=f"Reachy Mini target failed: {exc}") from exc
+        return {
+            "target": "reachy_mini",
+            "applied": True,
+            "reachy_target": applied,
         }
 
     if adapter_ref == "lerobot.so101-follower.degrees.v1":
