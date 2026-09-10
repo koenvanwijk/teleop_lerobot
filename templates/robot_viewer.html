@@ -379,6 +379,9 @@
         let scene, camera, renderer, controls;
         let robot = null;
         let jointStates = {};
+        const viewerParams = new URLSearchParams(window.location.search);
+        const simulationMode = viewerParams.get('source') === 'simulation';
+        const simulationProfileId = viewerParams.get('profile') || 'MC-SO101-LEADER-URDF-SIM-V1';
         
         // Joint configuration in degrees. Limits are centered around the
         // calibrated midpoint and derived from the SO-101 URDF travel.
@@ -710,10 +713,36 @@
                 
                 requestInProgress = true;
                 try {
-                    const response = await fetch('/api/robot/positions', {
+                    const endpoint = simulationMode
+                        ? '/api/motion/simulation/state'
+                        : '/api/robot/positions';
+                    const response = await fetch(endpoint, {
                         signal: AbortSignal.timeout(2000) // 2 second timeout
                     });
                     const data = await response.json();
+
+                    if (simulationMode) {
+                        if (data.success && data.target_native_command) {
+                            consecutiveErrors = 0;
+                            for (const [jointName, radians] of Object.entries(data.target_native_command)) {
+                                if (robot && robot.joints && robot.joints[jointName]) {
+                                    robot.joints[jointName].setJointValue(Number(radians));
+                                    const degrees = urdfRadiansToDegrees(Number(radians), jointName);
+                                    jointStates[jointName] = degrees;
+                                    const slider = document.getElementById('slider-' + jointName);
+                                    const valueDisplay = document.getElementById('value-' + jointName);
+                                    if (slider && valueDisplay) {
+                                        slider.value = degrees;
+                                        valueDisplay.textContent = degrees.toFixed(1) + '°';
+                                    }
+                                }
+                            }
+                            document.getElementById('status-text').textContent =
+                                data.compatibility_id ? 'EPAOA Simulation' : 'Simulation waiting';
+                            document.getElementById('status-dot').className = 'status-dot connected';
+                        }
+                        return;
+                    }
                     
                     if (data.success && data.motor_names && data.positions) {
                         consecutiveErrors = 0; // Reset error counter on success
@@ -839,15 +868,43 @@
             return THREE.MathUtils.clamp(radians, limits.lower, limits.upper);
         }
 
+        function urdfRadiansToDegrees(radians, jointName) {
+            const jointLimits = {
+                'Rotation': { lower: 1.22014, upper: 5.05986 },
+                'Pitch': { lower: 1.39467, upper: 4.88692 },
+                'Elbow': { lower: 1.39626, upper: 4.71239 },
+                'Wrist_Pitch': { lower: 1.48353, upper: 4.79965 },
+                'Wrist_Roll': { lower: 0.39774, upper: 5.9828 },
+                'Jaw': { lower: 3.14, upper: 4.88692 }
+            };
+            const limits = jointLimits[jointName];
+            if (!limits) return 0;
+            const midpoint = (limits.lower + limits.upper) / 2;
+            return THREE.MathUtils.radToDeg(radians - midpoint);
+        }
+
         // Send positions to backend for follower control
         async function sendLeaderPositions(motorNames, positions) {
             const statusEl = document.getElementById('leaderStatus');
             try {
                 statusEl.textContent = 'sending…';
-                const res = await fetch('/api/teleoperation/leader/command', {
+                let endpoint = '/api/teleoperation/leader/command';
+                let payload = { motor_names: motorNames, positions };
+
+                if (simulationMode) {
+                    endpoint = '/api/motion/command';
+                    const values = {};
+                    for (const [jointName, degrees] of Object.entries(jointStates)) {
+                        const motorName = mapJointToMotor(jointName);
+                        if (motorName) values[motorName] = Number(degrees);
+                    }
+                    payload = { profile_id: simulationProfileId, values };
+                }
+
+                const res = await fetch(endpoint, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ motor_names: motorNames, positions })
+                    body: JSON.stringify(payload)
                 });
                 const data = await res.json();
                 statusEl.textContent = data.success ? 'sent' : ('error: ' + (data.error || data.message || 'unknown'));
@@ -873,6 +930,11 @@
         // Initialize
         window.addEventListener('load', function() {
             init();
+            if (simulationMode) {
+                document.title = 'SO-101 EPAOA Compatibility Simulation';
+                const statusText = document.getElementById('status-text');
+                if (statusText) statusText.textContent = 'Simulation waiting';
+            }
             startPositionUpdates();
         });
     </script>
