@@ -46,7 +46,7 @@ from lerobot.utils.robot_utils import precise_sleep
 from lerobot.utils.utils import init_logging
 from lerobot.scripts.lerobot_teleoperate import TeleoperateConfig
 
-from motion_compatibility import MotionCompatibilityRegistry
+from motion_compatibility import MotionCompatibilityRegistry, profile_digest
 
 
 class TeleoperationManager:
@@ -157,13 +157,7 @@ class TeleoperationManager:
                         f"Motion profile {motion_profile_id} targets {target_adapter}, "
                         "not the in-process SO101 follower"
                     )
-                self.motion_profile_digest = self.motion_registry.resolve(
-                    motion_profile_id,
-                    {
-                        item["source_dof"]: 0.0
-                        for item in profile["mapping"]["dof_mappings"]
-                    },
-                )["profile_digest"]
+                self.motion_profile_digest = profile_digest(profile)
                 self.motion_mapping_id = profile["mapping"]["mapping_id"]
                 logging.info(
                     "EPAOA motion compatibility enabled: profile=%s mapping=%s",
@@ -353,17 +347,33 @@ class TeleoperationManager:
                     source_values: Dict[str, float] = {}
                     for key, value in teleop_action.items():
                         base = str(key).replace(".pos", "")
-                        if base in source_names and isinstance(value, (int, float)):
+                        if base not in source_names:
+                            continue
+                        try:
                             source_values[base] = float(value)
+                        except (TypeError, ValueError) as exc:
+                            raise RuntimeError(
+                                f"Non-numeric teleoperation value for {base}: {value!r}"
+                            ) from exc
 
                     resolved_motion = self.motion_registry.resolve(
                         self.motion_profile_id,
                         source_values,
                     )
+                    target_native = resolved_motion["target_native_command"]
+
+                    # Preserve LeRobot's original action-key shape. Some versions
+                    # use base motor names and others use a '.pos' suffix.
                     action_for_robot = {}
-                    for key, value in resolved_motion["target_native_command"].items():
-                        action_for_robot[key] = value
-                        action_for_robot[f"{key}.pos"] = value
+                    emitted_targets = set()
+                    for original_key in teleop_action:
+                        base = str(original_key).replace(".pos", "")
+                        if base in target_native:
+                            action_for_robot[original_key] = target_native[base]
+                            emitted_targets.add(base)
+                    for base, value in target_native.items():
+                        if base not in emitted_targets:
+                            action_for_robot[f"{base}.pos"] = value
 
                 # Process action for robot through pipeline (LeRobot's processors)
                 robot_action_to_send = self.robot_action_processor((action_for_robot, obs))
