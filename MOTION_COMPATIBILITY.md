@@ -141,8 +141,18 @@ SO101 follower
 ```
 
 This is intentionally opt-in until a physical acceptance run binds and records
-the actual leader/follower calibration fingerprints and verifies the declared
-operating ranges.
+the actual leader/follower calibration fingerprints.
+
+For physical SO101 execution, the checked-in profile is a template. After both
+devices are connected and their calibrations are verified, the runtime computes
+the calibrated degree envelope for every motor using the same LeRobot 0.6.1
+normalization semantics. The admitted source range becomes the overlap of the
+leader and follower calibrated envelopes. The resolved profile is then bound to
+the exact leader/follower calibration SHA-256 fingerprints and receives a new
+runtime profile digest before the 60 Hz motion loop starts.
+
+This means a nominal/static viewer range such as ±100 degrees is never used to
+reject a physically valid calibrated leader position.
 
 ## SO101 leader/source → URDF simulation
 
