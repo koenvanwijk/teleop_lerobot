@@ -33,7 +33,7 @@ HOSTNAME_SAFE="${HOSTNAME_SAFE//[^A-Za-z0-9_.-]/_}"
 TS="$(date +%Y%m%d-%H%M%S)"
 BUNDLE_DIR="$(mktemp -d /tmp/lerobot-support.XXXXXX)"
 STAGE="$BUNDLE_DIR/lerobot-support-$HOSTNAME_SAFE-$TS"
-mkdir -p "$STAGE"/{systemd,logs,network,hardware,repo,python,calibration}
+mkdir -p "$STAGE"/{systemd,logs,network,hardware,repo,python,calibration,identity}
 
 if [[ -z "$OUTPUT" ]]; then
   OUT_DIR="$HOME/lerobot-support-bundles"
@@ -72,6 +72,9 @@ copy_if_exists() {
   echo "os_release="
   cat /etc/os-release 2>/dev/null || true
 } > "$STAGE/manifest.txt"
+
+copy_if_exists "/etc/hostname" "$STAGE/identity/hostname"
+copy_if_exists "/etc/lerobot/identity.env" "$STAGE/identity/identity.env"
 
 # Systemd / service status
 run_capture "$STAGE/systemd/lerobot-webserver.status.txt" systemctl status lerobot-webserver.service --no-pager
@@ -117,8 +120,8 @@ if command -v git >/dev/null 2>&1 && git -C "$SCRIPT_DIR" rev-parse --is-inside-
   run_capture "$STAGE/repo/git-remote.txt" git -C "$SCRIPT_DIR" remote -v
   run_capture "$STAGE/repo/git-log-recent.txt" git -C "$SCRIPT_DIR" log --oneline -n 20
 fi
-run_capture "$STAGE/calibration/repo-calibration-list.txt" bash -lc "find '$SCRIPT_DIR/calibration' -type f -maxdepth 5 -print 2>/dev/null | sort"
-run_capture "$STAGE/calibration/cache-calibration-list.txt" bash -lc "find '$HOME/.cache/huggingface/lerobot/calibration' -type f -maxdepth 8 -print 2>/dev/null | sort"
+run_capture "$STAGE/calibration/repo-calibration-list.txt" bash -lc "find '$SCRIPT_DIR/calibration' -maxdepth 5 -type f -print 2>/dev/null | sort"
+run_capture "$STAGE/calibration/cache-calibration-list.txt" bash -lc "find '$HOME/.cache/huggingface/lerobot/calibration' -maxdepth 8 -type f -print 2>/dev/null | sort"
 
 # Python/Conda state
 run_capture "$STAGE/python/python-version.txt" python3 --version
