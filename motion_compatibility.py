@@ -62,10 +62,20 @@ def profile_digest(profile: Mapping[str, Any]) -> str:
     return "sha256:" + hashlib.sha256(encoded).hexdigest()
 
 
+def mapping_digest(mapping: Mapping[str, Any]) -> str:
+    material = {key: value for key, value in mapping.items() if key != "digest"}
+    encoded = json.dumps(material, sort_keys=True, separators=(",", ":")).encode("utf-8")
+    return "sha256:" + hashlib.sha256(encoded).hexdigest()
+
+
 def validate_profile(profile: Mapping[str, Any]) -> None:
     """Validate the executable subset of the EPAOA Motion Compatibility Profile."""
 
-    required = ("compatibility_id", "version", "lifecycle_status", "compatibility_decision", "source", "mapping", "target")
+    required = (
+        "compatibility_id", "version", "lifecycle_status", "compatibility_decision",
+        "reason_codes", "source", "mapping", "target", "constraints",
+        "validation", "evidence_refs", "valid_from", "invalidation_triggers",
+    )
     for key in required:
         _require(key in profile, f"profile missing {key}")
 
@@ -82,9 +92,16 @@ def validate_profile(profile: Mapping[str, Any]) -> None:
     _require(isinstance(mapping, Mapping), "mapping must be an object")
     _require(isinstance(target, Mapping), "target must be an object")
 
-    _require(mapping.get("canonical_action_schema_id"), "canonical action schema missing")
+    for field in ("mapping_id", "version", "digest", "canonical_action_schema_id", "canonical_frame"):
+        _require(mapping.get(field), f"mapping missing {field}")
+    _require(mapping_digest(mapping) == mapping["digest"], "mapping digest mismatch")
     _require(mapping.get("command_space") in {"JOINT", "CARTESIAN", "TOOL", "MOBILE_BASE", "HYBRID", "DISCRETE"}, "invalid command space")
     _require(mapping.get("control_mode") in {"POSITION", "VELOCITY", "ACCELERATION", "EFFORT", "IMPEDANCE", "COMPLIANCE", "TRAJECTORY", "WAYPOINT", "SERVO", "DISCRETE_ACTION"}, "invalid control mode")
+
+    for field in ("endpoint_id", "role", "capability_profile_ref", "calibration_ref", "input_schema_id", "frame"):
+        _require(source.get(field), f"source missing {field}")
+    for field in ("endpoint_id", "role", "capability_profile_ref", "calibration_ref", "accepted_action_schema_id", "adapter_mapping_ref", "frame"):
+        _require(target.get(field), f"target missing {field}")
 
     dofs = mapping.get("dof_mappings")
     _require(isinstance(dofs, list) and dofs, "dof_mappings must not be empty")
