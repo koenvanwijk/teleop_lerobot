@@ -55,6 +55,22 @@ The live `TeleoperationManager` also fingerprints the active LeRobot leader
 and follower calibration objects with SHA-256 so the session can retain the
 actual calibration identities alongside the compatibility and mapping IDs.
 
+## Laptop / simulation-only development
+
+For a developer laptop, start the webserver without provisioning, cameras, NetworkManager, Bluetooth, Blockly hardware or teleoperation auto-start:
+
+```bash
+LEROBOT_SIMULATION_ONLY=1 PORT=8000 python webserver.py
+```
+
+Then open:
+
+```text
+http://localhost:8000/viewer?source=simulation
+```
+
+This mode intentionally leaves the EPAOA Motion Compatibility registry and URDF simulation APIs enabled while skipping robot-cell hardware services. It is the recommended way to run the reference implementation on a laptop.
+
 ## API
 
 List profiles:
