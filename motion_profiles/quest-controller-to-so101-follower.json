@@ -169,7 +169,7 @@
         }
       }
     ],
-    "digest": "sha256:49cff2318737579f7af2cf922d35202c65b05b09ea6856af996c1358da3d3170"
+    "digest": "sha256:5ea3c462ccf1c147b2d50ac43c4523b756c9e2914212c6f0e6af36b026120ffc"
   },
   "target": {
     "endpoint_id": "so101-follower",
