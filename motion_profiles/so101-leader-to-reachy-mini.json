@@ -1,0 +1,221 @@
+{
+  "compatibility_id": "MC-SO101-LEADER-REACHY-MINI-V1",
+  "version": "1.0.0",
+  "lifecycle_status": "approved",
+  "compatibility_decision": "conditionally_compatible",
+  "reason_codes": [
+    "REFERENCE_RETARGETING_MAPPING"
+  ],
+  "conditions": [
+    "Source SO101 leader is read using LeRobot normalized mode; body joints are -100..100 and gripper is 0..100.",
+    "Mapping signs and gains are a reference retargeting profile and must be physically accepted before production use.",
+    "Reachy Mini motors and safety remain governed by the Reachy Mini daemon; this compatibility profile is not Safety authorization."
+  ],
+  "source": {
+    "endpoint_id": "so101-leader-normalized",
+    "role": "demonstration_leader",
+    "capability_profile_ref": "teleopworks.so101-leader.normalized.v1",
+    "calibration_ref": "runtime-bound",
+    "input_schema_id": "teleopworks.so101.normalized-joints.v1",
+    "frame": "so101-leader-joint-space"
+  },
+  "mapping": {
+    "mapping_id": "MAP-SO101-NORM-TO-REACHY-MINI-EXPRESSIVE-V1",
+    "version": "1.0.0",
+    "canonical_action_schema_id": "teleopworks.robot-control.expressive-head.v1",
+    "command_space": "HYBRID",
+    "control_mode": "POSITION",
+    "semantics": "ABSOLUTE",
+    "canonical_frame": "reachy-mini-head-base",
+    "dof_mappings": [
+      {
+        "source_dof": "shoulder_pan",
+        "canonical_dof": "head_yaw",
+        "target_dof": "head_yaw",
+        "source_unit": "1",
+        "canonical_unit": "rad",
+        "target_unit": "rad",
+        "source_range": {
+          "minimum": -100,
+          "maximum": 100
+        },
+        "target_range": {
+          "minimum": -1.0471975511965976,
+          "maximum": 1.0471975511965976
+        },
+        "source_to_canonical": {
+          "scale": 0.010471975511965976,
+          "offset": 0
+        },
+        "target_from_canonical": {
+          "scale": 1,
+          "offset": 0
+        }
+      },
+      {
+        "source_dof": "shoulder_lift",
+        "canonical_dof": "head_pitch",
+        "target_dof": "head_pitch",
+        "source_unit": "1",
+        "canonical_unit": "rad",
+        "target_unit": "rad",
+        "source_range": {
+          "minimum": -100,
+          "maximum": 100
+        },
+        "target_range": {
+          "minimum": -0.6108652381980153,
+          "maximum": 0.6108652381980153
+        },
+        "source_to_canonical": {
+          "scale": 0.006108652381980153,
+          "offset": 0
+        },
+        "target_from_canonical": {
+          "scale": 1,
+          "offset": 0
+        }
+      },
+      {
+        "source_dof": "elbow_flex",
+        "canonical_dof": "head_z",
+        "target_dof": "head_z",
+        "source_unit": "1",
+        "canonical_unit": "m",
+        "target_unit": "m",
+        "source_range": {
+          "minimum": -100,
+          "maximum": 100
+        },
+        "target_range": {
+          "minimum": -0.02,
+          "maximum": 0.02
+        },
+        "source_to_canonical": {
+          "scale": 0.0002,
+          "offset": 0
+        },
+        "target_from_canonical": {
+          "scale": 1,
+          "offset": 0
+        }
+      },
+      {
+        "source_dof": "wrist_flex",
+        "canonical_dof": "head_roll",
+        "target_dof": "head_roll",
+        "source_unit": "1",
+        "canonical_unit": "rad",
+        "target_unit": "rad",
+        "source_range": {
+          "minimum": -100,
+          "maximum": 100
+        },
+        "target_range": {
+          "minimum": -0.5235987755982988,
+          "maximum": 0.5235987755982988
+        },
+        "source_to_canonical": {
+          "scale": 0.005235987755982988,
+          "offset": 0
+        },
+        "target_from_canonical": {
+          "scale": 1,
+          "offset": 0
+        }
+      },
+      {
+        "source_dof": "wrist_roll",
+        "canonical_dof": "right_antenna",
+        "target_dof": "right_antenna",
+        "source_unit": "1",
+        "canonical_unit": "rad",
+        "target_unit": "rad",
+        "source_range": {
+          "minimum": -100,
+          "maximum": 100
+        },
+        "target_range": {
+          "minimum": -0.7853981633974483,
+          "maximum": 0.7853981633974483
+        },
+        "source_to_canonical": {
+          "scale": 0.007853981633974483,
+          "offset": 0
+        },
+        "target_from_canonical": {
+          "scale": 1,
+          "offset": 0
+        }
+      },
+      {
+        "source_dof": "gripper",
+        "canonical_dof": "left_antenna",
+        "target_dof": "left_antenna",
+        "source_unit": "1",
+        "canonical_unit": "rad",
+        "target_unit": "rad",
+        "source_range": {
+          "minimum": 0,
+          "maximum": 100
+        },
+        "target_range": {
+          "minimum": -0.7853981633974483,
+          "maximum": 0.7853981633974483
+        },
+        "source_to_canonical": {
+          "scale": 0.015707963267948967,
+          "offset": -0.7853981633974483
+        },
+        "target_from_canonical": {
+          "scale": 1,
+          "offset": 0
+        }
+      }
+    ],
+    "digest": "sha256:908ed75553abfe6ccff472c9eb5b08dc6fc55ad86432248be6bc257931753bd8"
+  },
+  "target": {
+    "endpoint_id": "reachy-mini",
+    "role": "robot_target",
+    "capability_profile_ref": "pollen.reachy-mini.expressive-motion.v1",
+    "calibration_ref": "reachy-mini-daemon-runtime",
+    "accepted_action_schema_id": "teleopworks.robot-control.expressive-head.v1",
+    "adapter_mapping_ref": "pollen.reachy-mini.head-pose.v1",
+    "frame": "reachy-mini-head-base",
+    "required_dofs": [
+      "head_yaw",
+      "head_pitch",
+      "head_z",
+      "head_roll",
+      "right_antenna",
+      "left_antenna"
+    ]
+  },
+  "constraints": {
+    "missing_dof_behavior": "reject",
+    "out_of_range_behavior": "reject",
+    "stale_calibration_behavior": "reject",
+    "maximum_mapping_latency_ms": 10
+  },
+  "validation": {
+    "validated_by": "Teleopworks reference implementation",
+    "validated_at": "2026-09-11T00:10:00Z",
+    "method": "ci_simulated",
+    "test_report_ref": "tests/test_reachy_mini_target.py"
+  },
+  "evidence_refs": [
+    "teleop_lerobot/tests/test_reachy_mini_target.py"
+  ],
+  "valid_from": "2026-09-11T00:10:00Z",
+  "invalidation_triggers": [
+    "source_capability_change",
+    "source_calibration_change",
+    "target_capability_change",
+    "target_calibration_change",
+    "mapping_change",
+    "action_schema_change",
+    "frame_change",
+    "safety_profile_change"
+  ]
+}
