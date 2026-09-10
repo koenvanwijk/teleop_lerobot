@@ -1,0 +1,219 @@
+{
+  "compatibility_id": "MC-SO101-LEADER-SO101-FOLLOWER-V1",
+  "version": "1.0.0",
+  "lifecycle_status": "approved",
+  "compatibility_decision": "conditionally_compatible",
+  "conditions": [
+    "Reference mapping uses the current application's declared degree ranges.",
+    "Production use requires binding the active leader and follower calibration fingerprints to session evidence."
+  ],
+  "source": {
+    "endpoint_id": "so101-leader",
+    "role": "demonstration_leader",
+    "capability_profile_ref": "teleopworks.so101-leader.v1",
+    "calibration_ref": "runtime-bound",
+    "input_schema_id": "teleopworks.so101.native-joint-degrees.v1",
+    "frame": "so101-leader-joint-space"
+  },
+  "mapping": {
+    "mapping_id": "MAP-SO101-DEG-CANONICAL-RAD-DEG-V1",
+    "version": "1.0.0",
+    "canonical_action_schema_id": "epaoa.robot-control.joint-position.v1",
+    "command_space": "JOINT",
+    "control_mode": "POSITION",
+    "semantics": "ABSOLUTE",
+    "canonical_frame": "robot-joint-space",
+    "dof_mappings": [
+      {
+        "source_dof": "shoulder_pan",
+        "canonical_dof": "shoulder_pan",
+        "target_dof": "shoulder_pan",
+        "source_unit": "deg",
+        "canonical_unit": "rad",
+        "target_unit": "deg",
+        "source_range": {
+          "minimum": -110,
+          "maximum": 110
+        },
+        "target_range": {
+          "minimum": -110,
+          "maximum": 110
+        },
+        "source_to_canonical": {
+          "scale": 0.017453292519943295,
+          "offset": 0
+        },
+        "target_from_canonical": {
+          "scale": 57.29577951308232,
+          "offset": 0
+        }
+      },
+      {
+        "source_dof": "shoulder_lift",
+        "canonical_dof": "shoulder_lift",
+        "target_dof": "shoulder_lift",
+        "source_unit": "deg",
+        "canonical_unit": "rad",
+        "target_unit": "deg",
+        "source_range": {
+          "minimum": -100,
+          "maximum": 100
+        },
+        "target_range": {
+          "minimum": -100,
+          "maximum": 100
+        },
+        "source_to_canonical": {
+          "scale": 0.017453292519943295,
+          "offset": 0
+        },
+        "target_from_canonical": {
+          "scale": 57.29577951308232,
+          "offset": 0
+        }
+      },
+      {
+        "source_dof": "elbow_flex",
+        "canonical_dof": "elbow_flex",
+        "target_dof": "elbow_flex",
+        "source_unit": "deg",
+        "canonical_unit": "rad",
+        "target_unit": "deg",
+        "source_range": {
+          "minimum": -95,
+          "maximum": 95
+        },
+        "target_range": {
+          "minimum": -95,
+          "maximum": 95
+        },
+        "source_to_canonical": {
+          "scale": 0.017453292519943295,
+          "offset": 0
+        },
+        "target_from_canonical": {
+          "scale": 57.29577951308232,
+          "offset": 0
+        }
+      },
+      {
+        "source_dof": "wrist_flex",
+        "canonical_dof": "wrist_flex",
+        "target_dof": "wrist_flex",
+        "source_unit": "deg",
+        "canonical_unit": "rad",
+        "target_unit": "deg",
+        "source_range": {
+          "minimum": -95,
+          "maximum": 95
+        },
+        "target_range": {
+          "minimum": -95,
+          "maximum": 95
+        },
+        "source_to_canonical": {
+          "scale": 0.017453292519943295,
+          "offset": 0
+        },
+        "target_from_canonical": {
+          "scale": 57.29577951308232,
+          "offset": 0
+        }
+      },
+      {
+        "source_dof": "wrist_roll",
+        "canonical_dof": "wrist_roll",
+        "target_dof": "wrist_roll",
+        "source_unit": "deg",
+        "canonical_unit": "rad",
+        "target_unit": "deg",
+        "source_range": {
+          "minimum": -160,
+          "maximum": 160
+        },
+        "target_range": {
+          "minimum": -160,
+          "maximum": 160
+        },
+        "source_to_canonical": {
+          "scale": 0.017453292519943295,
+          "offset": 0
+        },
+        "target_from_canonical": {
+          "scale": 57.29577951308232,
+          "offset": 0
+        }
+      },
+      {
+        "source_dof": "gripper",
+        "canonical_dof": "gripper",
+        "target_dof": "gripper",
+        "source_unit": "deg",
+        "canonical_unit": "rad",
+        "target_unit": "deg",
+        "source_range": {
+          "minimum": -50,
+          "maximum": 50
+        },
+        "target_range": {
+          "minimum": -50,
+          "maximum": 50
+        },
+        "source_to_canonical": {
+          "scale": 0.017453292519943295,
+          "offset": 0
+        },
+        "target_from_canonical": {
+          "scale": 57.29577951308232,
+          "offset": 0
+        }
+      }
+    ],
+    "digest": "sha256:78d7cbb14aa74b063798965d0705bec07b7a528ab16f5868ea640e003818be3d"
+  },
+  "target": {
+    "endpoint_id": "so101-follower",
+    "role": "teleoperation_follower",
+    "capability_profile_ref": "teleopworks.so101-follower.v1",
+    "calibration_ref": "runtime-bound",
+    "accepted_action_schema_id": "epaoa.robot-control.joint-position.v1",
+    "adapter_mapping_ref": "lerobot.so101-follower.degrees.v1",
+    "frame": "so101-follower-joint-space",
+    "required_dofs": [
+      "shoulder_pan",
+      "shoulder_lift",
+      "elbow_flex",
+      "wrist_flex",
+      "wrist_roll",
+      "gripper"
+    ]
+  },
+  "constraints": {
+    "missing_dof_behavior": "reject",
+    "out_of_range_behavior": "reject",
+    "stale_calibration_behavior": "reject"
+  },
+  "validation": {
+    "validated_by": "Teleopworks reference implementation",
+    "validated_at": "2026-09-10T21:00:00Z",
+    "method": "ci_simulated",
+    "test_report_ref": "tests/test_motion_compatibility.py"
+  },
+  "evidence_refs": [
+    "teleop_lerobot/tests/test_motion_compatibility.py"
+  ],
+  "invalidation_triggers": [
+    "source_capability_change",
+    "source_calibration_change",
+    "target_capability_change",
+    "target_calibration_change",
+    "mapping_change",
+    "action_schema_change",
+    "frame_change",
+    "safety_profile_change"
+  ],
+  "reason_codes": [
+    "REFERENCE_MAPPING_VALIDATED"
+  ],
+  "valid_from": "2026-09-10T21:00:00Z"
+}

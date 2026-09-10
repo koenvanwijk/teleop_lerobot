@@ -1,0 +1,214 @@
+{
+  "compatibility_id": "MC-SO101-LEADER-URDF-SIM-V1",
+  "version": "1.0.0",
+  "lifecycle_status": "approved",
+  "compatibility_decision": "compatible",
+  "source": {
+    "endpoint_id": "so101-leader",
+    "role": "demonstration_leader",
+    "capability_profile_ref": "teleopworks.so101-leader.v1",
+    "calibration_ref": "runtime-bound",
+    "input_schema_id": "teleopworks.so101.native-joint-degrees.v1",
+    "frame": "so101-leader-joint-space"
+  },
+  "mapping": {
+    "mapping_id": "MAP-SO101-DEG-TO-URDF-RAD-V1",
+    "version": "1.0.0",
+    "canonical_action_schema_id": "epaoa.robot-control.joint-position.v1",
+    "command_space": "JOINT",
+    "control_mode": "POSITION",
+    "semantics": "ABSOLUTE",
+    "canonical_frame": "robot-joint-space",
+    "dof_mappings": [
+      {
+        "source_dof": "shoulder_pan",
+        "canonical_dof": "shoulder_pan",
+        "target_dof": "Rotation",
+        "source_unit": "deg",
+        "canonical_unit": "rad",
+        "target_unit": "rad",
+        "source_range": {
+          "minimum": -110,
+          "maximum": 110
+        },
+        "target_range": {
+          "minimum": 1.2201378228062372,
+          "maximum": 5.059862177193763
+        },
+        "source_to_canonical": {
+          "scale": 0.017453292519943295,
+          "offset": 0
+        },
+        "target_from_canonical": {
+          "scale": 1,
+          "offset": 3.1399999999999997
+        }
+      },
+      {
+        "source_dof": "shoulder_lift",
+        "canonical_dof": "shoulder_lift",
+        "target_dof": "Pitch",
+        "source_unit": "deg",
+        "canonical_unit": "rad",
+        "target_unit": "rad",
+        "source_range": {
+          "minimum": -100,
+          "maximum": 100
+        },
+        "target_range": {
+          "minimum": 1.3954657480056702,
+          "maximum": 4.886124251994329
+        },
+        "source_to_canonical": {
+          "scale": 0.017453292519943295,
+          "offset": 0
+        },
+        "target_from_canonical": {
+          "scale": 1,
+          "offset": 3.140795
+        }
+      },
+      {
+        "source_dof": "elbow_flex",
+        "canonical_dof": "elbow_flex",
+        "target_dof": "Elbow",
+        "source_unit": "deg",
+        "canonical_unit": "rad",
+        "target_unit": "rad",
+        "source_range": {
+          "minimum": -95,
+          "maximum": 95
+        },
+        "target_range": {
+          "minimum": 1.3962622106053868,
+          "maximum": 4.712387789394613
+        },
+        "source_to_canonical": {
+          "scale": 0.017453292519943295,
+          "offset": 0
+        },
+        "target_from_canonical": {
+          "scale": 1,
+          "offset": 3.054325
+        }
+      },
+      {
+        "source_dof": "wrist_flex",
+        "canonical_dof": "wrist_flex",
+        "target_dof": "Wrist_Pitch",
+        "source_unit": "deg",
+        "canonical_unit": "rad",
+        "target_unit": "rad",
+        "source_range": {
+          "minimum": -95,
+          "maximum": 95
+        },
+        "target_range": {
+          "minimum": 1.4835272106053867,
+          "maximum": 4.799652789394613
+        },
+        "source_to_canonical": {
+          "scale": 0.017453292519943295,
+          "offset": 0
+        },
+        "target_from_canonical": {
+          "scale": 1,
+          "offset": 3.14159
+        }
+      },
+      {
+        "source_dof": "wrist_roll",
+        "canonical_dof": "wrist_roll",
+        "target_dof": "Wrist_Roll",
+        "source_unit": "deg",
+        "canonical_unit": "rad",
+        "target_unit": "rad",
+        "source_range": {
+          "minimum": -160,
+          "maximum": 160
+        },
+        "target_range": {
+          "minimum": 0.3977431968090728,
+          "maximum": 5.9827968031909275
+        },
+        "source_to_canonical": {
+          "scale": 0.017453292519943295,
+          "offset": 0
+        },
+        "target_from_canonical": {
+          "scale": 1,
+          "offset": 3.19027
+        }
+      },
+      {
+        "source_dof": "gripper",
+        "canonical_dof": "gripper",
+        "target_dof": "Jaw",
+        "source_unit": "deg",
+        "canonical_unit": "rad",
+        "target_unit": "rad",
+        "source_range": {
+          "minimum": -50,
+          "maximum": 50
+        },
+        "target_range": {
+          "minimum": 3.1407953740028356,
+          "maximum": 4.886124625997165
+        },
+        "source_to_canonical": {
+          "scale": 0.017453292519943295,
+          "offset": 0
+        },
+        "target_from_canonical": {
+          "scale": 1,
+          "offset": 4.01346
+        }
+      }
+    ],
+    "digest": "sha256:7a3d810e7ed15355d4a27754349d3a629fe40ec232ae38bf360b90b387757082"
+  },
+  "target": {
+    "endpoint_id": "browser-urdf-simulation",
+    "role": "robot_target",
+    "capability_profile_ref": "teleopworks.so101-urdf-sim.v1",
+    "calibration_ref": "static-urdf-v1",
+    "accepted_action_schema_id": "epaoa.robot-control.joint-position.v1",
+    "adapter_mapping_ref": "teleopworks.browser-urdf.v1",
+    "frame": "so101-urdf-joint-space",
+    "required_dofs": [
+      "Rotation",
+      "Pitch",
+      "Elbow",
+      "Wrist_Pitch",
+      "Wrist_Roll",
+      "Jaw"
+    ]
+  },
+  "constraints": {
+    "missing_dof_behavior": "reject",
+    "out_of_range_behavior": "reject",
+    "stale_calibration_behavior": "reject"
+  },
+  "validation": {
+    "validated_by": "Teleopworks reference implementation",
+    "validated_at": "2026-09-10T21:00:00Z",
+    "method": "ci_simulated",
+    "test_report_ref": "tests/test_motion_compatibility.py"
+  },
+  "evidence_refs": [
+    "teleop_lerobot/tests/test_motion_compatibility.py"
+  ],
+  "invalidation_triggers": [
+    "source_capability_change",
+    "source_calibration_change",
+    "target_capability_change",
+    "target_calibration_change",
+    "mapping_change",
+    "action_schema_change",
+    "frame_change"
+  ],
+  "reason_codes": [
+    "REFERENCE_MAPPING_VALIDATED"
+  ],
+  "valid_from": "2026-09-10T21:00:00Z"
+}

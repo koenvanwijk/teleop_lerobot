@@ -64,6 +64,18 @@ except ImportError as e:
     logger.warning(f"Bluetooth GATT server not available: {e}")
     BLUETOOTH_AVAILABLE = False
 
+try:
+    from motion_compatibility import (
+        MotionCompatibilityError,
+        MotionCompatibilityRegistry,
+        MotionSimulationState,
+    )
+    MOTION_COMPATIBILITY_AVAILABLE = True
+except ImportError as e:
+    logger = logging.getLogger(__name__)
+    logger.warning(f"Motion compatibility runtime not available: {e}")
+    MOTION_COMPATIBILITY_AVAILABLE = False
+
 # Configure logging with force flush
 log_handler = logging.FileHandler('webserver.log')
 log_handler.setLevel(logging.INFO)
@@ -263,6 +275,13 @@ class RobotState:
         # Bluetooth management
         self.bluetooth_manager: Optional[BLEGattServer] = None
         self.bluetooth_enabled: bool = False
+
+        # EPAOA Motion Compatibility
+        self.motion_registry = (
+            MotionCompatibilityRegistry(Path(__file__).parent / "motion_profiles")
+            if MOTION_COMPATIBILITY_AVAILABLE else None
+        )
+        self.motion_simulation = MotionSimulationState() if MOTION_COMPATIBILITY_AVAILABLE else None
         
         # WebSocket clients
         self.websocket_clients: List[WebSocket] = []
@@ -473,7 +492,8 @@ async def start_teleoperation() -> bool:
             teleop_type=teleop_type,
             teleop_port=state.leader_port,
             teleop_id=state.leader_id,
-            fps=60
+            fps=60,
+            motion_profile_id=os.getenv("LEROBOT_MOTION_PROFILE") or None,
         ):
             state.teleop_manager = teleop_manager
             state.teleop_mode = "teleoperation"
@@ -931,8 +951,111 @@ async def api_info():
             "/api/positions": "Get all saved positions",
             "/api/positions/{name}": "Delete a saved position",
             "/api/devices": "Get available robot and teleop devices",
+            "/api/motion/profiles": "List EPAOA Motion Compatibility Profiles",
+            "/api/motion/resolve": "Resolve source-native command to canonical and target-native values",
+            "/api/motion/command": "Resolve and dispatch a compatibility-profiled command",
+            "/api/motion/simulation/state": "Get current URDF simulation target state",
         }
     }
+
+
+def _require_motion_runtime():
+    if not state.motion_registry or not state.motion_simulation:
+        raise HTTPException(status_code=503, detail="Motion compatibility runtime unavailable")
+    return state.motion_registry
+
+
+def _dispatch_resolved_motion(resolved: Dict[str, Any]) -> Dict[str, Any]:
+    """Dispatch only after source -> canonical -> target resolution succeeded."""
+    adapter_ref = resolved["target"].get("adapter_mapping_ref")
+    target_native = resolved["target_native_command"]
+
+    if adapter_ref == "teleopworks.browser-urdf.v1":
+        simulation_state = state.motion_simulation.apply(resolved)
+        return {
+            "target": "simulation",
+            "simulation_state": simulation_state,
+        }
+
+    if adapter_ref == "lerobot.so101-follower.degrees.v1":
+        if not state.teleop_manager or not state.teleop_manager.is_running:
+            raise HTTPException(status_code=409, detail="SO101 follower teleoperation is not running")
+        if not state.teleop_manager.apply_leader_positions(target_native):
+            raise HTTPException(status_code=500, detail="Follower rejected resolved target command")
+        evidence = (
+            state.teleop_manager.get_motion_evidence()
+            if hasattr(state.teleop_manager, "get_motion_evidence") else {}
+        )
+        return {
+            "target": "so101_follower",
+            "applied": True,
+            "runtime_evidence": evidence,
+        }
+
+    raise HTTPException(status_code=422, detail=f"Unsupported target adapter mapping: {adapter_ref}")
+
+
+@app.get("/api/motion/profiles")
+async def motion_profiles():
+    registry = _require_motion_runtime()
+    return {"success": True, "profiles": registry.list()}
+
+
+@app.get("/api/motion/profiles/{profile_id}")
+async def motion_profile(profile_id: str):
+    registry = _require_motion_runtime()
+    try:
+        return {"success": True, "profile": registry.get(profile_id)}
+    except MotionCompatibilityError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+
+
+@app.post("/api/motion/resolve")
+async def motion_resolve(request: Request):
+    registry = _require_motion_runtime()
+    body = await request.json()
+    profile_id = body.get("profile_id")
+    values = body.get("values")
+    if not isinstance(profile_id, str) or not isinstance(values, dict):
+        raise HTTPException(status_code=400, detail="Expected {profile_id: string, values: object}")
+    try:
+        resolved = registry.resolve(profile_id, values)
+        return {"success": True, "resolved": resolved}
+    except MotionCompatibilityError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+
+
+@app.post("/api/motion/command")
+async def motion_command(request: Request):
+    registry = _require_motion_runtime()
+    body = await request.json()
+    profile_id = body.get("profile_id")
+    values = body.get("values")
+    if not isinstance(profile_id, str) or not isinstance(values, dict):
+        raise HTTPException(status_code=400, detail="Expected {profile_id: string, values: object}")
+    try:
+        resolved = registry.resolve(profile_id, values)
+    except MotionCompatibilityError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+
+    dispatch = _dispatch_resolved_motion(resolved)
+    return {
+        "success": True,
+        "compatibility_id": resolved["compatibility_id"],
+        "profile_digest": resolved["profile_digest"],
+        "mapping_id": resolved["mapping_id"],
+        "mapping_version": resolved["mapping_version"],
+        "canonical_action_schema_id": resolved["canonical_action_schema_id"],
+        "canonical_command": resolved["canonical_command"],
+        "target_native_command": resolved["target_native_command"],
+        "dispatch": dispatch,
+    }
+
+
+@app.get("/api/motion/simulation/state")
+async def motion_simulation_state():
+    _require_motion_runtime()
+    return {"success": True, **state.motion_simulation.get()}
 
 
 @app.get("/api/devices")
@@ -1834,7 +1957,30 @@ async def teleop_leader_command(request: Request):
         if not isinstance(motor_names, list) or not isinstance(positions, list) or len(motor_names) != len(positions):
             return { "success": False, "error": "Invalid payload" }
 
-        # Build a dict for the teleop manager, accept either base or `.pos` keys
+        # A profiled command always crosses the EPAOA compatibility boundary.
+        profile_id = body.get("profile_id")
+        if profile_id:
+            registry = _require_motion_runtime()
+            source_values = {
+                str(name).replace('.pos', ''): float(positions[i])
+                for i, name in enumerate(motor_names)
+            }
+            try:
+                resolved = registry.resolve(str(profile_id), source_values)
+            except MotionCompatibilityError as exc:
+                raise HTTPException(status_code=422, detail=str(exc)) from exc
+            dispatch = _dispatch_resolved_motion(resolved)
+            return {
+                "success": True,
+                "compatibility_id": resolved["compatibility_id"],
+                "profile_digest": resolved["profile_digest"],
+                "canonical_command": resolved["canonical_command"],
+                "target_native_command": resolved["target_native_command"],
+                "dispatch": dispatch,
+            }
+
+        # Legacy unprofiled path retained for existing browser clients.
+        # New sources should use /api/motion/command or provide profile_id.
         cmd = {}
         for i, name in enumerate(motor_names):
             base = str(name).replace('.pos', '')

@@ -9,11 +9,15 @@ This implementation stays close to LeRobot's original code for easy updates.
 # Copyright 2024 The HuggingFace Inc. team. All rights reserved.
 # Licensed under the Apache License, Version 2.0 (the "License")
 
+import hashlib
+import json
 import logging
+import os
 import time
 import threading
 import sys
-from dataclasses import asdict, dataclass
+from dataclasses import asdict, dataclass, is_dataclass
+from pathlib import Path
 from typing import Optional, Dict, Any
 from pprint import pformat
 
@@ -42,6 +46,8 @@ from lerobot.utils.robot_utils import precise_sleep
 from lerobot.utils.utils import init_logging
 from lerobot.scripts.lerobot_teleoperate import TeleoperateConfig
 
+from motion_compatibility import MotionCompatibilityRegistry, profile_digest
+
 
 class TeleoperationManager:
     """
@@ -56,6 +62,11 @@ class TeleoperationManager:
         self.thread: Optional[threading.Thread] = None
         self.current_observation: Optional[Dict[str, Any]] = None
         self.current_action: Optional[Dict[str, Any]] = None
+        self.current_canonical_action: Optional[Dict[str, float]] = None
+        self.motion_registry: Optional[MotionCompatibilityRegistry] = None
+        self.motion_profile_id: Optional[str] = None
+        self.motion_profile_digest: Optional[str] = None
+        self.motion_mapping_id: Optional[str] = None
         self.lock = threading.Lock()
         self.fps = 60
         self.actual_fps = 0.0
@@ -79,7 +90,8 @@ class TeleoperationManager:
         register_third_party_plugins()
     
     def start(self, robot_type: str, robot_port: str, robot_id: str, 
-              teleop_type: str, teleop_port: str, teleop_id: str, fps: int = 60):
+              teleop_type: str, teleop_port: str, teleop_id: str, fps: int = 60,
+              motion_profile_id: Optional[str] = None):
         """
         Start teleoperation with given configuration.
         
@@ -91,6 +103,9 @@ class TeleoperationManager:
             teleop_port: Teleoperator serial port
             teleop_id: Teleoperator ID
             fps: Target frames per second
+            motion_profile_id: Optional EPAOA Motion Compatibility Profile. When
+                set, every source action is resolved source-native -> canonical
+                -> target-native before the Robot action processor.
         """
         if self.is_running:
             logging.warning("Teleoperation already running")
@@ -128,6 +143,27 @@ class TeleoperationManager:
             # Create robot and teleoperator (LeRobot's factory functions)
             self.robot = make_robot_from_config(cfg.robot)
             self.teleop = make_teleoperator_from_config(cfg.teleop)
+
+            self.motion_profile_id = motion_profile_id
+            self.motion_registry = None
+            self.motion_profile_digest = None
+            self.motion_mapping_id = None
+            if motion_profile_id:
+                self.motion_registry = MotionCompatibilityRegistry(Path(__file__).parent / "motion_profiles")
+                profile = self.motion_registry.get(motion_profile_id)
+                target_adapter = profile["target"]["adapter_mapping_ref"]
+                if target_adapter != "lerobot.so101-follower.degrees.v1":
+                    raise RuntimeError(
+                        f"Motion profile {motion_profile_id} targets {target_adapter}, "
+                        "not the in-process SO101 follower"
+                    )
+                self.motion_profile_digest = profile_digest(profile)
+                self.motion_mapping_id = profile["mapping"]["mapping_id"]
+                logging.info(
+                    "EPAOA motion compatibility enabled: profile=%s mapping=%s",
+                    motion_profile_id,
+                    self.motion_mapping_id,
+                )
 
             # This application deliberately exposes one unit only:
             # degrees for every motor, including the gripper.
@@ -297,9 +333,50 @@ class TeleoperationManager:
                 
                 # Process teleop action through pipeline (LeRobot's processors)
                 teleop_action = self.teleop_action_processor((raw_action, obs))
-                
+
+                # Optional EPAOA Motion Compatibility boundary. Native source
+                # values are never treated as native target values by assumption.
+                action_for_robot = teleop_action
+                resolved_motion = None
+                if self.motion_registry is not None and self.motion_profile_id is not None:
+                    profile = self.motion_registry.get(self.motion_profile_id)
+                    source_names = {
+                        item["source_dof"]
+                        for item in profile["mapping"]["dof_mappings"]
+                    }
+                    source_values: Dict[str, float] = {}
+                    for key, value in teleop_action.items():
+                        base = str(key).replace(".pos", "")
+                        if base not in source_names:
+                            continue
+                        try:
+                            source_values[base] = float(value)
+                        except (TypeError, ValueError) as exc:
+                            raise RuntimeError(
+                                f"Non-numeric teleoperation value for {base}: {value!r}"
+                            ) from exc
+
+                    resolved_motion = self.motion_registry.resolve(
+                        self.motion_profile_id,
+                        source_values,
+                    )
+                    target_native = resolved_motion["target_native_command"]
+
+                    # Preserve LeRobot's original action-key shape. Some versions
+                    # use base motor names and others use a '.pos' suffix.
+                    action_for_robot = {}
+                    emitted_targets = set()
+                    for original_key in teleop_action:
+                        base = str(original_key).replace(".pos", "")
+                        if base in target_native:
+                            action_for_robot[original_key] = target_native[base]
+                            emitted_targets.add(base)
+                    for base, value in target_native.items():
+                        if base not in emitted_targets:
+                            action_for_robot[f"{base}.pos"] = value
+
                 # Process action for robot through pipeline (LeRobot's processors)
-                robot_action_to_send = self.robot_action_processor((teleop_action, obs))
+                robot_action_to_send = self.robot_action_processor((action_for_robot, obs))
                 
                 # Send processed action to robot (LeRobot's method)
                 _ = self.robot.send_action(robot_action_to_send)
@@ -308,6 +385,10 @@ class TeleoperationManager:
                 with self.lock:
                     self.current_observation = obs
                     self.current_action = robot_action_to_send
+                    self.current_canonical_action = (
+                        dict(resolved_motion["canonical_command"])
+                        if resolved_motion is not None else None
+                    )
                     
                     # Debug: log observation keys once at startup
                     if not hasattr(self, '_logged_obs_keys'):
@@ -374,6 +455,7 @@ class TeleoperationManager:
         self.robot = None
         self.current_observation = None
         self.current_action = None
+        self.current_canonical_action = None
         
         if not preserve_error:
             self.connection_state = "stopped"
@@ -444,7 +526,55 @@ class TeleoperationManager:
             "loop_errors": self.loop_errors,
             "last_error": self.last_error,
             "uptime_s": round(time.time() - self.started_at, 1) if self.started_at else 0.0,
-            "has_positions": self.current_observation is not None
+            "has_positions": self.current_observation is not None,
+            "motion_profile_id": self.motion_profile_id,
+            "motion_profile_digest": self.motion_profile_digest,
+            "motion_mapping_id": self.motion_mapping_id,
+            "calibration_fingerprints": self.get_calibration_fingerprints(),
+        }
+
+    @staticmethod
+    def _stable_calibration_value(value: Any) -> Any:
+        if is_dataclass(value):
+            return {
+                str(k): TeleoperationManager._stable_calibration_value(v)
+                for k, v in asdict(value).items()
+            }
+        if isinstance(value, dict):
+            return {
+                str(k): TeleoperationManager._stable_calibration_value(v)
+                for k, v in sorted(value.items(), key=lambda item: str(item[0]))
+            }
+        if isinstance(value, (list, tuple)):
+            return [TeleoperationManager._stable_calibration_value(v) for v in value]
+        if isinstance(value, (str, int, float, bool)) or value is None:
+            return value
+        return str(value)
+
+    @classmethod
+    def _calibration_fingerprint(cls, device: Any) -> Optional[str]:
+        calibration = getattr(device, "calibration", None)
+        if not calibration:
+            return None
+        stable = cls._stable_calibration_value(calibration)
+        payload = json.dumps(stable, sort_keys=True, separators=(",", ":")).encode("utf-8")
+        return "sha256:" + hashlib.sha256(payload).hexdigest()
+
+    def get_calibration_fingerprints(self) -> Dict[str, Optional[str]]:
+        return {
+            "source": self._calibration_fingerprint(self.teleop) if self.teleop is not None else None,
+            "target": self._calibration_fingerprint(self.robot) if self.robot is not None else None,
+        }
+
+    def get_motion_evidence(self) -> Dict[str, Any]:
+        with self.lock:
+            canonical = dict(self.current_canonical_action) if self.current_canonical_action else None
+        return {
+            "compatibility_id": self.motion_profile_id,
+            "profile_digest": self.motion_profile_digest,
+            "mapping_id": self.motion_mapping_id,
+            "calibration_fingerprints": self.get_calibration_fingerprints(),
+            "canonical_command": canonical,
         }
 
     def apply_leader_positions(self, positions: Dict[str, float]) -> bool:
