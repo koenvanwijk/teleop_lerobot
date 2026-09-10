@@ -34,6 +34,11 @@
     .network:hover, .network.selected { border-color: #4f46e5; background: #eef2ff; }
     .small { color:#64748b; font-size: 13px; line-height: 1.35; }
     .panic { background:#fff7ed; color:#9a3412; border:1px solid #fed7aa; border-radius:12px; padding:12px; margin-top:12px; }
+    .ios-help { display:none; margin:14px 0; padding:16px; border:2px solid #93c5fd; background:#eff6ff; border-radius:16px; }
+    .ios-help h2 { margin:0 0 6px; font-size:20px; }
+    .ios-help p { margin:7px 0; }
+    .button-link { display:block; width:100%; border-radius:12px; padding:15px 16px; font-size:16px; font-weight:700; text-align:center; text-decoration:none; margin:8px 0; }
+    .button-link.secondary { background:#e2e8f0; color:#0f172a; }
     a { color: #2563eb; font-weight: 700; }
   </style>
 </head>
@@ -43,6 +48,15 @@
     <div class="sub">Bluetooth eerst. Als WiFi mislukt: duidelijke fout + AP fallback.</div>
 
     <button id="scanButton" class="primary">📡 Scan voor LeRobot</button>
+
+    <section id="iosBluefyHelp" class="ios-help">
+      <h2>📱 iPhone / iPad</h2>
+      <p>Deze setup gebruikt Bluetooth. Op iPhone werkt dat via de gratis Bluefy-browser.</p>
+      <button id="openBluefyButton" class="primary">Open setup in Bluefy</button>
+      <a class="button-link secondary" href="https://apps.apple.com/nl/app/bluefy-web-ble-browser/id1492822055" target="_blank" rel="noopener">Bluefy installeren</a>
+      <p class="small">Bluefy nog niet geïnstalleerd? We openen automatisch de App Store. Na installatie: ga terug naar deze pagina en tik opnieuw op <b>Open setup in Bluefy</b>.</p>
+    </section>
+
     <div id="status" class="status"></div>
 
     <section id="resultCard" class="result">
@@ -81,6 +95,9 @@
   </main>
 
   <script>
+    const BLUEFY_APP_STORE_URL = 'https://apps.apple.com/nl/app/bluefy-web-ble-browser/id1492822055';
+    const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+
     const LEROBOT_SERVICE_UUID = 'c5f50001-1234-5678-89ab-123456789abc';
     const IP_CHARACTERISTIC_UUID = 'c5f50002-1234-5678-89ab-123456789abc';
     const WIFI_SSID_CHAR_UUID = 'c5f50003-1234-5678-89ab-123456789abc';
@@ -108,6 +125,37 @@
     const wifiSsid = $('wifiSsid');
     const wifiPassword = $('wifiPassword');
     const wifiNetworks = $('wifiNetworks');
+    const iosBluefyHelp = $('iosBluefyHelp');
+
+    function bluefyUrlForCurrentPage() {
+      // Bluefy documents its deep-link as bluefy://open?url=<URL without https://>.
+      return 'bluefy://open?url=' + window.location.href.replace(/^https?:\/\//, '');
+    }
+
+    function openInBluefy() {
+      let fallbackTimer = null;
+      let leftPage = false;
+
+      const cancelFallback = () => {
+        leftPage = true;
+        if (fallbackTimer) clearTimeout(fallbackTimer);
+      };
+
+      const onVisibilityChange = () => {
+        if (document.hidden) cancelFallback();
+      };
+
+      document.addEventListener('visibilitychange', onVisibilityChange, { once: true });
+      window.addEventListener('pagehide', cancelFallback, { once: true });
+
+      window.location.href = bluefyUrlForCurrentPage();
+
+      // iOS does not expose a reliable "app not installed" callback for custom URL schemes.
+      // If Safari stays visible, fall back to the App Store.
+      fallbackTimer = setTimeout(() => {
+        if (!leftPage && !document.hidden) window.location.href = BLUEFY_APP_STORE_URL;
+      }, 1800);
+    }
 
     function show(box, text, kind='info') {
       box.className = `status ${kind}`;
@@ -155,7 +203,12 @@
 
     async function scanForRobot() {
       if (!navigator.bluetooth) {
-        show(statusBox, 'Deze browser ondersteunt geen Web Bluetooth. Gebruik Android/Chrome/Edge, of het AP: LeRobot-AP / robotics123 / http://192.168.4.1/.', 'err');
+        if (isIOS) {
+          iosBluefyHelp.style.display = 'block';
+          show(statusBox, 'Open deze setup in Bluefy om Bluetooth te gebruiken.', 'info');
+        } else {
+          show(statusBox, 'Deze browser ondersteunt geen Web Bluetooth. Gebruik Chrome of Edge. Het LeRobot-AP blijft beschikbaar als recovery.', 'err');
+        }
         return;
       }
       scanButton.disabled = true;
@@ -254,8 +307,19 @@
       catch (e) { show(wifiStatus, `IP lezen mislukt: ${e.message || e}`, 'err'); }
     });
 
-    if (!navigator.bluetooth) show(statusBox, 'iPhone/Safari ondersteunt Web Bluetooth niet. Gebruik het AP: LeRobot-AP / robotics123 / http://192.168.4.1/.', 'warn');
-    else show(statusBox, 'Klik op “Scan voor LeRobot” om te beginnen.', 'info');
+    $('openBluefyButton').addEventListener('click', openInBluefy);
+
+    if (!navigator.bluetooth) {
+      if (isIOS) {
+        scanButton.style.display = 'none';
+        iosBluefyHelp.style.display = 'block';
+        show(statusBox, 'Open deze setup in Bluefy. Je iPhone blijft gewoon op zijn huidige WiFi of mobiele verbinding.', 'info');
+      } else {
+        show(statusBox, 'Deze browser ondersteunt geen Web Bluetooth. Gebruik Chrome of Edge. Het LeRobot-AP blijft beschikbaar als recovery.', 'warn');
+      }
+    } else {
+      show(statusBox, 'Klik op “Scan voor LeRobot” om te beginnen.', 'info');
+    }
   </script>
 </body>
 </html>
