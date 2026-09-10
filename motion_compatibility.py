@@ -50,6 +50,11 @@ def _range(entry: Mapping[str, Any], name: str) -> tuple[float, float]:
     return low, high
 
 
+def _within_range(value: float, low: float, high: float) -> bool:
+    tolerance = max(1e-9, 1e-9 * max(abs(value), abs(low), abs(high), 1.0))
+    return (low - tolerance) <= value <= (high + tolerance)
+
+
 def _affine(value: float, transform: Mapping[str, Any], label: str) -> float:
     scale = _finite(transform.get("scale"), f"{label}.scale")
     offset = _finite(transform.get("offset", 0.0), f"{label}.offset")
@@ -209,7 +214,7 @@ def validate_profile(profile: Mapping[str, Any]) -> None:
                 f"{item['source_dof']}.target_from_canonical",
             )
             _require(
-                target_min <= target_value <= target_max,
+                _within_range(target_value, target_min, target_max),
                 f"declared mapping exceeds target range for {item['target_dof']}",
             )
         _require(item["source_dof"] not in source_names, f"duplicate source DOF {item['source_dof']}")
@@ -243,7 +248,7 @@ def resolve_motion(profile: Mapping[str, Any], source_values: Mapping[str, Any])
         source_value = _finite(source_values[source_name], source_name)
         source_min, source_max = _range(item, "source_range")
         _require(
-            source_min <= source_value <= source_max,
+            _within_range(source_value, source_min, source_max),
             f"{source_name}={source_value:.3f} outside admitted source range [{source_min:.3f}, {source_max:.3f}]",
         )
 
@@ -252,7 +257,7 @@ def resolve_motion(profile: Mapping[str, Any], source_values: Mapping[str, Any])
 
         target_min, target_max = _range(item, "target_range")
         _require(
-            target_min <= target_value <= target_max,
+            _within_range(target_value, target_min, target_max),
             f"{item['target_dof']}={target_value:.3f} outside target calibrated range [{target_min:.3f}, {target_max:.3f}]",
         )
 
