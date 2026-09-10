@@ -1,5 +1,10 @@
 # LeRobot Teleoperation
 
+## EPAOA motion compatibility
+
+Voor expliciete leader/follower compatibility, canonical units, de URDF-simulatie en Quest-controller reference mapping, zie [MOTION_COMPATIBILITY.md](MOTION_COMPATIBILITY.md).
+
+
 ## 📡 Vind je Robot via Bluetooth
 
 **Weet je het IP-adres van je robot niet?**
