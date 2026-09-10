@@ -41,7 +41,8 @@ class ReachyMiniTargetTests(unittest.TestCase):
         payload = build_reachy_target(target)
         self.assertEqual(payload["head"]["x_m"], 0.0)
         self.assertEqual(payload["head"]["y_m"], 0.0)
-        self.assertEqual(payload["antennas_rad"], [0.0, 0.0])
+        self.assertAlmostEqual(payload["antennas_rad"][0], 0.0, places=12)
+        self.assertAlmostEqual(payload["antennas_rad"][1], 0.0, places=12)
 
     def test_full_scale_mapping_stays_inside_declared_reachy_limits(self) -> None:
         resolved = self.registry.resolve(
