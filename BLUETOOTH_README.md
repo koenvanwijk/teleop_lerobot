@@ -105,55 +105,76 @@ http://localhost/bluetooth
 http://<bekende-ip>/bluetooth
 ```
 
-**Optie 3: Via GitHub Pages (werkt overal)**
+**Optie 3: Via GitHub Pages (aanbevolen)**
 ```
-https://<username>.github.io/teleop_lerobot/bluetooth_scan.html
+https://koenvanwijk.github.io/teleop_lerobot/
 ```
+
+Dit is de universele setup-URL voor Android, desktop en iPhone/iPad.
 
 De scanner:
-- Gebruikt Web Bluetooth API (Chrome/Edge vereist)
+- Gebruikt Web Bluetooth API in Chrome/Edge en via Bluefy op iPhone/iPad
 - Scant automatisch naar "LeRobot-" apparaten
-- Leest IP via GATT characteristic (preferred)
-- Fallback: parseert IP uit device naam
-- Kopieert IP naar clipboard
-- Link direct naar robot web interface
+- Leest IP via GATT characteristic
+- Kan WiFi-netwerken laten scannen en WiFi-credentials naar de robot sturen
+- Linkt na succesvolle setup naar de lokale robotinterface
 
-⚠️ **Let op**: Web Bluetooth werkt alleen op HTTPS of localhost (browser security)
+⚠️ **Let op**: de publieke Web Bluetooth setup-pagina draait via HTTPS. Safari op iPhone/iPad biedt zelf geen Web Bluetooth; de pagina biedt daar **Open setup in Bluefy** aan.
 
 ### Vanaf Mobiel Apparaat
 
-**Methode 1: Web Bluetooth Scanner via Browser (Aanbevolen)**
+#### Android
 
-Open Chrome of Edge browser op je telefoon en ga naar:
-```
-http://<bekende-ip>/bluetooth
-```
+Gebruik de publieke setup-pagina in **Chrome**:
 
-Of gebruik de GitHub Pages versie (werkt zonder lokaal netwerk):
 ```
-https://<username>.github.io/teleop_lerobot/bluetooth_scan.html
+https://koenvanwijk.github.io/teleop_lerobot/
 ```
 
-De scanner:
-1. Klikt op "🔍 Scan for Robots"
-2. Browser toont lijst met BLE apparaten
-3. Selecteer "LeRobot-<IP>" apparaat
-4. Scanner leest GATT characteristic voor IP
-5. IP wordt getoond en gekopieerd naar clipboard
-6. Klik op link om naar robot interface te gaan
+Flow:
 
-**Methode 2: Native BLE Scanner App**
+1. Open de pagina in Chrome
+2. Tik op **Scan voor LeRobot**
+3. Selecteer de robot
+4. Laat de robot indien nodig WiFi-netwerken scannen
+5. Kies SSID en voer het WiFi-wachtwoord in
+6. Verbind de robot
+7. Open het gevonden lokale IP-adres
 
-Download een BLE scanner app (bijvoorbeeld "nRF Connect" of "BLE Scanner"):
-1. Open de app en scan naar BLE apparaten
-2. Zoek naar "LeRobot-192.168.x.x" in de lijst
-3. Het IP-adres staat in de device naam
-4. Optioneel: connect en lees GATT characteristic `c5f50002-...` voor IP
-5. Open browser en ga naar `http://<IP>`
+#### iPhone / iPad
 
-**Methode 3: Handmatig via Bluetooth Instellingen**
+Safari ondersteunt geen Web Bluetooth. Daarom gebruikt LeRobot **Bluefy alleen voor de Bluetooth/WiFi-setup**.
 
-Let op: Standaard Bluetooth instellingen tonen meestal geen BLE advertising apparaten. Gebruik methode 1 of 2.
+1. Scan de LeRobot QR-code met de Camera-app
+2. De universele setup-pagina opent in Safari
+3. Tik op **Open setup in Bluefy**
+4. Als Bluefy niet geïnstalleerd is, wordt de App Store geopend
+5. Ga daarna terug naar de setup-pagina en tik opnieuw op **Open setup in Bluefy**
+6. Tik in Bluefy op **Scan voor LeRobot**
+7. Configureer WiFi via BLE
+8. Open daarna het lokale LeRobot Control Center
+
+Het volledige Control Center is niet bedoeld om afhankelijk te zijn van Bluefy. Op iOS detecteert het Control Center een Web-Bluetooth-browser en toont het een waarschuwing om voor normale bediening Safari te gebruiken, met een knop om het huidige adres te kopiëren.
+
+#### QR-code
+
+Gebruik op alle platforms dezelfde QR:
+
+```
+https://koenvanwijk.github.io/teleop_lerobot/
+```
+
+De printbare QR/instructiepagina staat op:
+
+```
+https://koenvanwijk.github.io/teleop_lerobot/qr.html
+```
+
+Er is dus geen aparte iPhone-QR nodig.
+
+#### Recovery
+
+Als BLE/WiFi provisioning niet lukt, blijft de bestaande LeRobot-AP route beschikbaar als recovery. SoftAP is niet de normale onboarding-flow.
 
 ### Van Linux/Mac Terminal
 
@@ -356,20 +377,24 @@ bluetoothctl list
 
 ### Web Bluetooth Not Working
 
-Web Bluetooth API vereist:
-- **Browser**: Chrome, Edge, of Opera (niet Firefox/Safari)
-- **Context**: HTTPS of localhost (security requirement)
-- **Permissions**: Sta Bluetooth toegang toe in browser
+Ondersteunde setup-routes:
+- **Android:** Chrome
+- **Desktop:** Chrome of Edge
+- **iPhone/iPad:** Bluefy
+- **Safari:** geen Web Bluetooth; gebruik de knop **Open setup in Bluefy**
+- **Firefox:** geen ondersteunde Web Bluetooth setup-route
 
-Als je deze error ziet:
+Gebruik bij voorkeur altijd de publieke HTTPS setup-pagina:
+
 ```
-Web Bluetooth API is not available
+https://koenvanwijk.github.io/teleop_lerobot/
 ```
 
-Oplossingen:
-1. Gebruik HTTPS of localhost URL
-2. Check browser compatibility (gebruik Chrome/Edge)
-3. Sta Bluetooth permissions toe in browser settings
+Als je `Web Bluetooth API is not available` ziet:
+1. Controleer of je de publieke HTTPS setup-pagina gebruikt
+2. Android/desktop: gebruik Chrome of Edge
+3. iPhone/iPad: open dezelfde pagina via **Open setup in Bluefy**
+4. Controleer Bluetooth-permissies van de browser/app
 
 ### GATT Characteristic Niet Leesbaar
 
