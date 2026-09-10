@@ -166,4 +166,4 @@ jobs:
           node --check /tmp/robot_viewer.js
           node --check /tmp/ssh_terminal.js
       - name: Installer syntax
-        run: bash -n install.sh
+        run: bash -n install.sh support_bundle.sh
