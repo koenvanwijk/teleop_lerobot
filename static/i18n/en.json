@@ -154,6 +154,7 @@
     "connect_to_wifi": "Connect to WiFi",
     "network_name": "Network name",
     "password": "Password",
+    "show_password": "Show password",
     "connect": "Connect",
     "cancel": "Cancel",
     "scanning": "Scanning for WiFi networks…",

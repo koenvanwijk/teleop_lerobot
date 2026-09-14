@@ -689,6 +689,10 @@
                 <div class="form-group">
                     <label data-i18n="network.password">Password:</label>
                     <input type="password" id="wifi-password" data-i18n="[placeholder]network.password" placeholder="Password">
+                    <label style="font-weight:normal;display:block;margin-top:6px;">
+                        <input type="checkbox" id="show-wifi-password" onchange="document.getElementById('wifi-password').type = this.checked ? 'text' : 'password';">
+                        <span data-i18n="network.show_password">Show password</span>
+                    </label>
                 </div>
                 <button class="btn btn-primary" onclick="connectWiFi()" data-i18n="network.connect">
                     🔗 Connect

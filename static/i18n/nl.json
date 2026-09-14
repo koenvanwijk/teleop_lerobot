@@ -154,6 +154,7 @@
     "connect_to_wifi": "Verbind met WiFi",
     "network_name": "Netwerk naam",
     "password": "Wachtwoord",
+    "show_password": "Wachtwoord tonen",
     "connect": "Verbinden",
     "cancel": "Annuleren",
     "scanning": "WiFi-netwerken zoeken…",
