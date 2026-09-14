@@ -22,6 +22,23 @@ if [ ! -d "$REPO" ]; then
 	exit 1
 fi
 
+# The Pi has no battery-backed clock. On first boot the clock can be behind
+# real time, which makes apt reject repo metadata as "not valid yet" and
+# install.sh fails at `apt-get update`. Wait (best-effort) for a synced clock.
+echo "[$(date -Is)] waiting for clock sync (no RTC on the Pi)..."
+timedatectl set-ntp true 2>/dev/null || true
+for _ in $(seq 1 60); do
+	if [ "$(timedatectl show -p NTPSynchronized --value 2>/dev/null)" = "yes" ]; then
+		break
+	fi
+	sleep 2
+done
+if [ "$(timedatectl show -p NTPSynchronized --value 2>/dev/null)" = "yes" ]; then
+	echo "[$(date -Is)] clock synchronized"
+else
+	echo "[$(date -Is)] WARNING: clock not confirmed synced after 120s; continuing anyway"
+fi
+
 INSTALL_ARGS=()
 [ -n "${LEROBOT_ROBOT_NAME:-}" ] && INSTALL_ARGS+=(--robot-name "${LEROBOT_ROBOT_NAME}")
 [ -n "${TAILSCALE_AUTH_KEY:-}" ] && INSTALL_ARGS+=(--tailscale)

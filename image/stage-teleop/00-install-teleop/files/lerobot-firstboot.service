@@ -1,7 +1,7 @@
 [Unit]
 Description=LeRobot first-boot provisioning (runs install.sh once)
-After=network-online.target
-Wants=network-online.target
+After=network-online.target time-sync.target
+Wants=network-online.target time-sync.target
 ConditionPathExists=/opt/lerobot-firstboot/provision.sh
 
 [Service]
