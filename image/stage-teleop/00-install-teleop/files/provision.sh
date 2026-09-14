@@ -39,6 +39,16 @@ else
 	echo "[$(date -Is)] WARNING: clock not confirmed synced after 120s; continuing anyway"
 fi
 
+# BLE WiFi-onboarding is meant for a Pi with no WiFi configured yet, but
+# Bookworm keeps the WLAN radio blocked until a regulatory country is set --
+# which makes the onboarding WiFi scan return nothing on a fresh flash. Set a
+# country (default NL, override via LEROBOT_WIFI_COUNTRY) and enable the radio.
+WIFI_COUNTRY="${LEROBOT_WIFI_COUNTRY:-NL}"
+echo "[$(date -Is)] setting WiFi country=${WIFI_COUNTRY} and enabling radio"
+raspi-config nonint do_wifi_country "$WIFI_COUNTRY" 2>/dev/null || true
+rfkill unblock wifi 2>/dev/null || true
+nmcli radio wifi on 2>/dev/null || true
+
 INSTALL_ARGS=()
 [ -n "${LEROBOT_ROBOT_NAME:-}" ] && INSTALL_ARGS+=(--robot-name "${LEROBOT_ROBOT_NAME}")
 [ -n "${TAILSCALE_AUTH_KEY:-}" ] && INSTALL_ARGS+=(--tailscale)

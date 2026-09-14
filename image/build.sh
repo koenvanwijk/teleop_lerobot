@@ -81,11 +81,14 @@ fi
 
 # 4) Optionally bake a first-boot onboarding env (robot name / Tailscale key).
 #    Written straight into the rootfs staging area used by the teleop stage.
-if [ -n "${LEROBOT_ROBOT_NAME:-}" ] || [ -n "${TAILSCALE_AUTH_KEY:-}" ]; then
+if [ -n "${LEROBOT_ROBOT_NAME:-}" ] || [ -n "${TAILSCALE_AUTH_KEY:-}" ] || [ -n "${WPA_COUNTRY:-}" ]; then
 	ENV_STAGE_DIR="$HERE/stage-teleop/00-install-teleop/files"
 	{
 		[ -n "${LEROBOT_ROBOT_NAME:-}" ] && printf 'LEROBOT_ROBOT_NAME=%s\n' "$LEROBOT_ROBOT_NAME"
 		[ -n "${TAILSCALE_AUTH_KEY:-}" ] && printf 'TAILSCALE_AUTH_KEY=%s\n' "$TAILSCALE_AUTH_KEY"
+		# WLAN regulatory country used at first boot to unblock the radio for
+		# BLE WiFi-onboarding (provision.sh defaults to NL when unset).
+		[ -n "${WPA_COUNTRY:-}" ] && printf 'LEROBOT_WIFI_COUNTRY=%s\n' "$WPA_COUNTRY"
 	} > "$ENV_STAGE_DIR/firstboot.env"
 	chmod 0600 "$ENV_STAGE_DIR/firstboot.env"
 	# Append a copy step to the stage run script only if not already present.
