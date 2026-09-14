@@ -44,49 +44,50 @@
 </head>
 <body>
   <main class="card">
+    <button id="langToggle" onclick="toggleLang()" style="float:right;background:#e2e8f0;color:#0f172a;border:none;border-radius:8px;padding:4px 10px;font-weight:700;cursor:pointer;">EN</button>
     <h1>🤖 LeRobot Setup</h1>
-    <div class="sub">Bluetooth eerst. Als WiFi mislukt: duidelijke fout + AP fallback.</div>
+    <div class="sub" data-i18n="sub">Bluetooth eerst. Als WiFi mislukt: duidelijke fout + AP fallback.</div>
 
-    <button id="scanButton" class="primary">📡 Scan voor LeRobot</button>
+    <button id="scanButton" class="primary" data-i18n="scanRobot">📡 Scan voor LeRobot</button>
 
     <section id="iosBluefyHelp" class="ios-help">
-      <h2>📱 iPhone / iPad</h2>
-      <p>Deze setup gebruikt Bluetooth. Op iPhone werkt dat via de gratis Bluefy-browser.</p>
-      <button id="openBluefyButton" class="primary">Open setup in Bluefy</button>
-      <a class="button-link secondary" href="https://apps.apple.com/nl/app/bluefy-web-ble-browser/id1492822055" target="_blank" rel="noopener">Bluefy installeren</a>
-      <p class="small">Bluefy nog niet geïnstalleerd? We openen automatisch de App Store. Na installatie: ga terug naar deze pagina en tik opnieuw op <b>Open setup in Bluefy</b>.</p>
+      <h2 data-i18n="iosTitle">📱 iPhone / iPad</h2>
+      <p data-i18n="iosP">Deze setup gebruikt Bluetooth. Op iPhone werkt dat via de gratis Bluefy-browser.</p>
+      <button id="openBluefyButton" class="primary" data-i18n="openBluefy">Open setup in Bluefy</button>
+      <a class="button-link secondary" href="https://apps.apple.com/nl/app/bluefy-web-ble-browser/id1492822055" target="_blank" rel="noopener" data-i18n="installBluefy">Bluefy installeren</a>
+      <p class="small" data-i18n="iosSmall">Bluefy nog niet geïnstalleerd? We openen automatisch de App Store. Na installatie: ga terug naar deze pagina en tik opnieuw op “Open setup in Bluefy”.</p>
     </section>
 
     <div id="status" class="status"></div>
 
     <section id="resultCard" class="result">
-      <div class="small">Gevonden robot: <b id="deviceName">-</b></div>
+      <div class="small"><span data-i18n="foundRobot">Gevonden robot:</span> <b id="deviceName">-</b></div>
       <div class="ip" id="ipAddress">-</div>
-      <a id="connectLink" href="#" target="_blank" rel="noopener"><button class="green">Open webinterface</button></a>
+      <a id="connectLink" href="#" target="_blank" rel="noopener"><button class="green" data-i18n="openWebui">Open webinterface</button></a>
     </section>
 
     <section id="wifiSection" class="wifi">
-      <h2>WiFi instellen</h2>
-      <p class="small">Gebruik dit alleen als de robot geen goed netwerk heeft. Het Setup WiFi-wachtwoord en het robot-loginwachtwoord zijn los van elkaar.</p>
+      <h2 data-i18n="wifiTitle">WiFi instellen</h2>
+      <p class="small" data-i18n="wifiP">Gebruik dit alleen als de robot geen goed netwerk heeft. Het Setup WiFi-wachtwoord en het robot-loginwachtwoord zijn los van elkaar.</p>
 
-      <button id="scanWifiButton" class="gray">🔍 Scan WiFi-netwerken</button>
+      <button id="scanWifiButton" class="gray" data-i18n="scanWifi">🔍 Scan WiFi-netwerken</button>
       <div id="wifiNetworks"></div>
 
-      <label for="wifiSsid">WiFi netwerknaam / SSID</label>
-      <input id="wifiSsid" type="text" placeholder="Bijvoorbeeld: MijnWifi" autocomplete="off" />
+      <label for="wifiSsid" data-i18n="ssidLabel">WiFi netwerknaam / SSID</label>
+      <input id="wifiSsid" type="text" data-i18n-ph="ssidPh" placeholder="Bijvoorbeeld: MijnWifi" autocomplete="off" />
 
-      <label for="wifiPassword">WiFi wachtwoord</label>
-      <input id="wifiPassword" type="password" placeholder="WiFi wachtwoord" autocomplete="off" />
+      <label for="wifiPassword" data-i18n="passLabel">WiFi wachtwoord</label>
+      <input id="wifiPassword" type="password" data-i18n-ph="passPh" placeholder="WiFi wachtwoord" autocomplete="off" />
       <div class="row">
         <input id="showWifiPassword" type="checkbox" />
-        <label for="showWifiPassword">Toon WiFi-wachtwoord tijdens intypen</label>
+        <label for="showWifiPassword" data-i18n="showPass">Toon WiFi-wachtwoord tijdens intypen</label>
       </div>
 
-      <button id="connectWifiButton" class="green">✓ Verbind met WiFi</button>
-      <button id="refreshIpButton" class="gray">↻ Lees IP opnieuw</button>
+      <button id="connectWifiButton" class="green" data-i18n="connectWifi">✓ Verbind met WiFi</button>
+      <button id="refreshIpButton" class="gray" data-i18n="refreshIp">↻ Lees IP opnieuw</button>
 
       <div id="wifiStatus" class="status"></div>
-      <div class="panic">
+      <div class="panic" data-i18n-html="panicHtml">
         <b>Geen nieuw IP of geen verbinding?</b><br />
         De robot moet automatisch terugvallen naar <b>LeRobot-AP</b>.<br />
         Verbind dan met <b>LeRobot-AP</b>, wachtwoord <b>robotics123</b>, en open <b>http://192.168.4.1/</b>.
@@ -112,6 +113,133 @@
     let bleService = null;
     const decoder = new TextDecoder('utf-8');
     const encoder = new TextEncoder();
+
+    // --- i18n (NL default, EN toggle) ---
+    const T = {
+      nl: {
+        sub: 'Bluetooth eerst. Als WiFi mislukt: duidelijke fout + AP fallback.',
+        scanRobot: '📡 Scan voor LeRobot',
+        iosTitle: '📱 iPhone / iPad',
+        iosP: 'Deze setup gebruikt Bluetooth. Op iPhone werkt dat via de gratis Bluefy-browser.',
+        openBluefy: 'Open setup in Bluefy',
+        installBluefy: 'Bluefy installeren',
+        iosSmall: 'Bluefy nog niet geïnstalleerd? We openen automatisch de App Store. Na installatie: ga terug naar deze pagina en tik opnieuw op “Open setup in Bluefy”.',
+        foundRobot: 'Gevonden robot:',
+        openWebui: 'Open webinterface',
+        wifiTitle: 'WiFi instellen',
+        wifiP: 'Gebruik dit alleen als de robot geen goed netwerk heeft. Het Setup WiFi-wachtwoord en het robot-loginwachtwoord zijn los van elkaar.',
+        scanWifi: '🔍 Scan WiFi-netwerken',
+        ssidLabel: 'WiFi netwerknaam / SSID',
+        ssidPh: 'Bijvoorbeeld: MijnWifi',
+        passLabel: 'WiFi wachtwoord',
+        passPh: 'WiFi wachtwoord',
+        showPass: 'Toon WiFi-wachtwoord tijdens intypen',
+        connectWifi: '✓ Verbind met WiFi',
+        refreshIp: '↻ Lees IP opnieuw',
+        panicHtml: '<b>Geen nieuw IP of geen verbinding?</b><br />De robot moet automatisch terugvallen naar <b>LeRobot-AP</b>.<br />Verbind dan met <b>LeRobot-AP</b>, wachtwoord <b>robotics123</b>, en open <b>http://192.168.4.1/</b>.',
+        btStart: 'Bluetooth scan gestart...',
+        found: n => `Gevonden: ${n}. IP lezen...`,
+        disconnected: 'Bluetooth verbinding verbroken. Scan opnieuw als nodig.',
+        ipRead: ip => `✅ IP gelezen: ${ip}`,
+        noIp: '⚠️ Geen IP gevonden. Stel WiFi in of gebruik LeRobot-AP.',
+        openInBluefy: 'Open deze setup in Bluefy om Bluetooth te gebruiken.',
+        noWebBle: 'Deze browser ondersteunt geen Web Bluetooth. Gebruik Chrome of Edge. Het LeRobot-AP blijft beschikbaar als recovery.',
+        wifiScanStart: 'WiFi scan gestart...',
+        netsFound: n => `${n} netwerken gevonden.`,
+        noNets: 'Geen netwerken gevonden. Typ SSID handmatig of gebruik AP.',
+        wifiScanErr: e => `WiFi scan fout: ${e}`,
+        connectFirst: 'Eerst via Bluetooth verbinden.',
+        enterSsid: 'Vul een SSID in.',
+        sendingCreds: 'SSID en wachtwoord versturen naar robot...',
+        attempt: i => `Poging ${i}/30. IP wordt opnieuw gelezen zodra verbinden klaar is.`,
+        wifiOkNewIp: ip => `✅ WiFi verbonden. Nieuw IP: ${ip}`,
+        wifiOkSameIp: ip => `✅ WiFi verbonden. IP lijkt ongewijzigd: ${ip}`,
+        fallbackLine: 'Geen nieuw IP. Gebruik fallback: LeRobot-AP / robotics123 / http://192.168.4.1/',
+        noFinal: '❌ Geen eindstatus en geen nieuw IP. Gebruik fallback: LeRobot-AP / robotics123 / http://192.168.4.1/.',
+        wifiConnErr: e => `WiFi connect fout: ${e}\nGebruik fallback: LeRobot-AP / robotics123 / http://192.168.4.1/.`,
+        ipLabel: ip => `IP: ${ip}`,
+        noIpAvail: 'Geen IP beschikbaar.',
+        ipReadFail: e => `IP lezen mislukt: ${e}`,
+        clickScan: 'Klik op “Scan voor LeRobot” om te beginnen.',
+        btUnavail: '⚠️ Bluetooth is niet beschikbaar. Zet Bluetooth aan en probeer opnieuw.',
+        btUnavailScan: '⚠️ Bluetooth is niet beschikbaar. Zet Bluetooth aan voordat je scant.',
+        iosOpenBluefy: 'Open deze setup in Bluefy. Je iPhone blijft gewoon op zijn huidige WiFi of mobiele verbinding.',
+        noRobotChosen: 'Geen robot gekozen. Tik opnieuw op “Scan voor LeRobot” om het nogmaals te proberen.',
+        btOff: '⚠️ Bluetooth lijkt uit te staan of niet beschikbaar. Zet Bluetooth aan en probeer opnieuw.',
+        btErr: m => `Bluetooth fout: ${m}`,
+        permErr: r => `❌ Rechtenprobleem: ${r}`,
+        pwErr: r => `❌ Waarschijnlijk fout WiFi-wachtwoord: ${r}`,
+      },
+      en: {
+        sub: 'Bluetooth first. If WiFi fails: clear error + AP fallback.',
+        scanRobot: '📡 Scan for LeRobot',
+        iosTitle: '📱 iPhone / iPad',
+        iosP: 'This setup uses Bluetooth. On iPhone that works via the free Bluefy browser.',
+        openBluefy: 'Open setup in Bluefy',
+        installBluefy: 'Install Bluefy',
+        iosSmall: 'Bluefy not installed yet? We open the App Store automatically. After installing: return to this page and tap “Open setup in Bluefy” again.',
+        foundRobot: 'Found robot:',
+        openWebui: 'Open web interface',
+        wifiTitle: 'Set up WiFi',
+        wifiP: 'Only use this if the robot has no good network. The Setup WiFi password and the robot login password are separate.',
+        scanWifi: '🔍 Scan WiFi networks',
+        ssidLabel: 'WiFi network name / SSID',
+        ssidPh: 'For example: MyWifi',
+        passLabel: 'WiFi password',
+        passPh: 'WiFi password',
+        showPass: 'Show WiFi password while typing',
+        connectWifi: '✓ Connect to WiFi',
+        refreshIp: '↻ Re-read IP',
+        panicHtml: '<b>No new IP or no connection?</b><br />The robot should fall back automatically to <b>LeRobot-AP</b>.<br />Then connect to <b>LeRobot-AP</b>, password <b>robotics123</b>, and open <b>http://192.168.4.1/</b>.',
+        btStart: 'Bluetooth scan started...',
+        found: n => `Found: ${n}. Reading IP...`,
+        disconnected: 'Bluetooth connection lost. Scan again if needed.',
+        ipRead: ip => `✅ IP read: ${ip}`,
+        noIp: '⚠️ No IP found. Set up WiFi or use LeRobot-AP.',
+        openInBluefy: 'Open this setup in Bluefy to use Bluetooth.',
+        noWebBle: 'This browser does not support Web Bluetooth. Use Chrome or Edge. The LeRobot-AP remains available as recovery.',
+        wifiScanStart: 'WiFi scan started...',
+        netsFound: n => `${n} networks found.`,
+        noNets: 'No networks found. Type the SSID manually or use AP.',
+        wifiScanErr: e => `WiFi scan error: ${e}`,
+        connectFirst: 'Connect via Bluetooth first.',
+        enterSsid: 'Enter an SSID.',
+        sendingCreds: 'Sending SSID and password to robot...',
+        attempt: i => `Attempt ${i}/30. IP is re-read once connecting is done.`,
+        wifiOkNewIp: ip => `✅ WiFi connected. New IP: ${ip}`,
+        wifiOkSameIp: ip => `✅ WiFi connected. IP appears unchanged: ${ip}`,
+        fallbackLine: 'No new IP. Use fallback: LeRobot-AP / robotics123 / http://192.168.4.1/',
+        noFinal: '❌ No final status and no new IP. Use fallback: LeRobot-AP / robotics123 / http://192.168.4.1/.',
+        wifiConnErr: e => `WiFi connect error: ${e}\nUse fallback: LeRobot-AP / robotics123 / http://192.168.4.1/.`,
+        ipLabel: ip => `IP: ${ip}`,
+        noIpAvail: 'No IP available.',
+        ipReadFail: e => `Reading IP failed: ${e}`,
+        clickScan: 'Tap “Scan for LeRobot” to begin.',
+        btUnavail: '⚠️ Bluetooth is not available. Turn Bluetooth on and try again.',
+        btUnavailScan: '⚠️ Bluetooth is not available. Turn Bluetooth on before scanning.',
+        iosOpenBluefy: 'Open this setup in Bluefy. Your iPhone stays on its current WiFi or mobile connection.',
+        noRobotChosen: 'No robot chosen. Tap “Scan for LeRobot” to try again.',
+        btOff: '⚠️ Bluetooth seems off or unavailable. Turn Bluetooth on and try again.',
+        btErr: m => `Bluetooth error: ${m}`,
+        permErr: r => `❌ Permission problem: ${r}`,
+        pwErr: r => `❌ Probably wrong WiFi password: ${r}`,
+      }
+    };
+    let lang = ((() => { try { return localStorage.getItem('lerobotLang'); } catch (e) { return null; } })() || (navigator.language || '').slice(0, 2)) === 'en' ? 'en' : 'nl';
+    function t(key, ...args) {
+      const dict = T[lang] || T.nl;
+      const v = (dict[key] !== undefined) ? dict[key] : T.nl[key];
+      return typeof v === 'function' ? v(...args) : v;
+    }
+    function applyI18n() {
+      document.querySelectorAll('[data-i18n]').forEach(el => { el.textContent = t(el.getAttribute('data-i18n')); });
+      document.querySelectorAll('[data-i18n-html]').forEach(el => { el.innerHTML = t(el.getAttribute('data-i18n-html')); });
+      document.querySelectorAll('[data-i18n-ph]').forEach(el => { el.setAttribute('placeholder', t(el.getAttribute('data-i18n-ph'))); });
+      document.documentElement.lang = lang;
+      const b = document.getElementById('langToggle');
+      if (b) b.textContent = (lang === 'nl') ? 'EN' : 'NL';
+    }
+    function toggleLang() { lang = (lang === 'nl') ? 'en' : 'nl'; try { localStorage.setItem('lerobotLang', lang); } catch (e) {} applyI18n(); }
 
     const $ = (id) => document.getElementById(id);
     const scanButton = $('scanButton');
@@ -166,8 +294,8 @@
     function classifyStatus(raw) {
       const s = (raw || '').toLowerCase();
       if (s.startsWith('connected')) return {kind:'ok', text:`✅ ${raw}`};
-      if (s.includes('permission') || s.includes('not authorized') || s.includes('auth')) return {kind:'err', text:`❌ Rechtenprobleem: ${raw}`};
-      if (s.includes('secrets') || s.includes('password') || s.includes('psk')) return {kind:'err', text:`❌ Waarschijnlijk fout WiFi-wachtwoord: ${raw}`};
+      if (s.includes('permission') || s.includes('not authorized') || s.includes('auth')) return {kind:'err', text:t('permErr', raw)};
+      if (s.includes('secrets') || s.includes('password') || s.includes('psk')) return {kind:'err', text:t('pwErr', raw)};
       if (s.startsWith('error')) return {kind:'err', text:`❌ ${raw}`};
       if (s.includes('ap:')) return {kind:'warn', text:`⚠️ ${raw}`};
       return {kind:'info', text:`📡 ${raw}`};
@@ -186,7 +314,7 @@
     async function ensureBluetoothAvailable() {
       const available = await bluetoothAvailability();
       if (available === false) {
-        show(statusBox, '⚠️ Bluetooth is niet beschikbaar. Zet Bluetooth aan en probeer opnieuw.', 'warn');
+        show(statusBox, t('btUnavail'), 'warn');
         return false;
       }
       return true;
@@ -200,28 +328,46 @@
           lower.includes('no bluetooth adapter') ||
           lower.includes('bluetooth is turned off') ||
           lower.includes('bluetooth is off')) {
-        show(statusBox, '⚠️ Bluetooth lijkt uit te staan of niet beschikbaar. Zet Bluetooth aan en probeer opnieuw.', 'warn');
+        show(statusBox, t('btOff'), 'warn');
         return;
       }
 
       if (error?.name === 'NotFoundError' &&
           (lower.includes('cancel') || lower.includes('chooser'))) {
-        show(statusBox, 'Geen robot gekozen. Tik opnieuw op “Scan voor LeRobot” om het nogmaals te proberen.', 'info');
+        show(statusBox, t('noRobotChosen'), 'info');
         return;
       }
 
-      show(statusBox, `Bluetooth fout: ${message}`, 'err');
+      show(statusBox, t('btErr', message), 'err');
     }
 
-    async function getService() {
-      if (!bleServer || !bleServer.connected) bleServer = await bleDevice.gatt.connect();
+    async function getService(forceReget = false) {
+      if (!bleServer || !bleServer.connected) {
+        bleServer = await bleDevice.gatt.connect();
+        bleService = null; // a reconnect invalidates the cached service handle
+      }
+      if (forceReget) bleService = null;
       if (!bleService) bleService = await bleServer.getPrimaryService(LEROBOT_SERVICE_UUID);
       return bleService;
     }
 
+    // Get a characteristic, healing a stale/invalidated service by reconnecting
+    // and re-fetching it once (Web Bluetooth throws "service is no longer valid"
+    // after the link drops or the GATT server re-registers).
+    async function getChar(uuid) {
+      try {
+        return await (await getService()).getCharacteristic(uuid);
+      } catch (e) {
+        const msg = String(e && e.message || e).toLowerCase();
+        if (msg.includes('no longer valid') || msg.includes('gatt') || msg.includes('disconnected')) {
+          return await (await getService(true)).getCharacteristic(uuid);
+        }
+        throw e;
+      }
+    }
+
     async function readIp() {
-      const service = await getService();
-      const ipChar = await service.getCharacteristic(IP_CHARACTERISTIC_UUID);
+      const ipChar = await getChar(IP_CHARACTERISTIC_UUID);
       const value = await ipChar.readValue();
       const ip = decoder.decode(value).trim();
       if (ip && ip !== 'No IP') {
@@ -235,8 +381,7 @@
     }
 
     async function readWifiStatus() {
-      const service = await getService();
-      const statusChar = await service.getCharacteristic(WIFI_STATUS_CHAR_UUID);
+      const statusChar = await getChar(WIFI_STATUS_CHAR_UUID);
       const value = await statusChar.readValue();
       return decoder.decode(value).trim();
     }
@@ -245,26 +390,26 @@
       if (!navigator.bluetooth) {
         if (isIOS) {
           iosBluefyHelp.style.display = 'block';
-          show(statusBox, 'Open deze setup in Bluefy om Bluetooth te gebruiken.', 'info');
+          show(statusBox, t('openInBluefy'), 'info');
         } else {
-          show(statusBox, 'Deze browser ondersteunt geen Web Bluetooth. Gebruik Chrome of Edge. Het LeRobot-AP blijft beschikbaar als recovery.', 'err');
+          show(statusBox, t('noWebBle'), 'err');
         }
         return;
       }
       scanButton.disabled = true;
       try {
         if (!await ensureBluetoothAvailable()) return;
-        show(statusBox, 'Bluetooth scan gestart...', 'info');
+        show(statusBox, t('btStart'), 'info');
         resultCard.classList.remove('show');
         bleService = null;
         bleDevice = await navigator.bluetooth.requestDevice({filters:[{namePrefix:'LeRobot'}], optionalServices:[LEROBOT_SERVICE_UUID]});
-        bleDevice.addEventListener('gattserverdisconnected', () => show(statusBox, 'Bluetooth verbinding verbroken. Scan opnieuw als nodig.', 'warn'));
-        show(statusBox, `Gevonden: ${bleDevice.name}. IP lezen...`, 'info');
+        bleDevice.addEventListener('gattserverdisconnected', () => show(statusBox, t('disconnected'), 'warn'));
+        show(statusBox, t('found', bleDevice.name), 'info');
         await getService();
         const ip = await readIp();
         wifiSection.style.display = 'block';
-        if (ip) show(statusBox, `✅ IP gelezen: ${ip}`, 'ok');
-        else show(statusBox, '⚠️ Geen IP gevonden. Stel WiFi in of gebruik LeRobot-AP.', 'warn');
+        if (ip) show(statusBox, t('ipRead', ip), 'ok');
+        else show(statusBox, t('noIp'), 'warn');
       } catch (e) {
         showBluetoothError(e);
       } finally {
@@ -273,15 +418,14 @@
     }
 
     async function scanWifi() {
-      if (!bleDevice) return show(wifiStatus, 'Eerst via Bluetooth verbinden.', 'err');
+      if (!bleDevice) return show(wifiStatus, t('connectFirst'), 'err');
       $('scanWifiButton').disabled = true;
       try {
-        show(wifiStatus, 'WiFi scan gestart...', 'info');
-        const service = await getService();
-        const scanChar = await service.getCharacteristic(WIFI_SCAN_CHAR_UUID);
+        show(wifiStatus, t('wifiScanStart'), 'info');
+        const scanChar = await getChar(WIFI_SCAN_CHAR_UUID);
         await scanChar.writeValueWithoutResponse(new Uint8Array([1]));
         await new Promise(r => setTimeout(r, 8000));
-        const networksChar = await service.getCharacteristic(WIFI_NETWORKS_CHAR_UUID);
+        const networksChar = await getChar(WIFI_NETWORKS_CHAR_UUID);
         const value = await networksChar.readValue();
         const networks = JSON.parse(decoder.decode(value) || '[]');
         wifiNetworks.innerHTML = '';
@@ -292,48 +436,47 @@
           div.onclick = () => { document.querySelectorAll('.network').forEach(x=>x.classList.remove('selected')); div.classList.add('selected'); wifiSsid.value = n.ssid; wifiPassword.focus(); };
           wifiNetworks.appendChild(div);
         });
-        show(wifiStatus, networks.length ? `${networks.length} netwerken gevonden.` : 'Geen netwerken gevonden. Typ SSID handmatig of gebruik AP.', networks.length ? 'ok' : 'warn');
+        show(wifiStatus, networks.length ? t('netsFound', networks.length) : t('noNets'), networks.length ? 'ok' : 'warn');
       } catch (e) {
-        show(wifiStatus, `WiFi scan fout: ${e.message || e}`, 'err');
+        show(wifiStatus, t('wifiScanErr', e.message || e), 'err');
       } finally {
         $('scanWifiButton').disabled = false;
       }
     }
 
     async function connectToWifi() {
-      if (!bleDevice) return show(wifiStatus, 'Eerst via Bluetooth verbinden.', 'err');
-      if (!wifiSsid.value.trim()) return show(wifiStatus, 'Vul een SSID in.', 'err');
+      if (!bleDevice) return show(wifiStatus, t('connectFirst'), 'err');
+      if (!wifiSsid.value.trim()) return show(wifiStatus, t('enterSsid'), 'err');
       $('connectWifiButton').disabled = true;
       try {
         const oldIp = ipAddress.textContent === '-' ? '' : ipAddress.textContent;
-        const service = await getService();
-        show(wifiStatus, `SSID en wachtwoord versturen naar robot...`, 'info');
-        await (await service.getCharacteristic(WIFI_SSID_CHAR_UUID)).writeValueWithoutResponse(encoder.encode(wifiSsid.value.trim()));
-        await (await service.getCharacteristic(WIFI_PASSWORD_CHAR_UUID)).writeValueWithoutResponse(encoder.encode(wifiPassword.value));
-        await (await service.getCharacteristic(WIFI_CONNECT_CHAR_UUID)).writeValueWithoutResponse(new Uint8Array([1]));
+        show(wifiStatus, t('sendingCreds'), 'info');
+        await (await getChar(WIFI_SSID_CHAR_UUID)).writeValueWithoutResponse(encoder.encode(wifiSsid.value.trim()));
+        await (await getChar(WIFI_PASSWORD_CHAR_UUID)).writeValueWithoutResponse(encoder.encode(wifiPassword.value));
+        await (await getChar(WIFI_CONNECT_CHAR_UUID)).writeValueWithoutResponse(new Uint8Array([1]));
 
         let finalStatus = '';
         for (let i = 1; i <= 30; i++) {
           await new Promise(r => setTimeout(r, 2000));
           finalStatus = await readWifiStatus();
           const c = classifyStatus(finalStatus);
-          show(wifiStatus, `${c.text}\nPoging ${i}/30. IP wordt opnieuw gelezen zodra verbinden klaar is.`, c.kind);
+          show(wifiStatus, `${c.text}\n${t('attempt', i)}`, c.kind);
           if (finalStatus.startsWith('connected') || finalStatus.startsWith('error') || finalStatus.startsWith('ap:')) break;
         }
 
         const newIp = await readIp().catch(() => null);
         if (newIp && newIp !== oldIp) {
-          show(wifiStatus, `✅ WiFi verbonden. Nieuw IP: ${newIp}`, 'ok');
+          show(wifiStatus, t('wifiOkNewIp', newIp), 'ok');
         } else if (finalStatus.startsWith('connected') && newIp) {
-          show(wifiStatus, `✅ WiFi verbonden. IP lijkt ongewijzigd: ${newIp}`, 'ok');
+          show(wifiStatus, t('wifiOkSameIp', newIp), 'ok');
         } else if (finalStatus.startsWith('error') || finalStatus.startsWith('ap:')) {
           const c = classifyStatus(finalStatus);
-          show(wifiStatus, `${c.text}\nGeen nieuw IP. Gebruik fallback: LeRobot-AP / robotics123 / http://192.168.4.1/`, c.kind);
+          show(wifiStatus, `${c.text}\n${t('fallbackLine')}`, c.kind);
         } else {
-          show(wifiStatus, '❌ Geen eindstatus en geen nieuw IP. Gebruik fallback: LeRobot-AP / robotics123 / http://192.168.4.1/.', 'err');
+          show(wifiStatus, t('noFinal'), 'err');
         }
       } catch (e) {
-        show(wifiStatus, `WiFi connect fout: ${e.message || e}\nGebruik fallback: LeRobot-AP / robotics123 / http://192.168.4.1/.`, 'err');
+        show(wifiStatus, t('wifiConnErr', e.message || e), 'err');
       } finally {
         $('connectWifiButton').disabled = false;
       }
@@ -344,25 +487,27 @@
     $('scanWifiButton').addEventListener('click', scanWifi);
     $('connectWifiButton').addEventListener('click', connectToWifi);
     $('refreshIpButton').addEventListener('click', async () => {
-      try { const ip = await readIp(); show(wifiStatus, ip ? `IP: ${ip}` : 'Geen IP beschikbaar.', ip ? 'ok' : 'warn'); }
-      catch (e) { show(wifiStatus, `IP lezen mislukt: ${e.message || e}`, 'err'); }
+      try { const ip = await readIp(); show(wifiStatus, ip ? t('ipLabel', ip) : t('noIpAvail'), ip ? 'ok' : 'warn'); }
+      catch (e) { show(wifiStatus, t('ipReadFail', e.message || e), 'err'); }
     });
 
     $('openBluefyButton').addEventListener('click', openInBluefy);
+
+    applyI18n();
 
     if (!navigator.bluetooth) {
       if (isIOS) {
         scanButton.style.display = 'none';
         iosBluefyHelp.style.display = 'block';
-        show(statusBox, 'Open deze setup in Bluefy. Je iPhone blijft gewoon op zijn huidige WiFi of mobiele verbinding.', 'info');
+        show(statusBox, t('iosOpenBluefy'), 'info');
       } else {
-        show(statusBox, 'Deze browser ondersteunt geen Web Bluetooth. Gebruik Chrome of Edge. Het LeRobot-AP blijft beschikbaar als recovery.', 'warn');
+        show(statusBox, t('noWebBle'), 'warn');
       }
     } else {
-      show(statusBox, 'Klik op “Scan voor LeRobot” om te beginnen.', 'info');
+      show(statusBox, t('clickScan'), 'info');
       bluetoothAvailability().then(available => {
         if (available === false) {
-          show(statusBox, '⚠️ Bluetooth is niet beschikbaar. Zet Bluetooth aan voordat je scant.', 'warn');
+          show(statusBox, t('btUnavailScan'), 'warn');
         }
       });
     }
