@@ -380,6 +380,54 @@ if [[ -f "$BLUETOOTH_CONF" ]]; then
   sudo systemctl restart bluetooth || true
 fi
 
+# ---- WiFi country apply helper ----
+# The web server is hardened (NoNewPrivileges) and cannot set the WLAN
+# regulatory country itself. It writes a 2-letter code to a trigger file; a
+# root-run path unit applies it. This lets the onboarding / web UI offer a
+# country choice without granting the web server root.
+echo "🌍 Configureer WiFi-land helper…"
+LEROBOT_STATE_DIR="/var/lib/lerobot"
+sudo mkdir -p "$LEROBOT_STATE_DIR"
+sudo chown "$USER":"$USER" "$LEROBOT_STATE_DIR"
+
+sudo tee /usr/local/sbin/lerobot-apply-wifi-country >/dev/null <<'EOS'
+#!/usr/bin/env bash
+set -uo pipefail
+F=/var/lib/lerobot/wifi_country
+[ -f "$F" ] || exit 0
+cc="$(tr -cd 'A-Za-z' < "$F" | tr '[:lower:]' '[:upper:]' | cut -c1-2)"
+[ ${#cc} -eq 2 ] || { logger -t lerobot-wifi-country "invalid country in $F"; exit 0; }
+logger -t lerobot-wifi-country "applying WiFi country $cc"
+raspi-config nonint do_wifi_country "$cc" || true
+rfkill unblock wifi || true
+nmcli radio wifi on || true
+EOS
+sudo chmod 0755 /usr/local/sbin/lerobot-apply-wifi-country
+
+sudo tee /etc/systemd/system/lerobot-wifi-country.service >/dev/null <<EOF
+[Unit]
+Description=Apply LeRobot WiFi regulatory country from trigger file
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/sbin/lerobot-apply-wifi-country
+EOF
+
+sudo tee /etc/systemd/system/lerobot-wifi-country.path >/dev/null <<EOF
+[Unit]
+Description=Watch for LeRobot WiFi country change requests
+
+[Path]
+PathModified=/var/lib/lerobot/wifi_country
+Unit=lerobot-wifi-country.service
+
+[Install]
+WantedBy=multi-user.target
+EOF
+
+sudo systemctl daemon-reload
+sudo systemctl enable --now lerobot-wifi-country.path 2>/dev/null || true
+
 # ---- Webserver systemd service: autostart at reboot ----
 WEBSERVER_SCRIPT="$SCRIPT_DIR/webserver.py"
 CONDA_BIN="$CONDA_DIR/condabin/conda"

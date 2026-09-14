@@ -6,7 +6,9 @@ Based on Pybricks implementation patterns - uses proper GATT service and charact
 
 import asyncio
 import logging
+import os
 import socket
+import subprocess
 from typing import Optional
 
 logger = logging.getLogger(__name__)
@@ -38,6 +40,9 @@ WIFI_CONNECT_CHAR_UUID = "c5f50006-1234-5678-89ab-123456789abc"
 WIFI_SCAN_CHAR_UUID = "c5f50007-1234-5678-89ab-123456789abc"
 # WiFi Networks Characteristic UUID (read - scan results)
 WIFI_NETWORKS_CHAR_UUID = "c5f50008-1234-5678-89ab-123456789abc"
+
+# WiFi regulatory country (write) — client sends a 2-letter code (e.g. NL)
+WIFI_COUNTRY_CHAR_UUID = "c5f50009-1234-5678-89ab-123456789abc"
 
 
 class IPAddressCharacteristic(ServiceInterface):
@@ -318,6 +323,42 @@ class WiFiNetworksCharacteristic(ServiceInterface):
         self._value = b"[]"
 
 
+class WiFiCountryCharacteristic(ServiceInterface):
+    """GATT Characteristic for WiFi regulatory country (write)"""
+
+    def __init__(self, char_path: str, service_path: str, server):
+        super().__init__('org.bluez.GattCharacteristic1')
+        self.path = char_path
+        self.service_path = service_path
+        self.server = server
+        self._value = b""
+
+    @dbus_property(PropertyAccess.READ)
+    def UUID(self) -> 's':
+        return WIFI_COUNTRY_CHAR_UUID
+
+    @dbus_property(PropertyAccess.READ)
+    def Service(self) -> 'o':
+        return self.service_path
+
+    @dbus_property(PropertyAccess.READ)
+    def Value(self) -> 'ay':
+        return self._value
+
+    @dbus_property(PropertyAccess.READ)
+    def Flags(self) -> 'as':
+        return ['write', 'write-without-response']
+
+    @method()
+    def WriteValue(self, value: 'ay', options: 'a{sv}'):
+        """Called when client writes a 2-letter WiFi country code"""
+        country = bytes(value).decode('utf-8', errors='replace').strip().upper()[:2]
+        self._value = bytes(value)
+        self.server.wifi_country = country
+        self.server.wifi_country_requested = True
+        logger.info(f"WiFi country received: {country}")
+
+
 class LeRobotGattService(ServiceInterface):
     """
     GATT Service for LeRobot IP Broadcasting and WiFi Provisioning
@@ -493,6 +534,7 @@ class BLEGattServer:
         self.char_wifi_connect_path = '/org/bluez/lerobot/service0/char4'
         self.char_wifi_scan_path = '/org/bluez/lerobot/service0/char5'
         self.char_wifi_networks_path = '/org/bluez/lerobot/service0/char6'
+        self.char_wifi_country_path = '/org/bluez/lerobot/service0/char7'
         self.adv_path = '/org/bluez/lerobot/advertisement0'
         self.agent_path = '/org/bluez/lerobot/agent'
         
@@ -506,16 +548,19 @@ class BLEGattServer:
         self.char_wifi_connect = None
         self.char_wifi_scan = None
         self.char_wifi_networks = None
+        self.char_wifi_country = None
         self.advertisement = None
         self.agent = None
         
         # WiFi credentials storage
         self.wifi_ssid = ""
         self.wifi_password = ""
-        
+        self.wifi_country = ""
+
         # WiFi action flags (set by characteristics, handled by main loop)
         self.wifi_connect_requested = False
         self.wifi_scan_requested = False
+        self.wifi_country_requested = False
         
     def get_local_ip(self) -> str:
         """Get current local IP address"""
@@ -809,7 +854,8 @@ class BLEGattServer:
                 self.char_wifi_status_path,
                 self.char_wifi_connect_path,
                 self.char_wifi_scan_path,
-                self.char_wifi_networks_path
+                self.char_wifi_networks_path,
+                self.char_wifi_country_path
             ]
             
             self.application = GattApplication(self.app_path, self.service_path)
@@ -821,7 +867,8 @@ class BLEGattServer:
             self.char_wifi_connect = WiFiConnectCharacteristic(self.char_wifi_connect_path, self.service_path, self)
             self.char_wifi_scan = WiFiScanCharacteristic(self.char_wifi_scan_path, self.service_path, self)
             self.char_wifi_networks = WiFiNetworksCharacteristic(self.char_wifi_networks_path, self.service_path, self)
-            
+            self.char_wifi_country = WiFiCountryCharacteristic(self.char_wifi_country_path, self.service_path, self)
+
             # Export to D-Bus
             self.bus.export(self.app_path, self.application)
             self.bus.export(self.service_path, self.service)
@@ -832,7 +879,8 @@ class BLEGattServer:
             self.bus.export(self.char_wifi_connect_path, self.char_wifi_connect)
             self.bus.export(self.char_wifi_scan_path, self.char_wifi_scan)
             self.bus.export(self.char_wifi_networks_path, self.char_wifi_networks)
-            
+            self.bus.export(self.char_wifi_country_path, self.char_wifi_country)
+
             # Register application with BlueZ
             await gatt_manager.call_register_application(self.app_path, {})
             
@@ -977,6 +1025,22 @@ class BLEGattServer:
             # Update IP periodically and handle WiFi actions
             last_ip = ""
             while self.running:
+                # Handle WiFi country change request: write the trigger file for
+                # the root path-unit to apply (the server itself is unprivileged).
+                if self.wifi_country_requested:
+                    self.wifi_country_requested = False
+                    cc = (self.wifi_country or '').strip().upper()[:2]
+                    if len(cc) == 2 and cc.isalpha():
+                        try:
+                            os.makedirs('/var/lib/lerobot', exist_ok=True)
+                            with open('/var/lib/lerobot/wifi_country', 'w') as f:
+                                f.write(cc + '\n')
+                            logger.info(f"WiFi country change requested via BLE: {cc}")
+                        except Exception as e:
+                            logger.error(f"Could not write country trigger: {e}")
+                    else:
+                        logger.error(f"Ignoring invalid WiFi country: {self.wifi_country!r}")
+
                 # Handle WiFi scan request
                 if self.wifi_scan_requested:
                     self.wifi_scan_requested = False

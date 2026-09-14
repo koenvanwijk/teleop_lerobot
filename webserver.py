@@ -444,6 +444,10 @@ class WiFiConfig(BaseModel):
     password: str
 
 
+class WiFiCountry(BaseModel):
+    country: str
+
+
 class NetworkMode(BaseModel):
     mode: str  # "ap" or "wifi"
 
@@ -1625,6 +1629,26 @@ async def connect_wifi(config: WiFiConfig):
         "success": success,
         "message": f"Connected to {config.ssid}" if success else "Failed to connect to WiFi"
     }
+
+
+@app.post("/api/network/wifi/country")
+async def set_wifi_country(cfg: WiFiCountry):
+    """Request a WiFi regulatory country change.
+
+    The hardened web server runs unprivileged, so it cannot call raspi-config
+    itself. It writes the 2-letter code to a trigger file that a root-run
+    systemd path unit (lerobot-wifi-country.path) watches and applies.
+    """
+    cc = ''.join(ch for ch in (cfg.country or '') if ch.isalpha()).upper()[:2]
+    if len(cc) != 2:
+        raise HTTPException(status_code=400, detail="Invalid country code")
+    try:
+        os.makedirs("/var/lib/lerobot", exist_ok=True)
+        with open("/var/lib/lerobot/wifi_country", "w") as f:
+            f.write(cc + "\n")
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Could not request country change: {e}")
+    return {"success": True, "country": cc, "message": f"WiFi country set to {cc} (applying in background)"}
 
 
 @app.get("/api/network/wifi/scan")

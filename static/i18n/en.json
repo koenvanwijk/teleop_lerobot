@@ -155,6 +155,8 @@
     "network_name": "Network name",
     "password": "Password",
     "show_password": "Show password",
+    "country": "WiFi country (region):",
+    "apply_country": "🌍 Apply country",
     "connect": "Connect",
     "cancel": "Cancel",
     "scanning": "Scanning for WiFi networks…",

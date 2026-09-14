@@ -694,6 +694,27 @@
                         <span data-i18n="network.show_password">Show password</span>
                     </label>
                 </div>
+                <div class="form-group">
+                    <label data-i18n="network.country">WiFi country (region):</label>
+                    <select id="wifi-country">
+                        <option value="NL" selected>Nederland (NL)</option>
+                        <option value="BE">België (BE)</option>
+                        <option value="DE">Deutschland (DE)</option>
+                        <option value="FR">France (FR)</option>
+                        <option value="GB">United Kingdom (GB)</option>
+                        <option value="IE">Ireland (IE)</option>
+                        <option value="ES">España (ES)</option>
+                        <option value="IT">Italia (IT)</option>
+                        <option value="AT">Österreich (AT)</option>
+                        <option value="CH">Schweiz (CH)</option>
+                        <option value="DK">Danmark (DK)</option>
+                        <option value="SE">Sverige (SE)</option>
+                        <option value="NO">Norge (NO)</option>
+                        <option value="PL">Polska (PL)</option>
+                        <option value="US">United States (US)</option>
+                    </select>
+                    <button class="btn btn-secondary" onclick="applyWifiCountry()" style="margin-top:8px;" data-i18n="network.apply_country">🌍 Apply country</button>
+                </div>
                 <button class="btn btn-primary" onclick="connectWiFi()" data-i18n="network.connect">
                     🔗 Connect
                 </button>
@@ -2240,6 +2261,8 @@
             }
             
             try {
+                // Apply the selected WiFi country first (best effort)
+                await applyWifiCountry(true);
                 const response = await fetch('/api/network/wifi/connect', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
@@ -2259,6 +2282,22 @@
             }
         }
         
+        async function applyWifiCountry(silent) {
+            const sel = document.getElementById('wifi-country');
+            const country = (sel && sel.value) || 'NL';
+            try {
+                const r = await fetch('/api/network/wifi/country', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ country })
+                });
+                const d = await r.json();
+                if (!silent) showStatus(d.message || ('WiFi country: ' + country), d.success ? 'success' : 'error');
+            } catch (e) {
+                if (!silent) showStatus('Error setting country: ' + e, 'error');
+            }
+        }
+
         function cancelWiFiConnect() {
             document.getElementById('wifi-connect-form').style.display = 'none';
             document.getElementById('wifi-ssid').value = '';

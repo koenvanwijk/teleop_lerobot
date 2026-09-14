@@ -155,6 +155,8 @@
     "network_name": "Netwerk naam",
     "password": "Wachtwoord",
     "show_password": "Wachtwoord tonen",
+    "country": "WiFi-land (regio):",
+    "apply_country": "🌍 Land toepassen",
     "connect": "Verbinden",
     "cancel": "Annuleren",
     "scanning": "WiFi-netwerken zoeken…",

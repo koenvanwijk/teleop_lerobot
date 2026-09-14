@@ -73,6 +73,25 @@
       <h2 data-i18n="wifiTitle">WiFi instellen</h2>
       <p class="small" data-i18n="wifiP">Gebruik dit alleen als de robot geen goed netwerk heeft. Het Setup WiFi-wachtwoord en het robot-loginwachtwoord zijn los van elkaar.</p>
 
+      <label for="wifiCountry" data-i18n="countryLabel">WiFi-land (regio)</label>
+      <select id="wifiCountry" style="width:100%;padding:12px;border:1px solid #cbd5e1;border-radius:10px;margin:4px 0 10px;font-size:16px;">
+        <option value="NL" selected>Nederland (NL)</option>
+        <option value="BE">België (BE)</option>
+        <option value="DE">Deutschland (DE)</option>
+        <option value="FR">France (FR)</option>
+        <option value="GB">United Kingdom (GB)</option>
+        <option value="IE">Ireland (IE)</option>
+        <option value="ES">España (ES)</option>
+        <option value="IT">Italia (IT)</option>
+        <option value="AT">Österreich (AT)</option>
+        <option value="CH">Schweiz (CH)</option>
+        <option value="DK">Danmark (DK)</option>
+        <option value="SE">Sverige (SE)</option>
+        <option value="NO">Norge (NO)</option>
+        <option value="PL">Polska (PL)</option>
+        <option value="US">United States (US)</option>
+      </select>
+
       <button id="scanWifiButton" class="gray" data-i18n="scanWifi">🔍 Scan WiFi-netwerken</button>
       <div id="wifiNetworks"></div>
 
@@ -110,6 +129,7 @@
     const WIFI_CONNECT_CHAR_UUID = 'c5f50006-1234-5678-89ab-123456789abc';
     const WIFI_SCAN_CHAR_UUID = 'c5f50007-1234-5678-89ab-123456789abc';
     const WIFI_NETWORKS_CHAR_UUID = 'c5f50008-1234-5678-89ab-123456789abc';
+    const WIFI_COUNTRY_CHAR_UUID = 'c5f50009-1234-5678-89ab-123456789abc';
 
     let bleDevice = null;
     let bleServer = null;
@@ -139,6 +159,7 @@
         showPass: 'Toon WiFi-wachtwoord tijdens intypen',
         connectWifi: '✓ Verbind met WiFi',
         refreshIp: '↻ Lees IP opnieuw',
+        countryLabel: 'WiFi-land (regio)',
         panicHtml: '<b>Geen nieuw IP of geen verbinding?</b><br />De robot moet automatisch terugvallen naar <b>LeRobot-AP</b>.<br />Verbind dan met <b>LeRobot-AP</b>, wachtwoord <b>robotics123</b>, en open <b>http://192.168.4.1/</b>.',
         btStart: 'Bluetooth scan gestart...',
         found: n => `Gevonden: ${n}. IP lezen...`,
@@ -193,6 +214,7 @@
         showPass: 'Show WiFi password while typing',
         connectWifi: '✓ Connect to WiFi',
         refreshIp: '↻ Re-read IP',
+        countryLabel: 'WiFi country (region)',
         panicHtml: '<b>No new IP or no connection?</b><br />The robot should fall back automatically to <b>LeRobot-AP</b>.<br />Then connect to <b>LeRobot-AP</b>, password <b>robotics123</b>, and open <b>http://192.168.4.1/</b>.',
         btStart: 'Bluetooth scan started...',
         found: n => `Found: ${n}. Reading IP...`,
@@ -369,6 +391,15 @@
       }
     }
 
+    // Send the selected WiFi country to the robot (best effort). A root path-unit
+    // on the Pi applies it; needed so the scan sees the right (5 GHz) channels.
+    async function sendCountry() {
+      const sel = $('wifiCountry');
+      const cc = ((sel && sel.value) || 'NL').toUpperCase().slice(0, 2);
+      try { await (await getChar(WIFI_COUNTRY_CHAR_UUID)).writeValueWithoutResponse(encoder.encode(cc)); }
+      catch (e) { console.debug('country write failed', e); }
+    }
+
     async function readIp() {
       const ipChar = await getChar(IP_CHARACTERISTIC_UUID);
       const value = await ipChar.readValue();
@@ -425,6 +456,8 @@
       $('scanWifiButton').disabled = true;
       try {
         show(wifiStatus, t('wifiScanStart'), 'info');
+        await sendCountry();
+        await new Promise(r => setTimeout(r, 1500)); // let the country apply first
         const scanChar = await getChar(WIFI_SCAN_CHAR_UUID);
         await scanChar.writeValueWithoutResponse(new Uint8Array([1]));
         await new Promise(r => setTimeout(r, 8000));
@@ -453,6 +486,7 @@
       $('connectWifiButton').disabled = true;
       try {
         const oldIp = ipAddress.textContent === '-' ? '' : ipAddress.textContent;
+        await sendCountry();
         show(wifiStatus, t('sendingCreds'), 'info');
         await (await getChar(WIFI_SSID_CHAR_UUID)).writeValueWithoutResponse(encoder.encode(wifiSsid.value.trim()));
         await (await getChar(WIFI_PASSWORD_CHAR_UUID)).writeValueWithoutResponse(encoder.encode(wifiPassword.value));
