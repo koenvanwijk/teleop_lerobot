@@ -288,7 +288,7 @@
         networks.forEach(n => {
           const div = document.createElement('div');
           div.className = 'network';
-          div.innerHTML = `<b>${n.ssid}</b><br><span class="small">Signal: ${n.signal}% | ${n.security || 'open'}</span>`;
+          div.innerHTML = `<b>${n.ssid}</b>${n.band ? ` <span class="small">(${n.band} GHz)</span>` : ''}<br><span class="small">Signal: ${n.signal}% | ${n.security || 'open'}</span>`;
           div.onclick = () => { document.querySelectorAll('.network').forEach(x=>x.classList.remove('selected')); div.classList.add('selected'); wifiSsid.value = n.ssid; wifiPassword.focus(); };
           wifiNetworks.appendChild(div);
         });

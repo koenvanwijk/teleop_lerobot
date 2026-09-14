@@ -730,7 +730,7 @@ class BLEGattServer:
             # Get scan results
             result = await asyncio.to_thread(
                 subprocess.run,
-                ['nmcli', '-t', '-f', 'SSID,SIGNAL,SECURITY', 'dev', 'wifi', 'list'],
+                ['nmcli', '-t', '-f', 'SSID,SIGNAL,SECURITY,FREQ', 'dev', 'wifi', 'list'],
                 capture_output=True,
                 text=True,
                 timeout=5
@@ -750,17 +750,25 @@ class BLEGattServer:
                 for line in lines[:20]:  # Limit to 20 networks
                     if not line.strip():
                         continue
-                    parts = line.split(':', 2)
+                    parts = line.split(':', 3)
                     if len(parts) >= 3:
                         ssid = parts[0]
                         signal = parts[1]
                         security = parts[2]
-                        
+                        # Derive the band (5 / 2.4 GHz) from the frequency so
+                        # dual-band SSIDs (which appear twice) are distinguishable.
+                        band = ''
+                        if len(parts) >= 4:
+                            digits = ''.join(ch for ch in parts[3] if ch.isdigit())
+                            if digits:
+                                band = '5' if int(digits) >= 4000 else '2.4'
+
                         if ssid:  # Skip hidden networks
                             networks.append({
                                 'ssid': ssid,
                                 'signal': signal,
-                                'security': security
+                                'security': security,
+                                'band': band
                             })
                 
                 # Convert to compact JSON
@@ -928,14 +936,15 @@ class BLEGattServer:
             await props.call_set('org.bluez.Adapter1', 'Discoverable', Variant('b', True))
             await props.call_set('org.bluez.Adapter1', 'DiscoverableTimeout', Variant('u', 0))
             
-            # Make pairable (no timeout)
-            await props.call_set('org.bluez.Adapter1', 'Pairable', Variant('b', True))
-            await props.call_set('org.bluez.Adapter1', 'PairableTimeout', Variant('u', 0))
-            
-            logger.info("Adapter is now discoverable and pairable (no user confirmation required)")
-            
+            # Not pairable: the GATT characteristics are unencrypted, so BLE
+            # onboarding needs no bond. Not bonding stops Android from prompting
+            # to share contacts/call history on pairing.
+            await props.call_set('org.bluez.Adapter1', 'Pairable', Variant('b', False))
+
+            logger.info("Adapter is now discoverable (not pairable; no bond needed for onboarding)")
+
         except Exception as e:
-            logger.error(f"Failed to make discoverable/pairable: {e}")
+            logger.error(f"Failed to make discoverable: {e}")
     
     async def run(self):
         """Main run loop for GATT server"""

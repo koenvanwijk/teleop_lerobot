@@ -364,10 +364,13 @@ echo "📡 Configureer Bluetooth headless pairing…"
 BLUETOOTH_CONF="/etc/bluetooth/main.conf"
 if [[ -f "$BLUETOOTH_CONF" ]]; then
   [[ -f "${BLUETOOTH_CONF}.bak" ]] || sudo cp "$BLUETOOTH_CONF" "${BLUETOOTH_CONF}.bak"
+  # No bond is needed for onboarding (GATT characteristics are unencrypted).
+  # Keeping the adapter non-pairable stops Android's contacts/call-history
+  # sharing prompt during onboarding.
   if grep -q "^#\?AlwaysPairable" "$BLUETOOTH_CONF"; then
-    sudo sed -i 's/^#\?AlwaysPairable.*/AlwaysPairable = true/' "$BLUETOOTH_CONF"
+    sudo sed -i 's/^#\?AlwaysPairable.*/AlwaysPairable = false/' "$BLUETOOTH_CONF"
   else
-    sudo sed -i '/^\[Policy\]/a AlwaysPairable = true' "$BLUETOOTH_CONF" || true
+    sudo sed -i '/^\[Policy\]/a AlwaysPairable = false' "$BLUETOOTH_CONF" || true
   fi
   if grep -q "^#\?JustWorksRepairing" "$BLUETOOTH_CONF"; then
     sudo sed -i 's/^#\?JustWorksRepairing.*/JustWorksRepairing = always/' "$BLUETOOTH_CONF"
