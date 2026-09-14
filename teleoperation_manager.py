@@ -82,6 +82,7 @@ class TeleoperationManager:
         self.connection_state = "stopped"
         self.last_error: Optional[str] = None
         self.started_at: Optional[float] = None
+        self._motion_clamp_last_log: Dict[str, float] = {}
         self._fps_window_started = time.perf_counter()
         self._fps_window_count = 0
         
@@ -380,6 +381,13 @@ class TeleoperationManager:
                         item["source_dof"]
                         for item in profile["mapping"]["dof_mappings"]
                     }
+                    source_ranges = {
+                        item["source_dof"]: (
+                            float(item["source_range"]["minimum"]),
+                            float(item["source_range"]["maximum"]),
+                        )
+                        for item in profile["mapping"]["dof_mappings"]
+                    }
                     source_values: Dict[str, float] = {}
                     for key, value in teleop_action.items():
                         base = str(key).replace(".pos", "")
@@ -391,6 +399,24 @@ class TeleoperationManager:
                             raise RuntimeError(
                                 f"Non-numeric teleoperation value for {base}: {value!r}"
                             ) from exc
+
+                    for dof, value in list(source_values.items()):
+                        source_min, source_max = source_ranges[dof]
+                        clamped = min(max(value, source_min), source_max)
+                        if clamped != value:
+                            now = time.time()
+                            last_logged = self._motion_clamp_last_log.get(dof, 0.0)
+                            if now - last_logged >= 2.0:
+                                logging.warning(
+                                    "Motion profile clamp: %s %.3f -> %.3f (allowed %.3f..%.3f)",
+                                    dof,
+                                    value,
+                                    clamped,
+                                    source_min,
+                                    source_max,
+                                )
+                                self._motion_clamp_last_log[dof] = now
+                            source_values[dof] = clamped
 
                     resolved_motion = resolve_motion(
                         self.motion_profile,
