@@ -1,0 +1,31 @@
+# pi-gen config for the teleop_lerobot Raspberry Pi image.
+#
+# This file is copied into pi-gen by build.sh. Secrets (FIRST_USER_PASS, WiFi)
+# are NOT stored here; build.sh appends them from environment variables at
+# build time so nothing sensitive lands in git.
+
+IMG_NAME="teleop_lerobot"
+RELEASE="bookworm"
+DEPLOY_COMPRESSION="xz"
+COMPRESSION_LEVEL=6
+
+LOCALE_DEFAULT="en_US.UTF-8"
+TIMEZONE_DEFAULT="Europe/Amsterdam"
+KEYBOARD_KEYMAP="us"
+KEYBOARD_LAYOUT="English (US)"
+
+TARGET_HOSTNAME="lerobot"
+FIRST_USER_NAME="pi"
+# FIRST_USER_PASS is injected by build.sh from the FIRST_USER_PASS env var.
+DISABLE_FIRST_BOOT_USER_RENAME=1
+
+ENABLE_SSH=1
+
+# Full desktop image (needed for the Chromium kiosk autostart from install.sh)
+# + our custom teleop stage. For a lean headless image drop stage3/stage4.
+STAGE_LIST="stage0 stage1 stage2 stage3 stage4 ./stage-teleop"
+
+# --- teleop stage settings (read by stage-teleop/00-install-teleop/01-run.sh) ---
+export TELEOP_REPO_URL="https://github.com/koenvanwijk/teleop_lerobot.git"
+export TELEOP_REPO_REF="main"
+export FIRST_USER_NAME

@@ -1,0 +1,14 @@
+[Unit]
+Description=LeRobot first-boot provisioning (runs install.sh once)
+After=network-online.target
+Wants=network-online.target
+ConditionPathExists=/opt/lerobot-firstboot/provision.sh
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStart=/opt/lerobot-firstboot/provision.sh
+TimeoutStartSec=3600
+
+[Install]
+WantedBy=multi-user.target

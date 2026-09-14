@@ -1,0 +1,8 @@
+git
+curl
+zip
+ca-certificates
+network-manager
+bluetooth
+bluez
+openssh-server

@@ -1,0 +1,8 @@
+# pi-gen checkout and build output
+.pi-gen/
+deploy/
+*.img
+*.img.xz
+
+# baked secrets (never commit)
+stage-teleop/00-install-teleop/files/firstboot.env
