@@ -1001,9 +1001,12 @@
         // i18next Initialization
         // =====================================================================
         
-        // Initialize i18next
+        // Initialize i18next. A ?lang= URL param (e.g. from the BLE setup page)
+        // wins over the saved preference, and is then remembered.
+        const urlLang = new URLSearchParams(location.search).get('lang');
+        if (urlLang === 'en' || urlLang === 'nl') { try { localStorage.setItem('language', urlLang); } catch (e) {} }
         i18next.init({
-            lng: localStorage.getItem('language') || 'nl', // Default to Dutch
+            lng: urlLang || localStorage.getItem('language') || 'nl', // Default to Dutch
             fallbackLng: 'nl',
             debug: false,
             resources: {} // Will be loaded dynamically

@@ -376,7 +376,7 @@
       if (ip && ip !== 'No IP') {
         ipAddress.textContent = ip;
         deviceName.textContent = bleDevice?.name || 'LeRobot';
-        connectLink.href = `http://${ip}/`;
+        connectLink.href = `http://${ip}/?lang=${lang}`;
         resultCard.classList.add('show');
         return ip;
       }
