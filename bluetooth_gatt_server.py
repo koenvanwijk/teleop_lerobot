@@ -183,15 +183,24 @@ class WiFiStatusCharacteristic(ServiceInterface):
     
     @method()
     def ReadValue(self, options: 'a{sv}') -> 'ay':
-        """Called when client reads status"""
-        status = self.server.get_wifi_status()
-        self._value = status.encode('utf-8')
-        logger.info(f"WiFi status read: {status}")
+        """Called when client reads status.
+
+        Returns the cached value only. This is a synchronous D-Bus handler on the
+        BLE event loop and the client polls it every 2s while connecting, so it
+        must never run a blocking nmcli call here (that froze the loop and
+        surfaced as "GATT error unknown"). connect_wifi() updates the value
+        directly, and the main loop refreshes it off-thread.
+        """
+        logger.debug(f"WiFi status read: {self._value!r}")
         return self._value
     
     def update_status(self, status: str):
         """Update status value"""
         self._value = status.encode('utf-8')
+
+    def current_status(self) -> str:
+        """Currently cached status string"""
+        return (self._value or b'').decode('utf-8', errors='replace')
 
 
 class WiFiConnectCharacteristic(ServiceInterface):
@@ -1024,6 +1033,7 @@ class BLEGattServer:
             
             # Update IP periodically and handle WiFi actions
             last_ip = ""
+            status_tick = 0
             while self.running:
                 # Handle WiFi country change request: write the trigger file for
                 # the root path-unit to apply (the server itself is unprivileged).
@@ -1053,6 +1063,19 @@ class BLEGattServer:
                     logger.info("Processing WiFi connect request...")
                     await self.connect_wifi()
                 
+                # Refresh the cached WiFi status off-thread (~every 3s) so the
+                # read handler stays non-blocking. Keep 'connecting'/'error:'
+                # sticky: those are set by connect_wifi() and the client polls
+                # for them, so a generic refresh must not clobber them.
+                status_tick = (status_tick + 1) % 3
+                if status_tick == 0 and self.char_wifi_status:
+                    if not self.char_wifi_status.current_status().startswith(('connecting', 'error')):
+                        try:
+                            status = await asyncio.to_thread(self.get_wifi_status)
+                            self.char_wifi_status.update_status(status)
+                        except Exception as e:
+                            logger.debug(f"WiFi status refresh failed: {e}")
+
                 # Update IP periodically
                 current_ip = self.get_local_ip()
                 

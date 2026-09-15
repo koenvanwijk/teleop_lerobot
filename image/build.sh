@@ -79,23 +79,26 @@ fi
 	fi
 } >> "$PIGEN_DIR/config"
 
-# 4) Optionally bake a first-boot onboarding env (robot name / Tailscale key).
-#    Written straight into the rootfs staging area used by the teleop stage.
+# 4) Optionally bake a first-boot onboarding env (robot name / Tailscale key /
+#    WiFi country). 01-run.sh installs it only when the file exists, so always
+#    remove a previous one first: otherwise a later build without these vars
+#    would silently bake in the earlier (secret-bearing) file.
+ENV_STAGE_DIR="$HERE/stage-teleop/00-install-teleop/files"
+rm -f "$ENV_STAGE_DIR/firstboot.env"
 if [ -n "${LEROBOT_ROBOT_NAME:-}" ] || [ -n "${TAILSCALE_AUTH_KEY:-}" ] || [ -n "${WPA_COUNTRY:-}" ]; then
-	ENV_STAGE_DIR="$HERE/stage-teleop/00-install-teleop/files"
-	{
-		[ -n "${LEROBOT_ROBOT_NAME:-}" ] && printf 'LEROBOT_ROBOT_NAME=%s\n' "$LEROBOT_ROBOT_NAME"
-		[ -n "${TAILSCALE_AUTH_KEY:-}" ] && printf 'TAILSCALE_AUTH_KEY=%s\n' "$TAILSCALE_AUTH_KEY"
-		# WLAN regulatory country used at first boot to unblock the radio for
-		# BLE WiFi-onboarding (provision.sh defaults to NL when unset).
-		[ -n "${WPA_COUNTRY:-}" ] && printf 'LEROBOT_WIFI_COUNTRY=%s\n' "$WPA_COUNTRY"
-	} > "$ENV_STAGE_DIR/firstboot.env"
-	chmod 0600 "$ENV_STAGE_DIR/firstboot.env"
-	# Append a copy step to the stage run script only if not already present.
-	RUN="$HERE/stage-teleop/00-install-teleop/01-run.sh"
-	if ! grep -q "firstboot.env" "$RUN"; then
-		printf '\n# injected: bake onboarding env\ninstall -m 0600 files/firstboot.env "${ROOTFS_DIR}/etc/lerobot/firstboot.env"\n' >> "$RUN"
-	fi
+	# Subshell so the restrictive umask (no world-readable secret, not even
+	# briefly) does not leak into the rest of the build.
+	(
+		umask 077
+		{
+			[ -n "${LEROBOT_ROBOT_NAME:-}" ] && printf 'LEROBOT_ROBOT_NAME=%s\n' "$LEROBOT_ROBOT_NAME"
+			[ -n "${TAILSCALE_AUTH_KEY:-}" ] && printf 'TAILSCALE_AUTH_KEY=%s\n' "$TAILSCALE_AUTH_KEY"
+			# WLAN regulatory country used at first boot to unblock the radio for
+			# BLE WiFi-onboarding (provision.sh defaults to NL when unset).
+			[ -n "${WPA_COUNTRY:-}" ] && printf 'LEROBOT_WIFI_COUNTRY=%s\n' "$WPA_COUNTRY"
+			true  # keep the group's exit status 0 under `set -e`
+		} > "$ENV_STAGE_DIR/firstboot.env"
+	)
 fi
 
 # 5) Copy our custom stage into pi-gen (after all edits to it are done) so it is

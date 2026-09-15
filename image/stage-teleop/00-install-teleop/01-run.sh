@@ -30,9 +30,13 @@ install -m 0755 files/provision.sh "${ROOTFS_DIR}/opt/lerobot-firstboot/provisio
 sed -i "s/__FIRST_USER__/${FIRST_USER_NAME}/g" "${ROOTFS_DIR}/opt/lerobot-firstboot/provision.sh"
 install -m 0644 files/lerobot-firstboot.service "${ROOTFS_DIR}/etc/systemd/system/lerobot-firstboot.service"
 
-# 3) Optional onboarding env (robot name / Tailscale key). build.sh appends a
-#    copy step below when TELEOP_FIRSTBOOT_ENV/onboarding vars are set.
+# 3) Optional onboarding env (robot name / Tailscale key / WiFi country).
+#    build.sh regenerates files/firstboot.env for each build and removes it when
+#    no onboarding vars are set, so a stale secret can never be baked in.
 install -d "${ROOTFS_DIR}/etc/lerobot"
+if [ -f files/firstboot.env ]; then
+	install -m 0600 files/firstboot.env "${ROOTFS_DIR}/etc/lerobot/firstboot.env"
+fi
 
 # 4) Enable the one-shot service so it runs on first boot.
 on_chroot <<EOF
